@@ -4,7 +4,7 @@
 
 # CLAUDE.md — Gradient project context
 
-This file is read automatically by Claude Code at the start of every session in this repo. It exists so you never have to re-explain the project from scratch. Full docs live outside this repo — `gradient-build-plan.md` (the 3-month plan) and `gradient-visual-brief.md` (the locked identity system) — bring their relevant sections in as needed, this file is the always-loaded summary.
+This file is read automatically by Claude Code at the start of every session in this repo. It exists so you never have to re-explain the project from scratch. Full docs live outside this repo — `gradient-build-plan.md` (the 3-month plan), `gradient-visual-brief.md` (the locked identity system), and `gradient-taxonomy.md` (the locked seed taxonomy) — bring their relevant sections in as needed, this file is the always-loaded summary.
 
 ## What Gradient is
 
@@ -14,7 +14,17 @@ Daniela personally curates the reference library (clipping real design work from
 
 ## Current phase
 
-Phase 0 — Foundations (Week 1 of the 12-week plan). Tech stack is locked (below), and the Next.js app is scaffolded (Next 16.2.12, React 19.2.4, Tailwind v4, TypeScript, App Router). Taxonomy and the confidence-display threshold are still open — see "Open decisions" below; don't build features that assume they're already decided.
+Phase 1 — Data foundation. Phase 0 is complete: tech stack locked, Next.js app scaffolded (Next 16.2.12, React 19.2.4, Tailwind v4, TypeScript, App Router), repo pushed to GitHub, deployed live on Vercel (`https://gradient-flax.vercel.app`), Supabase wired up in both production and local dev. The seed taxonomy is now locked (see below and `gradient-taxonomy.md`), and the initial database schema is built and seeded in Supabase. The confidence-display threshold is still open — see "Open decisions" below; don't build features that assume it's already decided.
+
+## Database schema (locked, Phase 1)
+
+Three tables, live in the Supabase project referenced above:
+
+- **`tags`** — the 21 seed taxonomy entries. Columns: `id`, `"group"` (enum: `movement` / `typography` / `palette_light` / `layout` / `format_motion` / `treatment`), `editorial_name` (unique, e.g. "Zinepunk" — the primary display label), `universal_term` (secondary label, e.g. "Grunge"), `description`.
+- **`clips`** — each personally-curated reference. Columns: `id`, `url`, `image_url`, `title`, `source`, `caption`, `clipped_at`, `created_at`. (Named `clips`, not `references` — that's a reserved SQL word.)
+- **`clip_tags`** — the many-to-many join. A single clip can carry a tag from every axis at once (this is a faceted system, not single-category). Columns: `clip_id`, `tag_id`, `confidence` (0–1, nullable), `created_at`, composite primary key `(clip_id, tag_id)`.
+
+RLS is enabled on all three tables with **no policies yet — deny-by-default, intentional**. Nothing is publicly readable until the Signals Feed homepage is actually being built; add anon `SELECT`-only policies at that point (never `INSERT`/`UPDATE`/`DELETE` for anon — writes go through a server route using the service-role key, never the client-side publishable key).
 
 ## V1 scope — build these
 
@@ -74,10 +84,26 @@ Direction name: "Two bodies, one cut." One hard-cut, dual-body mark used identic
 - Oxide/Slate never as small-scale text — both measure ~3.6:1 contrast against Ink, which clears large text (24px+) but fails the 4.5:1 minimum smaller text needs. Small labels/numbers render in Bone; color lives only in the mark's bright body.
 - Confidence/sample-size note at nav-text size, its own ruled line, never undersized as fine print.
 
+## Confidence display (locked)
+
+Every trend stat is gated by how much data sits behind it. Three bands, by reference count for that tag:
+
+- **Under 15 references** — no velocity number at all. Show the tag, the count, and the label **"Early Signal."** Treat this as a legitimate, interesting state, not a failure state or an empty slot: "surfacing but too new to measure" is real value to a creative director, and at launch most tags will sit here. Never pad it, never hide it, never fake a number to fill the space.
+- **15–40 references** — show the velocity figure, always accompanied by the reference count, so it never reads as settled.
+- **Over 40 references** — full stat display. The confidence note stays visible; it just stops being a caveat and becomes evidence.
+
+Velocity is computed over a **trailing 90-day window**. Independent of the bands, any tag with **no new references in 30 days** is flagged **"Cooling"** and rendered in Slate regardless of total count — this is what stops a large historical pile from reading as a live signal.
+
+The 15 and 40 cutoffs are considered starting points, not derived from data. Expect to revisit them once the library has a few hundred clips and the feed can actually be eyeballed.
+
+Rendering rules for these cards follow the identity system exactly: color (Oxide/Slate) only on the large numerals, all small text and labels in Bone, and the confidence note on its own ruled line at nav-text size — never shrunk to fine print.
+
+## Format & Motion scope (locked)
+
+MotionLoop and StoryScroll stay in the `tags` table, but the **AI classifier skips the `format_motion` group entirely in v1** — those two are applied by hand at clip time. This keeps video/scroll capture out of the Phase 1 clipper scope without requiring a taxonomy migration later. Consequence: those two tags will carry thinner data than the rest for a while, which the confidence bands surface honestly rather than hide.
+
 ## Open decisions — do not assume these are settled
 
-- **Seed taxonomy**: 15–25 categories (aesthetic movements, typography styles, color palette types, layout patterns) — not yet drafted. This is Daniela's task, not an engineering one; don't invent categories in code that presuppose a taxonomy that hasn't been written yet.
-- **Confidence-display threshold**: the reference-count cutoff between "Early Signal" and a full stat display — not yet decided.
 - **Cosmic-feel gut-check**: worth watching whether the fully hard-edged mark (no soft bloom) still carries the brand's "cosmic" register once more screens are built, or whether that needs to come from photography/motion/copy instead. Not a blocker, just a watch item.
 
 ## Legal note (practical starting point, not legal advice)
