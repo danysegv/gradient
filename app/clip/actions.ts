@@ -2,8 +2,10 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { fetchOgImage } from "@/lib/og-image";
 
 export type CreateClipState =
   | { error: string; success?: never }
@@ -46,18 +48,60 @@ export async function createClip(
     return { error: "Image URL isn't valid." };
   }
 
-  const { error } = await supabaseAdmin.from("clips").insert({
-    url,
-    image_url: imageUrl,
-    title: optionalText(formData, "title"),
-    source: optionalText(formData, "source"),
-    caption: optionalText(formData, "caption"),
-    clipped_at: new Date().toISOString(),
-  });
+  const { data: inserted, error } = await supabaseAdmin
+    .from("clips")
+    .insert({
+      url,
+      image_url: imageUrl,
+      title: optionalText(formData, "title"),
+      source: optionalText(formData, "source"),
+      caption: optionalText(formData, "caption"),
+      clipped_at: new Date().toISOString(),
+    })
+    .select("id, url, image_url, title, caption")
+    .single();
 
-  if (error) {
-    return { error: error.message };
+  if (error || !inserted) {
+    return { error: error?.message ?? "Insert failed." };
   }
+
+  // Runs after the response is sent — pasting a URL stays instant. A clip
+  // with no fetchable image is still saved; it's just left unclassified.
+  after(async () => {
+    try {
+      let effectiveImageUrl = inserted.image_url;
+
+      if (!effectiveImageUrl) {
+        const fetched = await fetchOgImage(inserted.url);
+        if (fetched) {
+          effectiveImageUrl = fetched;
+          await supabaseAdmin
+            .from("clips")
+            .update({ image_url: fetched })
+            .eq("id", inserted.id);
+        }
+      }
+
+      if (!effectiveImageUrl) return;
+
+      // Dynamic import: keeps the Claude client (which throws if
+      // ANTHROPIC_API_KEY is unset) out of the module graph until a clip
+      // actually has an image to classify — a missing/bad key must never
+      // break the save itself, only the enrichment step.
+      const { classifyAndTagClip } = await import(
+        "@/lib/claude/classify-clip"
+      );
+      await classifyAndTagClip({
+        id: inserted.id,
+        url: inserted.url,
+        imageUrl: effectiveImageUrl,
+        title: inserted.title,
+        caption: inserted.caption,
+      });
+    } catch (err) {
+      console.error(`Clip enrichment failed for clip ${inserted.id}:`, err);
+    }
+  });
 
   revalidatePath("/clip");
   return { success: true };
