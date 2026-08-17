@@ -1,21 +1,21 @@
 "use client";
 
 import { useActionState } from "react";
-import { loginToClipper } from "./actions";
+import { sendMagicLink } from "./actions";
 
 export function LoginForm() {
-  const [state, action, pending] = useActionState(loginToClipper, undefined);
+  const [state, action, pending] = useActionState(sendMagicLink, undefined);
 
   return (
     <form action={action} className="flex flex-col gap-3 w-full max-w-xs">
       <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm">
-          Password
+        <label htmlFor="email" className="text-sm">
+          Email
         </label>
         <input
-          id="password"
-          name="password"
-          type="password"
+          id="email"
+          name="email"
+          type="email"
           required
           autoFocus
           className="border rounded px-3 py-2"
@@ -26,12 +26,17 @@ export function LoginForm() {
           {state.error}
         </p>
       )}
+      {state?.sent && (
+        <p className="text-sm text-green-700">
+          Check your inbox for a sign-in link.
+        </p>
+      )}
       <button
         disabled={pending}
         type="submit"
         className="border rounded px-3 py-2 disabled:opacity-50"
       >
-        {pending ? "Checking…" : "Enter"}
+        {pending ? "Sending…" : "Email me a sign-in link"}
       </button>
     </form>
   );
