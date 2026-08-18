@@ -1,7 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUnclassifiedClips } from "@/lib/clips/unclassified";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { ClipForm } from "./clip-form";
 import { ReclassifyButton } from "./reclassify-button";
 
@@ -66,40 +64,16 @@ function groupTagsByAxis(clipTags: ClipTagRow[]) {
 }
 
 export default async function ClipPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/clip-login");
-  }
-
-  const { data: clips } = await supabase
+  const { data: clips } = await supabaseAdmin
     .from("clips")
     .select(
-      `id, url, image_url, title, source, caption, clipped_at, created_at, clipped_by,
+      `id, url, image_url, title, source, caption, clipped_at, created_at,
        clip_tags ( confidence, tags ( group, editorial_name, universal_term ) )`
     )
     .order("created_at", { ascending: false })
     .limit(20);
 
   const unclassified = await getUnclassifiedClips();
-  const clippedByIds = [
-    ...new Set(
-      (clips ?? [])
-        .map((clip) => clip.clipped_by)
-        .filter((id): id is string => typeof id === "string")
-    ),
-  ];
-  const clippers = await Promise.all(
-    clippedByIds.map(async (id) => {
-      const {
-        data: { user: clipper },
-      } = await supabaseAdmin.auth.admin.getUserById(id);
-      return [id, clipper?.email ?? "Unknown user"] as const;
-    })
-  );
-  const clipperEmailById = new Map(clippers);
 
   return (
     <main className="flex flex-col gap-10 p-6 max-w-2xl mx-auto">
@@ -145,12 +119,6 @@ export default async function ClipPage() {
                       {clip.source && (
                         <span className="opacity-70"> — {clip.source}</span>
                       )}
-                      <span className="opacity-70">
-                        {" "}· clipped by{" "}
-                        {clip.clipped_by
-                          ? (clipperEmailById.get(clip.clipped_by) ?? "Unknown user")
-                          : "Unknown user"}
-                      </span>
                       {!clip.image_url && (
                         <span className="text-amber-600"> · needs image</span>
                       )}

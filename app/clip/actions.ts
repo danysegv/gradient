@@ -1,9 +1,10 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { fetchOgImage } from "@/lib/og-image";
 
 export type CreateClipState =
@@ -29,13 +30,11 @@ export async function createClip(
   _prevState: CreateClipState,
   formData: FormData
 ): Promise<CreateClipState> {
-  // Server Actions are reachable via direct POST, so verify the Supabase
-  // identity here instead of trusting Proxy coverage alone.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // Server Actions are reachable via direct POST — re-verify here even
+  // though Proxy already gates the /clip route.
+  const cookieStore = await cookies();
+  const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
+  if (!isValidSessionToken(token)) {
     return { error: "Not authorized." };
   }
 
@@ -49,10 +48,7 @@ export async function createClip(
     return { error: "Image URL isn't valid." };
   }
 
-  // This client carries the user's JWT. RLS therefore enforces that the
-  // requested clipped_by value matches auth.uid(), rather than bypassing the
-  // policy with the service-role client.
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await supabaseAdmin
     .from("clips")
     .insert({
       url,
@@ -61,7 +57,6 @@ export async function createClip(
       source: optionalText(formData, "source"),
       caption: optionalText(formData, "caption"),
       clipped_at: new Date().toISOString(),
-      clipped_by: user.id,
     })
     .select("id, url, image_url, title, caption")
     .single();

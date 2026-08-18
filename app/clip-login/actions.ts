@@ -1,44 +1,33 @@
 "use server";
 
-import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import {
+  CLIP_SESSION_COOKIE,
+  expectedSessionToken,
+  isValidPassword,
+} from "@/lib/clip-auth";
 
-export type LoginState =
-  | { error: string; sent?: never }
-  | { error?: never; sent: true }
-  | undefined;
+export type LoginState = { error: string } | undefined;
 
-export async function sendMagicLink(
+export async function loginToClipper(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  const email = formData.get("email");
+  const password = formData.get("password");
 
-  if (typeof email !== "string" || !email.trim()) {
-    return { error: "Enter your email address." };
+  if (typeof password !== "string" || !isValidPassword(password)) {
+    return { error: "Wrong password." };
   }
 
-  const origin = (await headers()).get("origin");
-  if (!origin) {
-    return { error: "Could not determine this app's address. Try again." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.trim(),
-    options: {
-      emailRedirectTo: new URL("/auth/callback", origin).toString(),
-      // This is an internal tool. Only accounts created in Supabase Auth can
-      // receive a link; a submitted email must never create a new account.
-      shouldCreateUser: false,
-    },
+  const cookieStore = await cookies();
+  cookieStore.set(CLIP_SESSION_COOKIE, expectedSessionToken(), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
   });
 
-  if (error) {
-    // Keep this generic: Supabase intentionally does not reveal whether an
-    // account exists for a submitted address.
-    return { error: "Could not send a sign-in link. Check the email and try again." };
-  }
-
-  return { sent: true };
+  redirect("/clip");
 }

@@ -1,9 +1,10 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
 import { getUnclassifiedClips } from "@/lib/clips/unclassified";
-import { createClient } from "@/lib/supabase/server";
 
 // Bounds how many clips one click processes, keeping each run comfortably
 // inside the route's execution window. Safe to click repeatedly — clips
@@ -17,11 +18,9 @@ export type ReclassifyState =
   | undefined;
 
 export async function reclassifyUnclassifiedClips(): Promise<ReclassifyState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
+  if (!isValidSessionToken(token)) {
     return { error: "Not authorized." };
   }
 
