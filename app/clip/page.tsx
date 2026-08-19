@@ -21,12 +21,18 @@ const AXES: { key: string; label: string }[] = [
 
 // Path-extension heuristic only — some CDNs put the real format in a
 // query param instead of the path, so this can false-positive on those.
-// Good enough for spotting an accidentally-pasted page URL.
+// Good enough for spotting an accidentally-pasted page URL. Also flags
+// image_url === url outright: several source sites (Instagram, Behance's
+// module deep-links, Fonts in Use's zoom-lightbox anchors) don't expose a
+// plain right-click-able direct image file, so the page URL ends up
+// pasted into both fields — confirmed the cause for 3 of the first 9
+// flagged clips.
 const IMAGE_EXTENSION_PATTERN = /\.(jpe?g|png|gif|webp)$/i;
 
-function looksLikeImageUrl(url: string): boolean {
+function looksLikeImageUrl(imageUrl: string, pageUrl: string): boolean {
+  if (imageUrl === pageUrl) return false;
   try {
-    return IMAGE_EXTENSION_PATTERN.test(new URL(url).pathname);
+    return IMAGE_EXTENSION_PATTERN.test(new URL(imageUrl).pathname);
   } catch {
     return false;
   }
@@ -91,7 +97,8 @@ export default async function ClipPage() {
                 (clip.clip_tags ?? []) as unknown as ClipTagRow[]
               );
               const badImageUrl =
-                !!clip.image_url && !looksLikeImageUrl(clip.image_url);
+                !!clip.image_url &&
+                !looksLikeImageUrl(clip.image_url, clip.url);
 
               return (
                 <li key={clip.id} className="flex gap-3 text-sm border-b pb-3">
@@ -125,7 +132,9 @@ export default async function ClipPage() {
                       {badImageUrl && (
                         <span className="text-amber-600">
                           {" "}
-                          · image_url looks wrong
+                          · This looks like a page link, not a direct image
+                          file — right-click the image itself (or check dev
+                          tools → Network) to get the real URL.
                         </span>
                       )}
                     </div>
