@@ -1,18 +1,24 @@
-// The locked fused wordmark — "Two bodies, one cut" (see CLAUDE.md Identity
-// system). Path pulled verbatim from 04am-signals-feed-direction.html, the
-// approved visual direction; not recreated from scratch. currentColor so it
-// inherits Bone/Ink/etc. from its container per the "one mark, everywhere"
-// rule — no separate color variant.
+// The locked wordmark. This is a fused wordmark mark only — there is no
+// separate icon/symbol version. (An earlier "Two bodies, one cut" dual-body
+// icon direction was tried and abandoned; don't resurrect that framing.)
+// Path + viewBox pulled verbatim from 04am-wordmark-tight.svg (tighter-
+// fusion cut, 2026-08); not recreated or re-traced. fill-rule="evenodd" is
+// load-bearing — it's what punches the counters (letterform holes) — keep
+// it on the path exactly as traced. currentColor so it inherits Bone/Ink/
+// etc. from its container per the "one mark, everywhere" rule.
 export function GradientMark({ className }: { className?: string }) {
   return (
     <svg
       className={className}
-      viewBox="0 0 2869 844"
-      fill="currentColor"
+      viewBox="0 0 2691 846"
       role="img"
       aria-label="Gradient"
     >
-      <path d="M 2010.0 40.0 L 2010.0 777.0 L 2196.0 777.0 L 2197.0 266.0 L 2356.0 637.0 L 2484.0 636.0 L 2642.0 266.0 L 2643.0 777.0 L 2829.0 777.0 L 2829.0 40.0 L 2582.0 40.0 L 2419.0 419.0 L 2257.0 40.0 Z M 1499.0 40.0 L 1229.0 767.0 L 1229.0 777.0 L 1426.0 777.0 L 1473.0 644.0 L 1757.0 644.0 L 1804.0 777.0 L 2001.0 777.0 L 1998.0 759.0 L 1732.0 41.0 Z M 1615.0 233.0 L 1707.0 501.0 L 1522.0 500.0 Z M 945.0 40.0 L 653.0 474.0 L 653.0 644.0 L 975.0 644.0 L 976.0 777.0 L 1162.0 777.0 L 1162.0 645.0 L 1266.0 644.0 L 1266.0 500.0 L 1162.0 499.0 L 1162.0 40.0 Z M 975.0 217.0 L 976.0 499.0 L 786.0 500.0 Z M 296.0 42.0 L 230.0 57.0 L 196.0 72.0 L 170.0 88.0 L 124.0 130.0 L 87.0 185.0 L 61.0 250.0 L 44.0 335.0 L 40.0 386.0 L 40.0 458.0 L 46.0 525.0 L 64.0 604.0 L 87.0 659.0 L 119.0 708.0 L 158.0 747.0 L 208.0 778.0 L 261.0 796.0 L 320.0 804.0 L 400.0 801.0 L 458.0 787.0 L 492.0 772.0 L 515.0 758.0 L 562.0 716.0 L 597.0 666.0 L 626.0 597.0 L 643.0 516.0 L 648.0 453.0 L 648.0 392.0 L 643.0 328.0 L 631.0 265.0 L 609.0 202.0 L 575.0 144.0 L 531.0 98.0 L 482.0 67.0 L 427.0 48.0 L 368.0 40.0 Z M 339.0 176.0 L 363.0 178.0 L 387.0 187.0 L 410.0 206.0 L 423.0 225.0 L 436.0 258.0 L 443.0 289.0 L 452.0 390.0 L 449.0 506.0 L 443.0 553.0 L 431.0 600.0 L 417.0 628.0 L 397.0 650.0 L 376.0 662.0 L 350.0 668.0 L 325.0 666.0 L 303.0 658.0 L 276.0 635.0 L 266.0 620.0 L 252.0 585.0 L 245.0 554.0 L 236.0 458.0 L 236.0 384.0 L 240.0 324.0 L 247.0 278.0 L 258.0 240.0 L 274.0 211.0 L 292.0 193.0 L 312.0 182.0 Z" />
+      <path
+        d="M 49.0 301.0 L 40.0 386.0 L 40.0 460.0 L 46.0 527.0 L 55.0 574.0 L 65.0 609.0 L 82.0 651.0 L 99.0 682.0 L 119.0 710.0 L 143.0 736.0 L 170.0 758.0 L 208.0 780.0 L 242.0 793.0 L 288.0 803.0 L 320.0 806.0 L 370.0 806.0 L 409.0 802.0 L 448.0 793.0 L 482.0 780.0 L 511.0 764.0 L 539.0 743.0 L 570.0 711.0 L 592.0 680.0 L 610.0 646.0 L 915.0 646.0 L 916.0 779.0 L 1104.0 779.0 L 1105.0 646.0 L 1154.0 647.0 L 1109.0 767.0 L 1109.0 779.0 L 1308.0 779.0 L 1355.0 646.0 L 1637.0 646.0 L 1684.0 779.0 L 2018.0 779.0 L 2018.0 274.0 L 2022.0 278.0 L 2175.0 638.0 L 2305.0 639.0 L 2462.0 273.0 L 2463.0 779.0 L 2651.0 779.0 L 2651.0 40.0 L 2402.0 40.0 L 2240.0 417.0 L 2079.0 40.0 L 1830.0 40.0 L 1829.0 622.0 L 1613.0 40.0 L 1378.0 41.0 L 1208.0 500.0 L 1104.0 499.0 L 1104.0 40.0 L 885.0 40.0 L 650.0 389.0 L 643.0 314.0 L 630.0 254.0 L 611.0 202.0 L 595.0 171.0 L 577.0 144.0 L 539.0 103.0 L 501.0 76.0 L 460.0 57.0 L 402.0 43.0 L 370.0 40.0 L 320.0 40.0 L 276.0 45.0 L 222.0 60.0 L 196.0 72.0 L 170.0 88.0 L 142.0 111.0 L 124.0 130.0 L 92.0 176.0 L 70.0 223.0 L 56.0 268.0 Z M 1496.0 237.0 L 1587.0 499.0 L 1586.0 501.0 L 1405.0 500.0 Z M 915.0 222.0 L 916.0 499.0 L 729.0 500.0 L 729.0 497.0 Z M 341.0 178.0 L 363.0 180.0 L 387.0 189.0 L 410.0 208.0 L 423.0 227.0 L 436.0 260.0 L 443.0 291.0 L 449.0 338.0 L 452.0 392.0 L 452.0 451.0 L 448.0 516.0 L 440.0 568.0 L 431.0 600.0 L 417.0 628.0 L 397.0 650.0 L 376.0 662.0 L 350.0 668.0 L 327.0 666.0 L 305.0 658.0 L 293.0 650.0 L 278.0 635.0 L 268.0 620.0 L 254.0 585.0 L 247.0 554.0 L 241.0 508.0 L 238.0 458.0 L 238.0 386.0 L 242.0 326.0 L 249.0 280.0 L 260.0 242.0 L 276.0 213.0 L 294.0 195.0 L 314.0 184.0 Z"
+        fill="currentColor"
+        fillRule="evenodd"
+      />
     </svg>
   );
 }

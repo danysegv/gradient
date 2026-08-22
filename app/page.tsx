@@ -7,7 +7,10 @@ import { ClipThumbnail } from "@/components/clip-thumbnail";
 export const revalidate = 0;
 
 const TRENDING_TAG_LIMIT = 8;
-const RECENT_CLIP_LIMIT = 24;
+// Not real pagination — just a ceiling well above the current library size
+// so "The Library" shows everything. Revisit (actual pagination/infinite
+// scroll) once the library outgrows this.
+const RECENT_CLIP_LIMIT = 200;
 // Display-time filter for which tag chips show on a clip card — separate
 // from the confidence-band reference count, which stays unfiltered (see
 // lib/confidence.ts and the "filter at display time" decision). Tunable.
@@ -86,7 +89,7 @@ export default async function Home() {
       .from("clips")
       .select(
         `id, url, image_url, title, source, clipped_at,
-         clip_tags ( confidence, tags ( editorial_name, group ) )`
+         clip_tags!inner ( confidence, tags ( editorial_name, group ) )`
       )
       .order("clipped_at", { ascending: false })
       .limit(RECENT_CLIP_LIMIT),
@@ -185,7 +188,8 @@ export default async function Home() {
         </div>
 
         <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/45">
-          Recent clips
+          The Library ·{" "}
+          {classifiedClips} clip{classifiedClips === 1 ? "" : "s"}
         </p>
         <div className="grid grid-cols-1 gap-4.5 sm:grid-cols-2 lg:grid-cols-3">
           {clips.map((clip) => {

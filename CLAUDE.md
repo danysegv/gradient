@@ -65,9 +65,9 @@ RLS is enabled on all three tables. Anon `SELECT`-only policies were added 2026-
 
 ## Identity system (locked — see gradient-visual-brief.md for full detail)
 
-Direction name: "Two bodies, one cut." One hard-cut, dual-body mark used identically on every surface (no separate soft "bloom" version — that was tried and dropped). Below 32px the dim body can drop out, leaving a single disc.
+The mark is a single fused wordmark — one hard-cut path, letterforms fused together, used identically on every surface (no separate soft "bloom" version — that was tried and dropped). **Correction, 2026-08-24: there is no separate icon/symbol mark.** An earlier "Two bodies, one cut" dual-body-icon direction (with a droppable dim body below 32px, collapsing to a single disc) was tried and abandoned — don't resurrect that framing if it resurfaces in old notes.
 
-Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` defines `--ink`/`--bone`/`--slate`/`--oxide` as Tailwind theme colors (`bg-ink`, `text-bone`, etc.); `app/layout.tsx` loads Archivo as the sans font; `components/gradient-mark.tsx` holds the wordmark SVG (path pulled from the approved visual direction file, not recreated — reuse this component, don't re-derive the path). `--ink-2` (`#131218`) also exists as a card/surface tone — not a fifth brand color, just a near-black variant of Ink for distinguishing raised surfaces from the page background.
+Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` defines `--ink`/`--bone`/`--slate`/`--oxide` as Tailwind theme colors (`bg-ink`, `text-bone`, etc.); `app/layout.tsx` loads Archivo as the sans font; `components/gradient-mark.tsx` holds the wordmark SVG — reuse this component, don't re-derive the path. Currently on the "tighter-fusion cut" traced 2026-08-24 (`04am-wordmark-tight.svg`, viewBox `0 0 2691 846`); pull path + viewBox verbatim from source files like that one whenever the mark changes again, never re-trace by hand — and preserve `fill-rule="evenodd"` on the path, it's what punches the letterform counters. `--ink-2` (`#131218`) also exists as a card/surface tone — not a fifth brand color, just a near-black variant of Ink for distinguishing raised surfaces from the page background.
 
 **Palette (use these hex values exactly, everywhere):**
 
