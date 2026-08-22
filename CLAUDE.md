@@ -14,7 +14,7 @@ Daniela personally curates the reference library (clipping real design work from
 
 ## Current phase
 
-Phase 1 — Data foundation. Phase 0 is complete: tech stack locked, Next.js app scaffolded (Next 16.2.12, React 19.2.4, Tailwind v4, TypeScript, App Router), repo pushed to GitHub, deployed live on Vercel (`https://gradient-flax.vercel.app`), Supabase wired up in both production and local dev. The seed taxonomy is now locked (see below and `gradient-taxonomy.md`), and the initial database schema is built and seeded in Supabase. The confidence-display threshold is still open — see "Open decisions" below; don't build features that assume it's already decided.
+Phase 1 — Data foundation, Signals Feed live. Phase 0 is complete: tech stack locked, Next.js app scaffolded (Next 16.2.12, React 19.2.4, Tailwind v4, TypeScript, App Router), repo pushed to GitHub, deployed live on Vercel (`https://gradient-flax.vercel.app`), Supabase wired up in both production and local dev. The seed taxonomy is locked (see below and `gradient-taxonomy.md`), the database schema is built and seeded, the clipper + AI classification pipeline are live, and the Signals Feed homepage (`/`) is built — the first real product screen, pulling live from `clips`/`clip_tags`/`tags` through the anon key. The confidence-display bands are locked (see below); the 15/40 count cutoffs and the 45-day age gate are starting points, not derived from data.
 
 ## Database schema (locked, Phase 1)
 
@@ -24,7 +24,7 @@ Three tables, live in the Supabase project referenced above:
 - **`clips`** — each personally-curated reference. Columns: `id`, `url`, `image_url`, `title`, `source`, `caption`, `clipped_at`, `created_at`. (Named `clips`, not `references` — that's a reserved SQL word.)
 - **`clip_tags`** — the many-to-many join. A single clip can carry a tag from every axis at once (this is a faceted system, not single-category). Columns: `clip_id`, `tag_id`, `confidence` (0–1, nullable), `created_at`, composite primary key `(clip_id, tag_id)`.
 
-RLS is enabled on all three tables with **no policies yet — deny-by-default, intentional**. Nothing is publicly readable until the Signals Feed homepage is actually being built; add anon `SELECT`-only policies at that point (never `INSERT`/`UPDATE`/`DELETE` for anon — writes go through a server route using the service-role key, never the client-side publishable key).
+RLS is enabled on all three tables. Anon `SELECT`-only policies were added 2026-08-21 when the Signals Feed homepage shipped (`anon read clips` / `anon read clip_tags` / `anon read tags`, all `qual: true`) — this is what the public homepage reads through (`lib/supabase/public.ts`, the anon/publishable key). No `INSERT`/`UPDATE`/`DELETE` policy exists for anon, by design — writes still go through server routes using the service-role key. There's also a `tag_clip_counts` view (`tag_id, group, editorial_name, universal_term, clip_count, earliest_reference_at, latest_reference_at`) that both the Signals Feed and the internal diagnostic queries read from — extend this view, don't duplicate its aggregation logic, if something else needs per-tag counts or dates. Note: leftover `authenticated`-role policies from an abandoned Supabase-Auth magic-link experiment (since reverted to the password gate) are still sitting in the DB, unused but harmless — clean up if they ever get confusing.
 
 ## V1 scope — build these
 
@@ -67,6 +67,8 @@ RLS is enabled on all three tables with **no policies yet — deny-by-default, i
 
 Direction name: "Two bodies, one cut." One hard-cut, dual-body mark used identically on every surface (no separate soft "bloom" version — that was tried and dropped). Below 32px the dim body can drop out, leaving a single disc.
 
+Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` defines `--ink`/`--bone`/`--slate`/`--oxide` as Tailwind theme colors (`bg-ink`, `text-bone`, etc.); `app/layout.tsx` loads Archivo as the sans font; `components/gradient-mark.tsx` holds the wordmark SVG (path pulled from the approved visual direction file, not recreated — reuse this component, don't re-derive the path). `--ink-2` (`#131218`) also exists as a card/surface tone — not a fifth brand color, just a near-black variant of Ink for distinguishing raised surfaces from the page background.
+
 **Palette (use these hex values exactly, everywhere):**
 
 | Name | Hex | Role |
@@ -94,9 +96,11 @@ Every trend stat is gated by how much data sits behind it. Three bands, by refer
 
 Velocity is computed over a **trailing 90-day window**. Independent of the bands, any tag with **no new references in 30 days** is flagged **"Cooling"** and rendered in Slate regardless of total count — this is what stops a large historical pile from reading as a live signal.
 
-The 15 and 40 cutoffs are considered starting points, not derived from data. Expect to revisit them once the library has a few hundred clips and the feed can actually be eyeballed.
+**Addition, 2026-08-21 (`lib/confidence.ts`): velocity is also gated on calendar age, not just count.** A tag can only clear the 15/40 count bands if its *earliest* reference is at least ~45 days old (half the 90-day window) — otherwise it renders Early Signal regardless of how many references it has. Reasoning: a velocity number computed from an 11-day-old tag is a real number wearing a fake confidence, even if the raw count already cleared 15 or 40. This is why, at Signals Feed launch, every tag reads Early Signal — including several already well past 15 references (BoldGrotesk, RawAsymmetry, HighEnergy, FrontalSymmetry, AnalogNoise all had 20–31 references at ~11 days old and still correctly read Early Signal). The age gate is a starting point like the count cutoffs, not derived from data — revisit together.
 
-Rendering rules for these cards follow the identity system exactly: color (Oxide/Slate) only on the large numerals, all small text and labels in Bone, and the confidence note on its own ruled line at nav-text size — never shrunk to fine print.
+Implementation note: `getConfidence()` never fabricates a velocity figure — the trailing-90-day velocity *formula* itself isn't built yet (no tag has aged past the gate to test one against). The function accepts an optional precomputed `velocity` and only surfaces it once both gates clear and the tag isn't cooling; until the formula exists, that stays `null` and the UI shows the reference count instead.
+
+Rendering rules for these cards follow the identity system exactly: color (Oxide/Slate) only on the large numerals, all small text and labels in Bone, and the confidence note on its own ruled line at nav-text size — never shrunk to fine print. One exception, called out explicitly in the spec above: the "Cooling" label itself renders in Slate even though it's small-scale text — everything else in this section (raw counts, "Early Signal") stays Bone.
 
 ## Format & Motion scope (locked)
 
