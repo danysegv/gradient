@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 // Shared secret gate for the private /clip tool — not a user account system.
 // See CLAUDE.md: the clipper is a personal intake tool, not a public feature.
-export const CLIP_SESSION_COOKIE = "gradient_clip_session";
+export const CLIP_SESSION_COOKIE = "04am_clip_session";
 
 function getSecret(): string {
   const secret = process.env.CLIP_GATE_SECRET;

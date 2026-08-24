@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Some clips still have image_url issues (page links instead of direct
 // image files — see the image_url investigation). Falls back to a
@@ -16,10 +16,22 @@ export function ClipThumbnail({
   source: string | null;
 }) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // A cached image can finish loading before React hydrates and attaches
+  // onLoad, which would strand it at opacity-0 forever. Catch that case on
+  // mount by reading .complete directly.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) setLoaded(true);
+  }, []);
 
   if (!imageUrl || broken) {
+    // No natural image dimensions to size from — give the fallback its
+    // own ratio so it doesn't collapse to zero height in the masonry flow.
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-5 text-center">
+      <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1 bg-ink-2 p-5 text-center">
         <p className="text-sm font-semibold leading-snug">
           {title || "Untitled"}
         </p>
@@ -31,12 +43,20 @@ export function ClipThumbnail({
   return (
     // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, not worth an Image remotePatterns allowlist
     <img
+      ref={imgRef}
       src={imageUrl}
       alt=""
       loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => setBroken(true)}
-      className="h-full w-full object-cover"
+      onLoad={() => setLoaded(true)}
+      // No object-fit crop, no fixed aspect ratio — natural dimensions are
+      // exactly what makes the masonry grid read as varied-height Cosmos-
+      // style rather than a uniform card grid. The Ink-2 ground + fade-in
+      // stops tiles from popping in hard against the page as they lazy-load.
+      className={`block h-auto w-full bg-ink-2 transition-opacity duration-500 ${
+        loaded ? "opacity-100" : "opacity-0"
+      }`}
     />
   );
 }

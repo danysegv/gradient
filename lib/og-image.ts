@@ -26,7 +26,7 @@ export async function fetchOgImage(pageUrl: string): Promise<string | null> {
     const res = await fetch(pageUrl, {
       signal: AbortSignal.timeout(8000),
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; GradientClipper/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; 04AMClipper/1.0)",
       },
     });
     if (!res.ok) return null;

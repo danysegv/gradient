@@ -89,7 +89,7 @@ export async function classifyClip(input: {
     system: [
       {
         type: "text",
-        text: `You are classifying a design reference image against Gradient's taxonomy — a faceted system across five axes (movement, typography, palette_light, layout, treatment). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}`,
+        text: `You are classifying a design reference image against 04AM's taxonomy — a faceted system across five axes (movement, typography, palette_light, layout, treatment). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}`,
         cache_control: { type: "ephemeral" },
       },
     ],

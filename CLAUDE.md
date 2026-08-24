@@ -2,29 +2,29 @@
 
 <!-- The import above pulls in AGENTS.md, which warns that this Next.js version (16.2.12, confirmed in package.json) has real breaking changes since older training data. Read node_modules/next/dist/docs/ before writing App Router code — don't assume pre-2026 Next.js conventions still apply. -->
 
-# CLAUDE.md — Gradient project context
+# CLAUDE.md — 04AM project context
 
-This file is read automatically by Claude Code at the start of every session in this repo. It exists so you never have to re-explain the project from scratch. Full docs live outside this repo — `gradient-build-plan.md` (the 3-month plan), `gradient-visual-brief.md` (the locked identity system), and `gradient-taxonomy.md` (the locked seed taxonomy) — bring their relevant sections in as needed, this file is the always-loaded summary.
+This file is read automatically by Claude Code at the start of every session in this repo. It exists so you never have to re-explain the project from scratch. Full docs live outside this repo — `gradient-build-plan.md` (the 3-month plan), `gradient-visual-brief.md` (the locked identity system), and `04am-taxonomy.md` (the locked seed taxonomy) — bring their relevant sections in as needed, this file is the always-loaded summary. (Renamed 2026-08-23: the in-repo taxonomy is now `04am-taxonomy.md`. `gradient-build-plan.md` and `gradient-visual-brief.md` live outside this repo and still carry the old filenames — rename them at the source when convenient.)
 
-## What Gradient is
+## What 04AM is
 
-Gradient pairs visual inspiration with real conviction. It feels like scrolling Cosmos — a visual, idea-sparking grid of real design work — except every piece carries a real number: how fast this aesthetic is actually moving, and whether it's worth designing a campaign or making a creative bet around. Positioning: "Bloomberg Terminal for creatives" — Cosmos/Savee/Pinterest give inspiration with no signal; WGSN gives real data but as enterprise reporting most agencies can't reach; Stills gives a taste of both once a year in a static PDF. Gradient is the living, scrollable, current middle: real trend data paired with real visual inspiration, priced and built for agencies and studios locked out of WGSN.
+04AM pairs visual inspiration with real conviction. It feels like scrolling Cosmos — a visual, idea-sparking grid of real design work — except every piece carries a real number: how fast this aesthetic is actually moving, and whether it's worth designing a campaign or making a creative bet around. Positioning: "Bloomberg Terminal for creatives" — Cosmos/Savee/Pinterest give inspiration with no signal; WGSN gives real data but as enterprise reporting most agencies can't reach; Stills gives a taste of both once a year in a static PDF. 04AM is the living, scrollable, current middle: real trend data paired with real visual inspiration, priced and built for agencies and studios locked out of WGSN.
 
 Daniela personally curates the reference library (clipping real design work from Behance, Dribbble, agency sites, awards archives, Instagram) — this is not user-generated content or autonomous scraping. AI classifies what gets clipped and computes trend velocity from how tags shift over time.
 
 ## Current phase
 
-Phase 1 — Data foundation, Signals Feed live. Phase 0 is complete: tech stack locked, Next.js app scaffolded (Next 16.2.12, React 19.2.4, Tailwind v4, TypeScript, App Router), repo pushed to GitHub, deployed live on Vercel (`https://gradient-flax.vercel.app`), Supabase wired up in both production and local dev. The seed taxonomy is locked (see below and `gradient-taxonomy.md`), the database schema is built and seeded, the clipper + AI classification pipeline are live, and the Signals Feed homepage (`/`) is built — the first real product screen, pulling live from `clips`/`clip_tags`/`tags` through the anon key. The confidence-display bands are locked (see below); the 15/40 count cutoffs and the 45-day age gate are starting points, not derived from data.
+Phase 1 — Data foundation, Signals Feed live. Phase 0 is complete: tech stack locked, Next.js app scaffolded (Next 16.2.12, React 19.2.4, Tailwind v4, TypeScript, App Router), repo pushed to GitHub, deployed live on Vercel (`https://gradient-flax.vercel.app`), Supabase wired up in both production and local dev. The seed taxonomy is locked (see below and `04am-taxonomy.md`), the database schema is built and seeded, the clipper + AI classification pipeline are live, and the Signals Feed homepage (`/`) is built — the first real product screen, pulling live from `clips`/`clip_tags`/`tags` through the anon key. The confidence-display bands are locked (see below); the 15/40 count cutoffs and the 45-day age gate are starting points, not derived from data.
 
 ## Database schema (locked, Phase 1)
 
 Three tables, live in the Supabase project referenced above:
 
 - **`tags`** — the 21 seed taxonomy entries. Columns: `id`, `"group"` (enum: `movement` / `typography` / `palette_light` / `layout` / `format_motion` / `treatment`), `editorial_name` (unique, e.g. "Zinepunk" — the primary display label), `universal_term` (secondary label, e.g. "Grunge"), `description`.
-- **`clips`** — each personally-curated reference. Columns: `id`, `url`, `image_url`, `title`, `source`, `caption`, `clipped_at`, `created_at`. (Named `clips`, not `references` — that's a reserved SQL word.)
+- **`clips`** — each personally-curated reference. Columns: `id`, `url`, `image_url`, `title`, `source`, `caption`, `clipped_at`, `created_at`, `archived_at` (timestamptz, nullable — soft delete, added 2026-08-21; see decisions log). (Named `clips`, not `references` — that's a reserved SQL word.)
 - **`clip_tags`** — the many-to-many join. A single clip can carry a tag from every axis at once (this is a faceted system, not single-category). Columns: `clip_id`, `tag_id`, `confidence` (0–1, nullable), `created_at`, composite primary key `(clip_id, tag_id)`.
 
-RLS is enabled on all three tables. Anon `SELECT`-only policies were added 2026-08-21 when the Signals Feed homepage shipped (`anon read clips` / `anon read clip_tags` / `anon read tags`, all `qual: true`) — this is what the public homepage reads through (`lib/supabase/public.ts`, the anon/publishable key). No `INSERT`/`UPDATE`/`DELETE` policy exists for anon, by design — writes still go through server routes using the service-role key. There's also a `tag_clip_counts` view (`tag_id, group, editorial_name, universal_term, clip_count, earliest_reference_at, latest_reference_at`) that both the Signals Feed and the internal diagnostic queries read from — extend this view, don't duplicate its aggregation logic, if something else needs per-tag counts or dates. Note: leftover `authenticated`-role policies from an abandoned Supabase-Auth magic-link experiment (since reverted to the password gate) are still sitting in the DB, unused but harmless — clean up if they ever get confusing.
+RLS is enabled on all three tables. Anon `SELECT`-only policies were added 2026-08-21 when the Signals Feed homepage shipped (`anon read clips` / `anon read clip_tags` / `anon read tags`, all `qual: true`) — this is what the public homepage reads through (`lib/supabase/public.ts`, the anon/publishable key). No `INSERT`/`UPDATE`/`DELETE` policy exists for anon, by design — writes still go through server routes using the service-role key, and that now includes archiving: `archived_at` is only ever set via `app/clip/archive-actions.ts`, which uses `supabaseAdmin` and is gated by the same clip password session as the rest of `/clip`. There's also a `tag_clip_counts` view (`tag_id, group, editorial_name, universal_term, clip_count, earliest_reference_at, latest_reference_at`) that both the Signals Feed and the internal diagnostic queries read from — extend this view, don't duplicate its aggregation logic, if something else needs per-tag counts or dates. The view excludes archived clips from every aggregate (pre-filters `clip_tags` joined to `clips` in a subquery before the `LEFT JOIN`, rather than filtering after — a plain post-join `WHERE archived_at is null` would silently drop any tag whose only references just got archived, since nothing would be left to `GROUP BY`). Every read path (`app/page.tsx`, `app/clip/page.tsx`, `lib/clips/unclassified.ts`) filters `.is("archived_at", null)`. Note: leftover `authenticated`-role policies from an abandoned Supabase-Auth magic-link experiment (since reverted to the password gate) are still sitting in the DB, unused but harmless — clean up if they ever get confusing.
 
 ## V1 scope — build these
 
@@ -67,7 +67,7 @@ RLS is enabled on all three tables. Anon `SELECT`-only policies were added 2026-
 
 The mark is a single fused wordmark — one hard-cut path, letterforms fused together, used identically on every surface (no separate soft "bloom" version — that was tried and dropped). **Correction, 2026-08-24: there is no separate icon/symbol mark.** An earlier "Two bodies, one cut" dual-body-icon direction (with a droppable dim body below 32px, collapsing to a single disc) was tried and abandoned — don't resurrect that framing if it resurfaces in old notes.
 
-Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` defines `--ink`/`--bone`/`--slate`/`--oxide` as Tailwind theme colors (`bg-ink`, `text-bone`, etc.); `app/layout.tsx` loads Archivo as the sans font; `components/gradient-mark.tsx` holds the wordmark SVG — reuse this component, don't re-derive the path. Currently on the "tighter-fusion cut" traced 2026-08-24 (`04am-wordmark-tight.svg`, viewBox `0 0 2691 846`); pull path + viewBox verbatim from source files like that one whenever the mark changes again, never re-trace by hand — and preserve `fill-rule="evenodd"` on the path, it's what punches the letterform counters. `--ink-2` (`#131218`) also exists as a card/surface tone — not a fifth brand color, just a near-black variant of Ink for distinguishing raised surfaces from the page background.
+Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` defines `--ink`/`--bone`/`--slate`/`--oxide` as Tailwind theme colors (`bg-ink`, `text-bone`, etc.); `app/layout.tsx` loads Archivo as the sans font; `components/wordmark.tsx` holds the wordmark SVG as `<Wordmark />` — reuse this component, don't re-derive the path. Currently on the "tighter-fusion cut" traced 2026-08-24 (`04am-wordmark-tight.svg`, viewBox `0 0 2691 846`); pull path + viewBox verbatim from source files like that one whenever the mark changes again, never re-trace by hand — and preserve `fill-rule="evenodd"` on the path, it's what punches the letterform counters. `--ink-2` (`#131218`) also exists as a card/surface tone — not a fifth brand color, just a near-black variant of Ink for distinguishing raised surfaces from the page background.
 
 **Palette (use these hex values exactly, everywhere):**
 
@@ -78,7 +78,7 @@ Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` def
 | Slate | `#5C6B87` | Fading state — large numerals + mark's bright body only |
 | Oxide | `#B4453A` | Accelerating state — large numerals + mark's bright body only |
 
-**Typography**: wordmark is "Gradient" (capitalized), Archivo weight 600, grotesk throughout. Bold/larger cut for wordmark, trend names, and headlines; quiet regular cut for every stat, label, and confidence note. Never a serif. Bold weight never touches a number.
+**Typography**: wordmark is "04AM", Archivo weight 600, grotesk throughout. Bold/larger cut for wordmark, trend names, and headlines; quiet regular cut for every stat, label, and confidence note. Never a serif. Bold weight never touches a number.
 
 **Hard production rules**:
 - One mark, one hard-cut form, everywhere — no soft variant to choose between.
@@ -109,6 +109,10 @@ MotionLoop and StoryScroll stay in the `tags` table, but the **AI classifier ski
 ## Open decisions — do not assume these are settled
 
 - **Cosmic-feel gut-check**: worth watching whether the fully hard-edged mark (no soft bloom) still carries the brand's "cosmic" register once more screens are built, or whether that needs to come from photography/motion/copy instead. Not a blocker, just a watch item.
+
+## Decisions log
+
+- **2026-08-21 — Soft delete + Cosmos-style masonry grids.** Clips are archivable (`clips.archived_at`, nullable timestamp, not a boolean, so the value itself records *when*). Archiving is reversible by design: single click, no confirmation modal, brief undo affordance instead. Both `/` and `/clip` moved from bordered-card lists to edge-to-edge masonry grids (`columns-2 sm:columns-3 md:columns-4 lg:columns-5`, natural aspect ratios via `ClipThumbnail`, metadata on hover) — this is the "Cosmos-style" visual-grid direction referenced throughout this file. The homepage grid adds tag filter chips (grouped by axis, multi-select ANDs together). The clipper grid keeps its bad-`image_url`/needs-image warnings always visible (not hover-gated) since spotting those is the clipper's whole job.
 
 ## Legal note (practical starting point, not legal advice)
 

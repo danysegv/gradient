@@ -1,11 +1,11 @@
-# Gradient — Seed Taxonomy (locked)
+# 04AM — Seed Taxonomy (locked)
 
 21 tags across six axes. This is a **multi-axis, faceted system** — a single reference can carry a tag from every group at once (e.g. a piece can be Zinepunk + BoldGrotesk + VampTones + RawAsymmetry simultaneously). No reference is required to have a tag in every group; leave an axis blank rather than force a weak match.
 
 ## Display rule (locked)
 
 Every tag has two names:
-- **Editorial name** (e.g. "Zinepunk") — the primary, visible label everywhere in the product. This is Gradient's own vocabulary and the actual point of differentiation from generic trend-report language.
+- **Editorial name** (e.g. "Zinepunk") — the primary, visible label everywhere in the product. This is 04AM's own vocabulary and the actual point of differentiation from generic trend-report language.
 - **Universal term** (e.g. "Grunge") — secondary, quieter label (subtitle, hover state, or search/synonym metadata), so anyone searching by the term they already know from other platforms can still find their way in. Same contrast/sizing floor as the confidence note: nav-text size minimum, never shrunk to decorative fine print.
 
 ## Movements

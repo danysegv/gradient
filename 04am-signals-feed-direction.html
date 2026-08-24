@@ -1,0 +1,331 @@
+<title>04AM — Signals Feed, live data</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap');
+
+  :root {
+    --ink: #0B0A0E;
+    --ink-2: #131218;
+    --bone: #E7E3D8;
+    --slate: #5C6B87;
+    --oxide: #B4453A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--bone);
+    font-family: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 90px; }
+
+  /* ---- header / nav ---- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 28px 32px; border-bottom: 1px solid #FFFFFF1A;
+  }
+  .logo { height: 22px; color: var(--bone); }
+  nav { display: flex; gap: 28px; align-items: center; }
+  nav a {
+    color: var(--bone); opacity: 0.6; text-decoration: none;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  nav a.active { opacity: 1; }
+  .clip-btn {
+    background: var(--oxide); color: var(--bone); border: none; border-radius: 4px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600; font-family: inherit;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---- page head ---- */
+  .page-head { padding: 44px 0 8px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--oxide); margin: 0 0 14px;
+  }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 10px; }
+  .sub { font-size: 15px; color: var(--bone); opacity: 0.6; max-width: 640px; line-height: 1.5; margin: 0 0 36px; }
+
+  /* ---- trending rail ---- */
+  .rail-label {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--bone); opacity: 0.45; margin: 0 0 14px;
+  }
+  .rail { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
+  .tag-card {
+    flex: none; width: 168px; background: var(--ink-2); border: 1px solid #FFFFFF14;
+    border-radius: 8px; padding: 16px;
+  }
+  .tag-editorial { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+  .tag-universal { font-size: 12px; color: var(--bone); opacity: 0.45; margin: 0 0 14px; }
+  .tag-count { font-size: 26px; font-weight: 700; line-height: 1; margin: 0 0 4px; }
+  .tag-band {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--slate); border: 1px solid var(--slate);
+    border-radius: 3px; padding: 3px 6px; margin-top: 6px;
+  }
+
+  .rail-note {
+    font-size: 13px; line-height: 1.6; color: var(--bone); opacity: 0.55;
+    border-left: 2px solid var(--oxide); padding: 4px 0 4px 14px; margin: 20px 0 48px; max-width: 720px;
+  }
+  .rail-note b { color: var(--bone); opacity: 1; font-weight: 600; }
+
+  /* ---- feed grid ---- */
+  .grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  .card {
+    position: relative; border-radius: 8px; overflow: hidden; background: var(--ink-2);
+    border: 1px solid #FFFFFF14; aspect-ratio: 4/5;
+  }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .fallback {
+    display: none; width: 100%; height: 100%; align-items: center; justify-content: center;
+    text-align: center; padding: 20px; font-size: 13px; opacity: 0.5; line-height: 1.5;
+  }
+  .card img.broken { display: none; }
+  .card img.broken + .fallback { display: flex; }
+
+  .card-overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 14px; background: linear-gradient(to top, rgba(11,10,14,0.92) 0%, rgba(11,10,14,0.55) 45%, rgba(11,10,14,0) 75%);
+    opacity: 0; transition: opacity 0.15s ease;
+  }
+  .card:hover .card-overlay { opacity: 1; }
+  .card-title { font-size: 14px; font-weight: 600; margin: 0 0 2px; line-height: 1.3; }
+  .card-source { font-size: 12px; opacity: 0.55; margin: 0 0 10px; }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+    background: #FFFFFF1F; color: var(--bone); border-radius: 3px; padding: 4px 7px;
+  }
+  .chip.primary { background: var(--oxide); }
+
+  /* always-visible mini label bottom-left (source), like a real feed */
+  .card-persist {
+    position: absolute; bottom: 10px; left: 12px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.02em; opacity: 0.85; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  }
+  .card:hover .card-persist { opacity: 0; }
+
+  footer { padding: 40px 32px 60px; border-top: 1px solid #FFFFFF1A; }
+  .foot-note { font-size: 12px; color: var(--bone); opacity: 0.4; max-width: 640px; line-height: 1.6; }
+</style>
+
+<header>
+  <svg class="logo" viewBox="0 0 2869 844" fill="currentColor">
+    <path d="M 2010.0 40.0 L 2010.0 777.0 L 2196.0 777.0 L 2197.0 266.0 L 2356.0 637.0 L 2484.0 636.0 L 2642.0 266.0 L 2643.0 777.0 L 2829.0 777.0 L 2829.0 40.0 L 2582.0 40.0 L 2419.0 419.0 L 2257.0 40.0 Z M 1499.0 40.0 L 1229.0 767.0 L 1229.0 777.0 L 1426.0 777.0 L 1473.0 644.0 L 1757.0 644.0 L 1804.0 777.0 L 2001.0 777.0 L 1998.0 759.0 L 1732.0 41.0 Z M 1615.0 233.0 L 1707.0 501.0 L 1522.0 500.0 Z M 945.0 40.0 L 653.0 474.0 L 653.0 644.0 L 975.0 644.0 L 976.0 777.0 L 1162.0 777.0 L 1162.0 645.0 L 1266.0 644.0 L 1266.0 500.0 L 1162.0 499.0 L 1162.0 40.0 Z M 975.0 217.0 L 976.0 499.0 L 786.0 500.0 Z M 296.0 42.0 L 230.0 57.0 L 196.0 72.0 L 170.0 88.0 L 124.0 130.0 L 87.0 185.0 L 61.0 250.0 L 44.0 335.0 L 40.0 386.0 L 40.0 458.0 L 46.0 525.0 L 64.0 604.0 L 87.0 659.0 L 119.0 708.0 L 158.0 747.0 L 208.0 778.0 L 261.0 796.0 L 320.0 804.0 L 400.0 801.0 L 458.0 787.0 L 492.0 772.0 L 515.0 758.0 L 562.0 716.0 L 597.0 666.0 L 626.0 597.0 L 643.0 516.0 L 648.0 453.0 L 648.0 392.0 L 643.0 328.0 L 631.0 265.0 L 609.0 202.0 L 575.0 144.0 L 531.0 98.0 L 482.0 67.0 L 427.0 48.0 L 368.0 40.0 Z M 339.0 176.0 L 363.0 178.0 L 387.0 187.0 L 410.0 206.0 L 423.0 225.0 L 436.0 258.0 L 443.0 289.0 L 452.0 390.0 L 449.0 506.0 L 443.0 553.0 L 431.0 600.0 L 417.0 628.0 L 397.0 650.0 L 376.0 662.0 L 350.0 668.0 L 325.0 666.0 L 303.0 658.0 L 276.0 635.0 L 266.0 620.0 L 252.0 585.0 L 245.0 554.0 L 236.0 458.0 L 236.0 384.0 L 240.0 324.0 L 247.0 278.0 L 258.0 240.0 L 274.0 211.0 L 292.0 193.0 L 312.0 182.0 Z"/>
+  </svg>
+  <nav>
+    <a href="#" class="active">Signals</a>
+    <a href="#">Radar</a>
+    <a href="#">Genome</a>
+    <button class="clip-btn">+ Clip</button>
+  </nav>
+</header>
+
+<div class="wrap">
+  <div class="page-head">
+    <p class="eyebrow">Signals Feed — live from the library</p>
+    <h1>What's actually moving</h1>
+    <p class="sub">Pulled straight from Supabase, not a mockup dataset — 48 of 68 clips classified, 21 tags in play, real thumbnails from the actual sources you clipped.</p>
+  </div>
+
+  <p class="rail-label">Trending tags</p>
+  <div class="rail">
+    <div class="tag-card">
+      <p class="tag-editorial">BoldGrotesk</p>
+      <p class="tag-universal">Grotesk</p>
+      <p class="tag-count">28</p>
+      <span class="tag-band">Early Signal</span>
+    </div>
+    <div class="tag-card">
+      <p class="tag-editorial">RawAsymmetry</p>
+      <p class="tag-universal">Asymmetry</p>
+      <p class="tag-count">25</p>
+      <span class="tag-band">Early Signal</span>
+    </div>
+    <div class="tag-card">
+      <p class="tag-editorial">HighEnergy</p>
+      <p class="tag-universal">Hyper-Saturation</p>
+      <p class="tag-count">25</p>
+      <span class="tag-band">Early Signal</span>
+    </div>
+    <div class="tag-card">
+      <p class="tag-editorial">FrontalSymmetry</p>
+      <p class="tag-universal">Symmetry</p>
+      <p class="tag-count">24</p>
+      <span class="tag-band">Early Signal</span>
+    </div>
+    <div class="tag-card">
+      <p class="tag-editorial">AnalogNoise</p>
+      <p class="tag-universal">Grain / Texture Check</p>
+      <p class="tag-count">17</p>
+      <span class="tag-band">Early Signal</span>
+    </div>
+    <div class="tag-card">
+      <p class="tag-editorial">Zinepunk</p>
+      <p class="tag-universal">Grunge</p>
+      <p class="tag-count">10</p>
+      <span class="tag-band">Early Signal</span>
+    </div>
+  </div>
+
+  <p class="rail-note">
+    <b>Every tag reads Early Signal right now — including the 5 already past 15 references.</b>
+    Your locked spec gates velocity on count alone (15+ → show a number). But the whole library
+    is 11 days old, and velocity is a trailing-90-day measure — a percentage computed from 11 days
+    of data would be a real number wearing a fake confidence. Count is honest today; velocity isn't
+    yet, regardless of which count band a tag has crossed. Worth adding a calendar-age gate alongside
+    the count gate before this ships.
+  </p>
+
+  <p class="rail-label">Recent clips</p>
+  <div class="grid">
+    <div class="card">
+      <img src="https://www.alasdairmclellan.com/wp-content/uploads/2023/11/000049220005.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Ultimate Clothing Company<br>Alasdair McLellan</div>
+      <span class="card-persist">Alasdair McLellan</span>
+      <div class="card-overlay">
+        <p class="card-title">Ultimate Clothing Company</p>
+        <p class="card-source">Alasdair McLellan</p>
+        <div class="card-tags">
+          <span class="chip primary">Poetcore</span>
+          <span class="chip">RawAsymmetry</span>
+          <span class="chip">AmberGlow</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://images-prod.dazeddigital.com/1500/azure/dazed-prod/1210/9/1219548.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">New Burberry Exhibition<br>Dazed</div>
+      <span class="card-persist">Dazed</span>
+      <div class="card-overlay">
+        <p class="card-title">New Burberry Exhibition, co-curated by Alasdair McLellan</p>
+        <p class="card-source">Dazed</p>
+        <div class="card-tags">
+          <span class="chip primary">VampRomantic</span>
+          <span class="chip">RawAsymmetry</span>
+          <span class="chip">AnalogNoise</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://images.vogue.it/Photovogue/1e8a0c10-2f2e-11f0-8997-6bf4d811df64_gallery.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">LOVE — Jun Zhou<br>PhotoVogue</div>
+      <span class="card-persist">PhotoVogue</span>
+      <div class="card-overlay">
+        <p class="card-title">LOVE — Jun Zhou</p>
+        <p class="card-source">PhotoVogue</p>
+        <div class="card-tags">
+          <span class="chip primary">BoldGrotesk</span>
+          <span class="chip">HighEnergy</span>
+          <span class="chip">LensBloom</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://socio-type.com/wp-content/uploads/2024/05/STJ-3_Context-A_1024.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Sociotype Journal — Issue #3<br>Sociotype</div>
+      <span class="card-persist">Sociotype</span>
+      <div class="card-overlay">
+        <p class="card-title">Sociotype Journal — Issue #3: "Home"</p>
+        <p class="card-source">Sociotype</p>
+        <div class="card-tags">
+          <span class="chip primary">Poetcore</span>
+          <span class="chip">BoldGrotesk</span>
+          <span class="chip">AmberGlow</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://visuelle.b-cdn.net/wp-content/uploads/2025/02/nnarosa.avif" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Arosa<br>Visuelle</div>
+      <span class="card-persist">Visuelle</span>
+      <div class="card-overlay">
+        <p class="card-title">Arosa</p>
+        <p class="card-source">Visuelle, Nouvelle Noire</p>
+        <div class="card-tags">
+          <span class="chip primary">BoldGrotesk</span>
+          <span class="chip">HighEnergy</span>
+          <span class="chip">FrontalSymmetry</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://images-prod.dazeddigital.com/1400/azure/dazed-prod/1450/0/1450387.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Hard Copy — Xerox zine<br>Dazed</div>
+      <span class="card-persist">Dazed</span>
+      <div class="card-overlay">
+        <p class="card-title">Hard Copy: the zine rethinking photography through Xerox</p>
+        <p class="card-source">Dazed</p>
+        <div class="card-tags">
+          <span class="chip primary">Zinepunk</span>
+          <span class="chip">VampTones</span>
+          <span class="chip">FrontalSymmetry</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://dspncdn.com/a1/media/692x/24/71/a8/2471a89d5f8b5a079d343f9e3d8d7fb2.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Ending the Lies — HRC<br>Red Dot Design Award</div>
+      <span class="card-persist">Red Dot Design Award</span>
+      <div class="card-overlay">
+        <p class="card-title">Ending the Lies — Human Rights Campaign</p>
+        <p class="card-source">Red Dot Design Award</p>
+        <div class="card-tags">
+          <span class="chip primary">BoldGrotesk</span>
+          <span class="chip">HighEnergy</span>
+          <span class="chip">RawAsymmetry</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://www.thisiscolossal.com/wp-content/uploads/2025/10/fairey-10.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Out of Print — Shepard Fairey<br>Colossal</div>
+      <span class="card-persist">Colossal</span>
+      <div class="card-overlay">
+        <p class="card-title">Out of Print — Shepard Fairey Retrospective</p>
+        <p class="card-source">Colossal</p>
+        <div class="card-tags">
+          <span class="chip primary">Zinepunk</span>
+          <span class="chip">ChoppyType</span>
+          <span class="chip">HighEnergy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://dspncdn.com/a1/media/692x/31/93/93/319393b32247954e7fd0b82e63fe85a1.jpg" referrerpolicy="no-referrer" loading="lazy" onerror="this.classList.add('broken')">
+      <div class="fallback">Josef Müller-Brockmann Poster<br>Designspiration</div>
+      <span class="card-persist">Designspiration</span>
+      <div class="card-overlay">
+        <p class="card-title">Josef Müller-Brockmann Poster</p>
+        <p class="card-source">Designspiration, via Flickr</p>
+        <div class="card-tags">
+          <span class="chip primary">BoldGrotesk</span>
+          <span class="chip">HighEnergy</span>
+          <span class="chip">RawAsymmetry</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p class="foot-note">
+    Visual direction only — real data, placeholder layout. Wordmark is the locked fused "01" mark.
+    Headline/label type is real Archivo (Google Fonts, loads fine in your browser even though it's
+    unreachable from my sandbox for the logo-fusion pipeline). Thumbnails are your actual clip
+    image_urls; any that fail to load fall back to a plain title/source card rather than a broken
+    image icon — same graceful-degradation the real product should do.
+  </p>
+</footer>

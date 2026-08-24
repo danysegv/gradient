@@ -1,7 +1,7 @@
 import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence, type ConfidenceState } from "@/lib/confidence";
-import { GradientMark } from "@/components/gradient-mark";
-import { ClipThumbnail } from "@/components/clip-thumbnail";
+import { Wordmark } from "@/components/wordmark";
+import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
 
 // Always fetch fresh — this is a live feed, not a static marketing page.
 export const revalidate = 0;
@@ -11,13 +11,8 @@ const TRENDING_TAG_LIMIT = 8;
 // so "The Library" shows everything. Revisit (actual pagination/infinite
 // scroll) once the library outgrows this.
 const RECENT_CLIP_LIMIT = 200;
-// Display-time filter for which tag chips show on a clip card — separate
-// from the confidence-band reference count, which stays unfiltered (see
-// lib/confidence.ts and the "filter at display time" decision). Tunable.
-const CHIP_CONFIDENCE_THRESHOLD = 0.5;
-const CHIPS_PER_CARD = 3;
 
-type TrendingTag = {
+type TagRow = {
   tag_id: string;
   group: string;
   editorial_name: string;
@@ -64,45 +59,54 @@ function confidenceNoteText(state: ConfidenceState): string {
   return `${state.referenceCount} references`;
 }
 
-function pickDisplayTags(clipTags: ClipTagRow[]): { editorial_name: string }[] {
-  return clipTags
-    .filter(
-      (ct): ct is ClipTagRow & { tags: NonNullable<ClipTagRow["tags"]> } =>
-        ct.tags !== null && (ct.confidence ?? 0) >= CHIP_CONFIDENCE_THRESHOLD
-    )
-    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
-    .slice(0, CHIPS_PER_CARD)
-    .map((ct) => ({ editorial_name: ct.tags.editorial_name }));
-}
-
 export default async function Home() {
-  const [trendingRes, clipsRes, tagsInPlayRes, statsRes] = await Promise.all([
+  const [allTagsRes, clipsRes, statsRes] = await Promise.all([
     supabasePublic
       .from("tag_clip_counts")
       .select(
         "tag_id, group, editorial_name, universal_term, clip_count, earliest_reference_at, latest_reference_at"
       )
       .gt("clip_count", 0)
-      .order("clip_count", { ascending: false })
-      .limit(TRENDING_TAG_LIMIT),
+      .order("clip_count", { ascending: false }),
     supabasePublic
       .from("clips")
       .select(
         `id, url, image_url, title, source, clipped_at,
          clip_tags!inner ( confidence, tags ( editorial_name, group ) )`
       )
+      .is("archived_at", null)
       .order("clipped_at", { ascending: false })
       .limit(RECENT_CLIP_LIMIT),
     supabasePublic
-      .from("tag_clip_counts")
-      .select("tag_id", { count: "exact", head: true })
-      .gt("clip_count", 0),
-    supabasePublic.from("clips").select("id, clip_tags ( clip_id )"),
+      .from("clips")
+      .select("id, clip_tags ( clip_id )")
+      .is("archived_at", null),
   ]);
 
-  const trendingTags = (trendingRes.data ?? []) as unknown as TrendingTag[];
-  const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
-  const tagsInPlay = tagsInPlayRes.count ?? 0;
+  const allTags = (allTagsRes.data ?? []) as unknown as TagRow[];
+  const trendingTags = allTags.slice(0, TRENDING_TAG_LIMIT);
+  const tagsInPlay = allTags.length;
+  const filterTags: FilterTag[] = allTags.map((t) => ({
+    tag_id: t.tag_id,
+    group: t.group,
+    editorial_name: t.editorial_name,
+  }));
+
+  const clipRows = (clipsRes.data ?? []) as unknown as ClipRow[];
+  const gridClips: GridClip[] = clipRows.map((c) => ({
+    id: c.id,
+    url: c.url,
+    image_url: c.image_url,
+    title: c.title,
+    source: c.source,
+    tags: (c.clip_tags ?? [])
+      .filter((ct) => ct.tags !== null)
+      .map((ct) => ({
+        editorial_name: ct.tags!.editorial_name,
+        confidence: ct.confidence ?? 0,
+      })),
+  }));
+
   const statsRows = (statsRes.data ?? []) as unknown as StatsRow[];
   const totalClips = statsRows.length;
   const classifiedClips = statsRows.filter(
@@ -112,17 +116,17 @@ export default async function Home() {
   return (
     <>
       <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <GradientMark className="h-[22px] text-bone" />
+        <Wordmark className="h-[22px] text-bone" />
         <nav className="flex items-center gap-7">
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
             Signals
           </span>
           {/* Radar and Genome are locked V1 scope but not built yet —
               inert placeholders rather than links to routes that 404. */}
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/35">
+          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
             Radar
           </span>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/35">
+          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
             Genome
           </span>
           <a
@@ -134,22 +138,23 @@ export default async function Home() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-8 pb-24">
+      <div className="mx-auto max-w-[1180px] px-8">
         <div className="pt-11 pb-2">
-          <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-oxide">
+          <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
+            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
             Signals Feed — live from the library
           </p>
           <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
             What&rsquo;s actually moving
           </h1>
-          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/60">
-            Pulled straight from Supabase, not a mockup dataset — {classifiedClips}{" "}
-            of {totalClips} clips classified, {tagsInPlay} tags in play, real
-            thumbnails from the actual sources you clipped.
+          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
+            Not scraped, not user-generated. Every reference here was clipped by
+            hand, then classified against a locked taxonomy — {classifiedClips}{" "}
+            of {totalClips} clips read so far, across {tagsInPlay} tags.
           </p>
         </div>
 
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/45">
+        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
           Trending tags
         </p>
         <div className="mb-12 flex gap-3 overflow-x-auto pb-1.5">
@@ -167,7 +172,7 @@ export default async function Home() {
                 <p className="text-[15px] font-bold leading-tight">
                   {tag.editorial_name}
                 </p>
-                <p className="mb-3.5 text-xs text-bone/45">
+                <p className="mb-3.5 text-xs text-bone/70">
                   {tag.universal_term}
                 </p>
                 <p className="text-[26px] font-normal leading-none">
@@ -186,76 +191,20 @@ export default async function Home() {
             );
           })}
         </div>
-
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/45">
-          The Library ·{" "}
-          {classifiedClips} clip{classifiedClips === 1 ? "" : "s"}
-        </p>
-        <div className="grid grid-cols-1 gap-4.5 sm:grid-cols-2 lg:grid-cols-3">
-          {clips.map((clip) => {
-            const chips = pickDisplayTags(clip.clip_tags ?? []);
-            return (
-              <a
-                key={clip.id}
-                href={clip.url}
-                target="_blank"
-                rel="noreferrer"
-                className="group relative block aspect-[4/5] overflow-hidden rounded-lg border border-white/10 bg-ink-2"
-              >
-                <ClipThumbnail
-                  imageUrl={clip.image_url}
-                  title={clip.title}
-                  source={clip.source}
-                />
-                {clip.source && (
-                  <span
-                    className="absolute bottom-2.5 left-3 text-[11px] font-semibold opacity-85 transition-opacity group-hover:opacity-0"
-                    style={{ textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}
-                  >
-                    {clip.source}
-                  </span>
-                )}
-                <div
-                  className="pointer-events-none absolute inset-0 flex flex-col justify-end p-3.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                  style={{
-                    background:
-                      "linear-gradient(to top, rgba(11,10,14,0.92) 0%, rgba(11,10,14,0.55) 45%, rgba(11,10,14,0) 75%)",
-                  }}
-                >
-                  <p className="mb-0.5 text-sm font-semibold leading-snug">
-                    {clip.title || clip.url}
-                  </p>
-                  {clip.source && (
-                    <p className="mb-2.5 text-xs text-bone/55">
-                      {clip.source}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-1.5">
-                    {chips.map((chip, i) => (
-                      <span
-                        key={chip.editorial_name}
-                        className={`rounded px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                          i === 0 ? "bg-oxide" : "bg-white/[.12]"
-                        }`}
-                      >
-                        {chip.editorial_name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </a>
-            );
-          })}
-        </div>
       </div>
 
-      <footer className="border-t border-white/10 px-8 py-10">
-        <p className="max-w-xl text-xs leading-relaxed text-bone/40">
-          Personally curated, not user-generated or scraped — every reference
-          here was clipped by hand from Behance, Dribbble, agency sites, and
-          awards archives, then classified against a locked taxonomy.
-        </p>
-      </footer>
+      <HomeGrid clips={gridClips} filterTags={filterTags} />
+
+      <div className="mx-auto max-w-[1180px] px-8">
+        <footer className="border-t border-white/10 py-10">
+          <p className="max-w-xl text-xs leading-relaxed text-bone/70">
+            Sources: Behance, Dribbble, Instagram, agency sites, awards
+            archives. Velocity is measured over a trailing 90 days — a tag
+            reads Early Signal until its reference set is both deep enough
+            and old enough to mean anything.
+          </p>
+        </footer>
+      </div>
     </>
   );
 }

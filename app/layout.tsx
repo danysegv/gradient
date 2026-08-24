@@ -11,7 +11,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Gradient — Signals Feed",
+  title: "04AM — Signals Feed",
   description:
     "Real trend data paired with real visual inspiration — pulled live from the reference library.",
 };
