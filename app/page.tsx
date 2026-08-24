@@ -1,5 +1,6 @@
 import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence, type ConfidenceState } from "@/lib/confidence";
+import { computeVelocitiesForTags } from "@/lib/velocity";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
 
@@ -50,17 +51,21 @@ type StatsRow = {
 function confidenceNoteText(state: ConfidenceState): string {
   if (state.label) return state.label;
   if (state.velocity !== null) {
+    // Velocity is a share-shift (this tag's share of the trailing 30-day
+    // window vs its share of all-time) — see lib/velocity.ts. Labeled
+    // "30d" because that's the window the number is actually keyed to,
+    // even though the 45-day age gate above it still spans 90.
     const pct = Math.round(state.velocity * 100);
-    return `${pct > 0 ? "+" : ""}${pct}% · 90d`;
+    return `${pct > 0 ? "+" : ""}${pct}% · 30d`;
   }
-  // Age- and count-eligible, but no velocity figure has been computed yet
-  // (the trailing-90-day formula isn't built) — show something true
-  // rather than nothing.
+  // Age- and count-eligible, but the recent-window volume was too thin to
+  // trust a share figure yet (see MIN_RECENT_WINDOW_VOLUME) — show
+  // something true rather than nothing.
   return `${state.referenceCount} references`;
 }
 
 export default async function Home() {
-  const [allTagsRes, clipsRes, statsRes] = await Promise.all([
+  const [allTagsRes, clipsRes, statsRes, velocityRes] = await Promise.all([
     supabasePublic
       .from("tag_clip_counts")
       .select(
@@ -81,6 +86,14 @@ export default async function Home() {
       .from("clips")
       .select("id, clip_tags ( clip_id )")
       .is("archived_at", null),
+    // Every active clip_tags row's tag_id + created_at, library-wide — the
+    // raw material computeVelocitiesForTags needs. Matches tag_clip_counts'
+    // own archived-clip exclusion (see its view definition) so the two
+    // never disagree.
+    supabasePublic
+      .from("clips")
+      .select("clip_tags ( tag_id, created_at )")
+      .is("archived_at", null),
   ]);
 
   const allTags = (allTagsRes.data ?? []) as unknown as TagRow[];
@@ -91,6 +104,15 @@ export default async function Home() {
     group: t.group,
     editorial_name: t.editorial_name,
   }));
+
+  const velocityRows = (
+    (velocityRes.data ?? []) as unknown as {
+      clip_tags: { tag_id: string; created_at: string }[] | null;
+    }[]
+  ).flatMap((c) => c.clip_tags ?? []);
+  const velocities = computeVelocitiesForTags(
+    velocityRows.map((r) => ({ tagId: r.tag_id, createdAt: r.created_at }))
+  );
 
   const clipRows = (clipsRes.data ?? []) as unknown as ClipRow[];
   const gridClips: GridClip[] = clipRows.map((c) => ({
@@ -163,6 +185,7 @@ export default async function Home() {
               referenceCount: tag.clip_count,
               earliestReferenceAt: tag.earliest_reference_at,
               latestReferenceAt: tag.latest_reference_at,
+              velocity: velocities.get(tag.tag_id) ?? null,
             });
             return (
               <div
@@ -199,9 +222,10 @@ export default async function Home() {
         <footer className="border-t border-white/10 py-10">
           <p className="max-w-xl text-xs leading-relaxed text-bone/70">
             Sources: Behance, Dribbble, Instagram, agency sites, awards
-            archives. Velocity is measured over a trailing 90 days — a tag
-            reads Early Signal until its reference set is both deep enough
-            and old enough to mean anything.
+            archives. Velocity compares a tag&rsquo;s share of the last 30
+            days to its share of the library overall — a tag reads Early
+            Signal until its reference set is both deep enough and old
+            enough to mean anything.
           </p>
         </footer>
       </div>
