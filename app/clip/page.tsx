@@ -2,22 +2,16 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUnclassifiedClips } from "@/lib/clips/unclassified";
 import { ClipForm } from "./clip-form";
 import { ReclassifyButton } from "./reclassify-button";
+import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 
 // Reclassification can process several clips sequentially in the
 // background (after()) — give the route more room than the default.
 export const maxDuration = 300;
 
-// Display order matches gradient-taxonomy.md's section headings.
-// format_motion is included even though the classifier skips it — those
-// tags are applied by hand, and their clips still deserve to render.
-const AXES: { key: string; label: string }[] = [
-  { key: "movement", label: "Movements" },
-  { key: "typography", label: "Typography" },
-  { key: "palette_light", label: "Palette & Light" },
-  { key: "layout", label: "Layout" },
-  { key: "format_motion", label: "Format & Motion" },
-  { key: "treatment", label: "Treatment" },
-];
+// Not real pagination — a ceiling well above the current library size (73
+// as of 2026-08-21) so the clipper always shows everything. Revisit (real
+// pagination/infinite scroll) once the library outgrows this.
+const RECENT_CLIP_LIMIT = 500;
 
 // Path-extension heuristic only — some CDNs put the real format in a
 // query param instead of the path, so this can false-positive on those.
@@ -51,14 +45,13 @@ type ClipTagRow = {
 function groupTagsByAxis(clipTags: ClipTagRow[]) {
   const byAxis = new Map<
     string,
-    { editorial_name: string; universal_term: string; confidence: number }[]
+    { editorial_name: string; confidence: number }[]
   >();
   for (const ct of clipTags) {
     if (!ct.tags) continue;
     const list = byAxis.get(ct.tags.group) ?? [];
     list.push({
       editorial_name: ct.tags.editorial_name,
-      universal_term: ct.tags.universal_term,
       confidence: ct.confidence,
     });
     byAxis.set(ct.tags.group, list);
@@ -69,109 +62,71 @@ function groupTagsByAxis(clipTags: ClipTagRow[]) {
   return byAxis;
 }
 
-export default async function ClipPage() {
-  const { data: clips } = await supabaseAdmin
-    .from("clips")
-    .select(
-      `id, url, image_url, title, source, caption, clipped_at, created_at,
-       clip_tags ( confidence, tags ( group, editorial_name, universal_term ) )`
-    )
-    .order("created_at", { ascending: false })
-    .limit(20);
+const CLIP_SELECT = `id, url, image_url, title, source, caption, clipped_at, created_at,
+       clip_tags ( confidence, tags ( group, editorial_name, universal_term ) )`;
 
-  const unclassified = await getUnclassifiedClips();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toGridClip(clip: any): ClipperClip {
+  const axisMap = groupTagsByAxis(
+    (clip.clip_tags ?? []) as unknown as ClipTagRow[]
+  );
+  return {
+    id: clip.id,
+    url: clip.url,
+    image_url: clip.image_url,
+    title: clip.title,
+    source: clip.source,
+    clipped_at: clip.clipped_at,
+    needsImage: !clip.image_url,
+    badImageUrl:
+      !!clip.image_url && !looksLikeImageUrl(clip.image_url, clip.url),
+    tagsByAxis: Array.from(axisMap.entries()).map(([group, tags]) => ({
+      group,
+      tags,
+    })),
+  };
+}
+
+export default async function ClipPage() {
+  // Archived clips are fetched alongside the library so the Archived view
+  // can restore them — soft-delete is only a safety net if there is a way
+  // back that doesn't require SQL.
+  const [{ data: clips }, { data: archivedClips }, unclassified] =
+    await Promise.all([
+      supabaseAdmin
+        .from("clips")
+        .select(CLIP_SELECT)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false })
+        .limit(RECENT_CLIP_LIMIT),
+      supabaseAdmin
+        .from("clips")
+        .select(CLIP_SELECT)
+        .not("archived_at", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(RECENT_CLIP_LIMIT),
+      getUnclassifiedClips(),
+    ]);
+
+  const gridClips: ClipperClip[] = (clips ?? []).map(toGridClip);
+  const archivedGridClips: ClipperClip[] = (archivedClips ?? []).map(toGridClip);
 
   return (
-    <main className="flex flex-col gap-10 p-6 max-w-2xl mx-auto">
-      <div>
-        <h1 className="text-lg mb-4">Clipper</h1>
+    <>
+      <div className="mx-auto max-w-[1180px] px-8 py-10">
+        <h1 className="mb-6 text-lg font-semibold">Clipper</h1>
         <ClipForm />
+        <div className="mt-8">
+          <ReclassifyButton eligibleCount={unclassified.length} />
+        </div>
       </div>
 
-      <div>
-        <h2 className="text-sm mb-2">Recent clips</h2>
-        {clips && clips.length > 0 ? (
-          <ul className="flex flex-col gap-3">
-            {clips.map((clip) => {
-              const axisMap = groupTagsByAxis(
-                (clip.clip_tags ?? []) as unknown as ClipTagRow[]
-              );
-              const badImageUrl =
-                !!clip.image_url &&
-                !looksLikeImageUrl(clip.image_url, clip.url);
-
-              return (
-                <li key={clip.id} className="flex gap-3 text-sm border-b pb-3">
-                  {clip.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, not worth an Image remotePatterns allowlist for a private thumbnail
-                    <img
-                      src={clip.image_url}
-                      alt=""
-                      loading="lazy"
-                      className="w-16 h-16 shrink-0 rounded border object-cover bg-black/5"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 shrink-0 rounded border bg-black/5" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div>
-                      <a
-                        href={clip.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline"
-                      >
-                        {clip.title || clip.url}
-                      </a>
-                      {clip.source && (
-                        <span className="opacity-70"> — {clip.source}</span>
-                      )}
-                      {!clip.image_url && (
-                        <span className="text-amber-600"> · needs image</span>
-                      )}
-                      {badImageUrl && (
-                        <span className="text-amber-600">
-                          {" "}
-                          · This looks like a page link, not a direct image
-                          file — right-click the image itself (or check dev
-                          tools → Network) to get the real URL.
-                        </span>
-                      )}
-                    </div>
-                    {axisMap.size > 0 && (
-                      <ul className="mt-1 flex flex-col gap-0.5">
-                        {AXES.filter((axis) => axisMap.has(axis.key)).map(
-                          (axis) => (
-                            <li key={axis.key} className="text-xs opacity-80">
-                              <span className="opacity-60">
-                                {axis.label}:
-                              </span>{" "}
-                              {axisMap
-                                .get(axis.key)!
-                                .map(
-                                  (t) =>
-                                    `${t.editorial_name} (${Math.round(t.confidence * 100)}%)`
-                                )
-                                .join(", ")}
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="text-sm opacity-70">No clips yet.</p>
-        )}
+      <div className="px-4 pb-24">
+        <ClipperGrid
+          initialClips={gridClips}
+          initialArchived={archivedGridClips}
+        />
       </div>
-
-      <div>
-        <h2 className="text-sm mb-2">Classification</h2>
-        <ReclassifyButton eligibleCount={unclassified.length} />
-      </div>
-    </main>
+    </>
   );
 }

@@ -29,6 +29,7 @@ export async function getUnclassifiedClips(
     .from("clips")
     .select("id, url, image_url, title, caption")
     .not("image_url", "is", null)
+    .is("archived_at", null)
     .order("clipped_at", { ascending: true });
   if (candidatesError) {
     throw new Error(`Could not load clips: ${candidatesError.message}`);
