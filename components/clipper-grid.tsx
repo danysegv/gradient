@@ -29,6 +29,7 @@ export type ClipperClip = {
   title: string | null;
   source: string | null;
   clipped_at: string;
+  clippedByName: string | null;
   needsImage: boolean;
   badImageUrl: boolean;
   tagsByAxis: {
@@ -90,8 +91,10 @@ function ClipCard({
         <p className="mb-0.5 text-xs font-semibold leading-snug text-bone">
           {clip.title || clip.url}
         </p>
-        {clip.source && (
-          <p className="mb-1.5 text-[11px] text-bone/75">{clip.source}</p>
+        {(clip.source || clip.clippedByName) && (
+          <p className="mb-1.5 text-[11px] text-bone/75">
+            {[clip.source, clip.clippedByName].filter(Boolean).join(" · ")}
+          </p>
         )}
         {clip.tagsByAxis.length > 0 && (
           <ul className="flex flex-col gap-0.5">

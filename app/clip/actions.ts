@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
+import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchOgImage } from "@/lib/og-image";
 
@@ -34,7 +34,8 @@ export async function createClip(
   // though Proxy already gates the /clip route.
   const cookieStore = await cookies();
   const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
-  if (!isValidSessionToken(token)) {
+  const curatorName = sessionCurator(token);
+  if (!curatorName) {
     return { error: "Not authorized." };
   }
 
@@ -57,6 +58,7 @@ export async function createClip(
       source: optionalText(formData, "source"),
       caption: optionalText(formData, "caption"),
       clipped_at: new Date().toISOString(),
+      clipped_by_name: curatorName,
     })
     .select("id, url, image_url, title, caption")
     .single();

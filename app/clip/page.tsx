@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUnclassifiedClips } from "@/lib/clips/unclassified";
+import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { ClipForm } from "./clip-form";
 import { ReclassifyButton } from "./reclassify-button";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
@@ -62,7 +64,7 @@ function groupTagsByAxis(clipTags: ClipTagRow[]) {
   return byAxis;
 }
 
-const CLIP_SELECT = `id, url, image_url, title, source, caption, clipped_at, created_at,
+const CLIP_SELECT = `id, url, image_url, title, source, caption, clipped_at, created_at, clipped_by_name,
        clip_tags ( confidence, tags ( group, editorial_name, universal_term ) )`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,6 +79,7 @@ function toGridClip(clip: any): ClipperClip {
     title: clip.title,
     source: clip.source,
     clipped_at: clip.clipped_at,
+    clippedByName: clip.clipped_by_name,
     needsImage: !clip.image_url,
     badImageUrl:
       !!clip.image_url && !looksLikeImageUrl(clip.image_url, clip.url),
@@ -88,6 +91,11 @@ function toGridClip(clip: any): ClipperClip {
 }
 
 export default async function ClipPage() {
+  const cookieStore = await cookies();
+  const curatorName = sessionCurator(
+    cookieStore.get(CLIP_SESSION_COOKIE)?.value
+  );
+
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
   // back that doesn't require SQL.
@@ -114,7 +122,14 @@ export default async function ClipPage() {
   return (
     <>
       <div className="mx-auto max-w-[1180px] px-8 py-10">
-        <h1 className="mb-6 text-lg font-semibold">Clipper</h1>
+        <div className="mb-6 flex items-baseline justify-between">
+          <h1 className="text-lg font-semibold">Clipper</h1>
+          {curatorName && (
+            <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
+              Clipping as {curatorName}
+            </p>
+          )}
+        </div>
         <ClipForm />
         <div className="mt-8">
           <ReclassifyButton eligibleCount={unclassified.length} />

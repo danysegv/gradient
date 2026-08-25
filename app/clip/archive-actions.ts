@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
+import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type ArchiveActionResult = { error: string } | { error?: never };
@@ -10,20 +10,21 @@ export type ArchiveActionResult = { error: string } | { error?: never };
 async function requireSession(): Promise<string | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
-  return isValidSessionToken(token) ? "ok" : null;
+  return sessionCurator(token);
 }
 
 // Soft delete — archived_at = now(). Service-role client only; there is
 // deliberately no anon UPDATE/DELETE policy on clips, so this can't be
 // reached any other way than through this gated action.
 export async function archiveClip(clipId: string): Promise<ArchiveActionResult> {
-  if (!(await requireSession())) {
+  const curatorName = await requireSession();
+  if (!curatorName) {
     return { error: "Not authorized." };
   }
 
   const { error } = await supabaseAdmin
     .from("clips")
-    .update({ archived_at: new Date().toISOString() })
+    .update({ archived_at: new Date().toISOString(), archived_by_name: curatorName })
     .eq("id", clipId);
 
   if (error) return { error: error.message };
@@ -34,15 +35,18 @@ export async function archiveClip(clipId: string): Promise<ArchiveActionResult> 
 }
 
 // Reverses archiveClip. Reversible by design — this is what the undo
-// affordance calls.
+// affordance calls. Clears archived_by_name alongside archived_at: the
+// column only means something paired with an active archive, so a
+// restored clip shouldn't carry a stale archiver name.
 export async function unarchiveClip(clipId: string): Promise<ArchiveActionResult> {
-  if (!(await requireSession())) {
+  const curatorName = await requireSession();
+  if (!curatorName) {
     return { error: "Not authorized." };
   }
 
   const { error } = await supabaseAdmin
     .from("clips")
-    .update({ archived_at: null })
+    .update({ archived_at: null, archived_by_name: null })
     .eq("id", clipId);
 
   if (error) return { error: error.message };
