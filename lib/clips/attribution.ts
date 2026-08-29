@@ -47,6 +47,16 @@ const FINDERS: [suffix: string, name: string][] = [
   ["anothermag.com", "AnOther Magazine"],
   ["vogue.com", "Vogue"],
   ["collectorsweekly.com", "Collectors Weekly"],
+  // Added 2026-08-29 from the hosts actually present in the first 154
+  // clips — 21 more references, taking deterministic coverage past 3/4.
+  ["designreviewed.com", "Design Reviewed"],
+  ["visuelle.co.uk", "Visuelle"],
+  ["eyecannndy.com", "Eye Cannndy"],
+  ["creativereview.co.uk", "Creative Review"],
+  ["designeverywhere.co", "Design Everywhere"],
+  ["twimg.com", "X (Twitter)"],
+  ["twitter.com", "X (Twitter)"],
+  ["x.com", "X (Twitter)"],
 ];
 
 /**

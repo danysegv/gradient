@@ -132,3 +132,18 @@ test("source_year 0 is not treated as absent", () => {
   const patch = attributionPatch(EMPTY, { source_year: 0 });
   assert.deepEqual(patch, { source_year: 0 });
 });
+
+test("covers the aggregators that showed up in the real library", () => {
+  assert.equal(foundViaFromUrl("https://designreviewed.com/x"), "Design Reviewed");
+  assert.equal(foundViaFromUrl("https://visuelle.co.uk/x"), "Visuelle");
+  assert.equal(foundViaFromUrl("https://eyecannndy.com/technique/x"), "Eye Cannndy");
+  assert.equal(foundViaFromUrl("https://www.creativereview.co.uk/x"), "Creative Review");
+  // Twitter's image CDN is still "found on X", not a creator.
+  assert.equal(foundViaFromUrl("https://pbs.twimg.com/media/abc.jpg"), "X (Twitter)");
+});
+
+test("a personal Substack is not treated as an aggregator", () => {
+  // lindsaymarsh.substack.com is the author's own publication — that is a
+  // creator, not a place a reference was found. Deliberately unmapped.
+  assert.equal(foundViaFromUrl("https://lindsaymarsh.substack.com/p/x"), null);
+});
