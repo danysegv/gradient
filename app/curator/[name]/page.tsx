@@ -23,10 +23,11 @@ export async function generateMetadata({
     .rpc("curator_clip_stats", { curator_name: decodeURIComponent(name) })
     .single();
   const who =
-    (data as unknown as { curator: string | null } | null)?.curator ??
-    "Curator";
+    (data as unknown as { curator: string | null } | null)?.curator ?? null;
+  // No match means this request is about to 404 — do not title the tab
+  // with the string the visitor mistyped.
   return {
-    title: `${who} — 04AM`,
+    title: who ? `${who} — 04AM` : "Not found — 04AM",
     // Curator pages are a real product surface but not one to hand to
     // crawlers before the invite model is designed. Revisit alongside the
     // curator-privacy decision (see claude/04am-new-chat-summary.md).

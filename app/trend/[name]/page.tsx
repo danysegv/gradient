@@ -90,8 +90,10 @@ export async function generateMetadata({
   const match = ((data ?? []) as unknown as { editorial_name: string }[]).find(
     (t) => t.editorial_name.toLowerCase() === requested.toLowerCase()
   );
+  // No match means this request is about to 404 — do not title the tab
+  // with the string the visitor mistyped.
   return {
-    title: `${match?.editorial_name ?? requested} — 04AM`,
+    title: match ? `${match.editorial_name} — 04AM` : "Not found — 04AM",
     // Coupled to the curator-privacy decision: this page names who is
     // driving a tag. Drop the noindex once that is settled.
     robots: { index: false, follow: false },
