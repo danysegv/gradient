@@ -57,15 +57,65 @@ export function ClipForm() {
         />
       </div>
 
+      {/* Attribution, split four ways as of 2026-08-29.
+          This was one "Source" field with the placeholder
+          "Behance, Dribbble, Instagram…", which invited a discovery
+          platform — and creators, publishers and finders all ended up in
+          the same box, comma-separated. 79 source strings had to be
+          untangled by hand as a result, and a credit line built from that
+          field would have credited Designspiration for Pierre Mendell's
+          poster. Four fields that cannot be confused for each other. */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="source" className="text-sm">
-          Source
+        <label htmlFor="creator" className="text-sm">
+          Creator <span className="opacity-60">— who made it</span>
         </label>
         <input
-          id="source"
-          name="source"
+          id="creator"
+          name="creator"
           type="text"
-          placeholder="Behance, Dribbble, Instagram…"
+          placeholder="Photographer, designer, art director, studio"
+          className="border rounded px-3 py-2"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="rights_holder" className="text-sm">
+          Rights holder <span className="opacity-60">— who published or owns it</span>
+        </label>
+        <input
+          id="rights_holder"
+          name="rights_holder"
+          type="text"
+          placeholder="Brand, publisher, magazine, museum, agency"
+          className="border rounded px-3 py-2"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="found_via" className="text-sm">
+          Found via <span className="opacity-60">— never a credit</span>
+        </label>
+        <input
+          id="found_via"
+          name="found_via"
+          type="text"
+          placeholder="Designspiration, PICDIT, Fonts in Use, Instagram…"
+          className="border rounded px-3 py-2"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="source_year" className="text-sm">
+          Work year <span className="opacity-60">— when it was MADE, not clipped</span>
+        </label>
+        <input
+          id="source_year"
+          name="source_year"
+          type="number"
+          inputMode="numeric"
+          min={1400}
+          max={new Date().getFullYear() + 1}
+          placeholder="1976"
           className="border rounded px-3 py-2"
         />
       </div>

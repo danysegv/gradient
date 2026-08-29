@@ -26,6 +26,24 @@ function optionalText(formData: FormData, key: string): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+// The year the WORK was made — never the clip date, which velocity depends
+// on. Validated here so a typo returns a sentence rather than a Postgres
+// check-constraint violation. Mirrors clips_source_year_plausible.
+const YEAR_MIN = 1400;
+
+function optionalYear(
+  formData: FormData
+): { year: number | null } | { error: string } {
+  const raw = optionalText(formData, "source_year");
+  if (raw === null) return { year: null };
+  const year = Number(raw);
+  const max = new Date().getUTCFullYear() + 1;
+  if (!Number.isInteger(year) || year < YEAR_MIN || year > max) {
+    return { error: `Work year must be a whole number between ${YEAR_MIN} and ${max}.` };
+  }
+  return { year };
+}
+
 export async function createClip(
   _prevState: CreateClipState,
   formData: FormData
@@ -49,14 +67,28 @@ export async function createClip(
     return { error: "Image URL isn't valid." };
   }
 
+  const yearResult = optionalYear(formData);
+  if ("error" in yearResult) {
+    return { error: yearResult.error };
+  }
+
   const { data: inserted, error } = await supabaseAdmin
     .from("clips")
     .insert({
       url,
       image_url: imageUrl,
       title: optionalText(formData, "title"),
-      source: optionalText(formData, "source"),
       caption: optionalText(formData, "caption"),
+      // Structured attribution, replacing the single free-text `source`
+      // field as of 2026-08-29. `source` is left null on new clips: the
+      // column stays for the ~154 rows that predate this, and reading
+      // code falls back to it. attribution_parsed_at stays null because
+      // these were typed by a person, not inferred from a string — that
+      // is exactly the distinction the column exists to record.
+      creator: optionalText(formData, "creator"),
+      rights_holder: optionalText(formData, "rights_holder"),
+      found_via: optionalText(formData, "found_via"),
+      source_year: yearResult.year,
       clipped_at: new Date().toISOString(),
       clipped_by_name: curatorName,
     })

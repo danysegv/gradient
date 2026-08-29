@@ -64,7 +64,7 @@ function groupTagsByAxis(clipTags: ClipTagRow[]) {
   return byAxis;
 }
 
-const CLIP_SELECT = `id, url, image_url, title, source, caption, clipped_at, created_at, clipped_by_name,
+const CLIP_SELECT = `id, url, image_url, title, source, creator, rights_holder, found_via, source_year, caption, clipped_at, created_at, clipped_by_name,
        clip_tags ( confidence, tags ( group, editorial_name, universal_term ) )`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,7 +77,15 @@ function toGridClip(clip: any): ClipperClip {
     url: clip.url,
     image_url: clip.image_url,
     title: clip.title,
-    source: clip.source,
+    // Clips made before 2026-08-29 have a free-text `source` and no
+    // structured attribution; clips made after have the reverse. Show the
+    // best credit available, preferring the maker, and fall back to the
+    // legacy field so both eras render.
+    source:
+      clip.creator ??
+      clip.rights_holder ??
+      clip.source ??
+      (clip.found_via ? `via ${clip.found_via}` : null),
     clipped_at: clip.clipped_at,
     clippedByName: clip.clipped_by_name,
     needsImage: !clip.image_url,
