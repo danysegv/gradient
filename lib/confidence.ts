@@ -7,11 +7,11 @@
 // alone would clear the 15/40 bands. This is a starting point like the
 // count cutoffs, not derived from data — revisit alongside them.
 
-const EARLY_SIGNAL_MAX = 14; // under 15 references
-const FULL_STAT_MIN = 41; // over 40 references
+export const EARLY_SIGNAL_MAX = 14; // under 15 references
+export const FULL_STAT_MIN = 41; // over 40 references
 const VELOCITY_WINDOW_DAYS = 90;
-const AGE_GATE_DAYS = VELOCITY_WINDOW_DAYS / 2; // ~45 days
-const COOLING_DAYS = 30;
+export const AGE_GATE_DAYS = VELOCITY_WINDOW_DAYS / 2; // ~45 days
+export const COOLING_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -35,10 +35,22 @@ export type ConfidenceState = {
    * lives) via `velocity`, and get it back only when it's actually safe
    * to show. */
   velocity: number | null;
-  /** What to render as the confidence note: "Cooling", "Early Signal", or
-   * null (velocity/full-stat bands with a real number don't need a
-   * special word — the number and reference count speak for themselves). */
-  label: "Cooling" | "Early Signal" | null;
+  /** True when the count and age gates both cleared but the panel's
+   * curator mix has drifted too far for a GLOBAL number to mean anything
+   * — see lib/curator-velocity.ts. The tag is not early and not cooling;
+   * the library just cannot say what the culture did, only what its
+   * curators did. Per-curator reads are unaffected. */
+  panelSkew: boolean;
+  /** What to render as the confidence note: "Cooling", "Early Signal",
+   * "Panel Skew", or null (velocity/full-stat bands with a real number
+   * don't need a special word — the number and reference count speak for
+   * themselves).
+   *
+   * NOTE the "Panel Skew" wording is a placeholder pending Daniela's
+   * call; the mechanism is settled, the word is not. Per the identity
+   * system it renders in Bone like every other small label — "Cooling" in
+   * Slate is the one documented exception and this is not it. */
+  label: "Cooling" | "Early Signal" | "Panel Skew" | null;
 };
 
 export function getConfidence(input: {
@@ -47,6 +59,22 @@ export function getConfidence(input: {
   latestReferenceAt: Date | string | null;
   /** A precomputed velocity figure, if one exists. Never fabricated here. */
   velocity?: number | null;
+  /**
+   * Whether the panel's curator composition can currently support a
+   * GLOBAL velocity number — pass
+   * computePanelComposition(...).safeForGlobalVelocity from
+   * lib/curator-velocity.ts.
+   *
+   * Defaults to true, so existing callers keep their exact behaviour and
+   * a single-curator library is never gated (its drift is structurally
+   * zero). When false, the velocity figure is withheld the same way
+   * Cooling withholds it: showing a number that is really a portrait of
+   * whoever clipped most this month is worse than showing none.
+   *
+   * Deliberately a boolean and not the raw rows: the caller aggregates
+   * server-side, so no curator name needs to reach the browser.
+   */
+  panelSafeForGlobalVelocity?: boolean;
   /** Injectable for tests; defaults to the real current time. */
   now?: Date;
 }): ConfidenceState {
@@ -69,16 +97,34 @@ export function getConfidence(input: {
 
   const cooling = latest !== null && daysBetween(latest, now) >= COOLING_DAYS;
 
-  const velocity =
-    !cooling && band !== "early-signal" ? (input.velocity ?? null) : null;
+  const panelSafe = input.panelSafeForGlobalVelocity ?? true;
+  // Only meaningful once the other gates have cleared — a tag already
+  // reading Early Signal or Cooling isn't showing a number to withhold.
+  const panelSkew = !panelSafe && !cooling && band !== "early-signal";
 
+  const velocity =
+    !cooling && !panelSkew && band !== "early-signal"
+      ? (input.velocity ?? null)
+      : null;
+
+  // Cooling takes precedence: a tag nobody has referenced in 30 days is
+  // stale regardless of who was clipping in that window.
   const label: ConfidenceState["label"] = cooling
     ? "Cooling"
     : band === "early-signal"
       ? "Early Signal"
-      : null;
+      : panelSkew
+        ? "Panel Skew"
+        : null;
 
-  return { band, referenceCount: input.referenceCount, cooling, velocity, label };
+  return {
+    band,
+    referenceCount: input.referenceCount,
+    cooling,
+    panelSkew,
+    velocity,
+    label,
+  };
 }
 
 function toDate(value: Date | string | null): Date | null {

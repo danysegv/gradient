@@ -32,7 +32,11 @@
 // there's a free afternoon, because it never divides by anything that
 // scales with the burst.
 
-const RECENT_WINDOW_DAYS = 30;
+// Exported so callers that push the counting into Postgres pass the SAME
+// window to the tag_velocity_counts / curator_composition RPCs. 30 is
+// written down exactly once, here — the SQL takes it as a parameter
+// rather than hardcoding an interval, so the two cannot drift apart.
+export const RECENT_WINDOW_DAYS = 30;
 
 // Below this many total tag-applications (library-wide) in the trailing
 // window, a single reference moves any given tag's recentShare by more
@@ -57,6 +61,34 @@ function countSince(dates: (Date | string)[], cutoffMs: number): number {
 }
 
 /**
+ * The share-shift itself, from counts alone. This is THE definition —
+ * everything else in this file and in curator-velocity.ts reduces to it.
+ *
+ * Split out 2026-08-28 so the live read can let Postgres do the counting
+ * (see the tag_velocity_counts RPC) instead of shipping every clip_tags
+ * row to the server on each request. The counts arrive pre-aggregated;
+ * the arithmetic still happens in exactly one place.
+ *
+ * Returns null rather than a fabricated figure when the trailing window is
+ * too thin to trust, or when the all-time set is empty.
+ */
+export function velocityFromCounts(input: {
+  /** This tag's references, all-time, active clips only. */
+  baseRefs: number;
+  /** This tag's references inside the trailing window. */
+  recentRefs: number;
+  /** EVERY tag's references all-time — the library-wide denominator. */
+  baseTotalRefs: number;
+  /** Every tag's references inside the trailing window. */
+  recentTotalRefs: number;
+}): number | null {
+  const { baseRefs, recentRefs, baseTotalRefs, recentTotalRefs } = input;
+  if (baseTotalRefs === 0) return null;
+  if (recentTotalRefs < MIN_RECENT_WINDOW_VOLUME) return null;
+  return recentRefs / recentTotalRefs - baseRefs / baseTotalRefs;
+}
+
+/**
  * Pure share-shift velocity for a single tag. No I/O — callers supply the
  * raw reference timestamps (already filtered to active/non-archived
  * clips, matching the tag_clip_counts view). `now` is injectable for
@@ -77,19 +109,13 @@ export function computeTagVelocity(input: {
   const now = input.now ?? new Date();
   const recentCutoff = now.getTime() - RECENT_WINDOW_DAYS * DAY_MS;
 
-  const baseTotalRefs = input.allReferenceDates.length;
-  if (baseTotalRefs === 0) return null;
-
-  const recentTotalRefs = countSince(input.allReferenceDates, recentCutoff);
-  if (recentTotalRefs < MIN_RECENT_WINDOW_VOLUME) return null;
-
-  const baseRefs = input.tagReferenceDates.length;
-  const recentRefs = countSince(input.tagReferenceDates, recentCutoff);
-
-  const recentShare = recentRefs / recentTotalRefs;
-  const baseShare = baseRefs / baseTotalRefs;
-
-  return recentShare - baseShare;
+  // Reduce the dates to counts, then defer to the one definition above.
+  return velocityFromCounts({
+    baseRefs: input.tagReferenceDates.length,
+    recentRefs: countSince(input.tagReferenceDates, recentCutoff),
+    baseTotalRefs: input.allReferenceDates.length,
+    recentTotalRefs: countSince(input.allReferenceDates, recentCutoff),
+  });
 }
 
 /**

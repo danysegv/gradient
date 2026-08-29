@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeTagVelocity, computeVelocitiesForTags } from "./velocity.ts";
+import {
+  computeTagVelocity,
+  computeVelocitiesForTags,
+  velocityFromCounts as computeVelocityFromCounts,
+  RECENT_WINDOW_DAYS as WINDOW_DAYS,
+} from "./velocity.ts";
 
 const NOW = new Date("2026-09-24T00:00:00.000Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -124,4 +129,80 @@ test("computeVelocitiesForTags batches multiple tags off one shared row list", (
   assert.equal(velocities.get("a"), velocities.get("b"));
   // Tag c has zero recent references -> negative velocity, not null.
   assert.ok(velocities.get("c")! < 0);
+});
+
+// --- velocityFromCounts: the counts primitive (added 2026-08-28) --------
+
+test("velocityFromCounts returns null when the all-time set is empty", () => {
+  assert.equal(
+    computeVelocityFromCounts({
+      baseRefs: 0,
+      recentRefs: 0,
+      baseTotalRefs: 0,
+      recentTotalRefs: 0,
+    }),
+    null
+  );
+});
+
+test("velocityFromCounts respects the recent-window noise floor", () => {
+  assert.equal(
+    computeVelocityFromCounts({
+      baseRefs: 5,
+      recentRefs: 5,
+      baseTotalRefs: 100,
+      recentTotalRefs: 29,
+    }),
+    null
+  );
+  assert.notEqual(
+    computeVelocityFromCounts({
+      baseRefs: 5,
+      recentRefs: 5,
+      baseTotalRefs: 100,
+      recentTotalRefs: 30,
+    }),
+    null
+  );
+});
+
+test("velocityFromCounts computes the share shift in fractions", () => {
+  // 25% of the recent window, 17% of all time -> +8 points.
+  const v = computeVelocityFromCounts({
+    baseRefs: 34,
+    recentRefs: 10,
+    baseTotalRefs: 200,
+    recentTotalRefs: 40,
+  })!;
+  assert.ok(Math.abs(v - 0.08) < 1e-9);
+});
+
+test("the counts path and the dates path agree exactly", () => {
+  // This is the property that lets the live read push counting into
+  // Postgres: whichever way the numbers arrive, the formula is the same.
+  const allReferenceDates = [...spread(60, 25, 0), ...spread(90, 90, 35)];
+  const tagReferenceDates = [...spread(20, 25, 0), ...spread(15, 90, 35)];
+
+  const fromDates = computeTagVelocity({
+    tagReferenceDates,
+    allReferenceDates,
+    now: NOW,
+  });
+  const cutoff = NOW.getTime() - 30 * DAY_MS;
+  const fromCounts = computeVelocityFromCounts({
+    baseRefs: tagReferenceDates.length,
+    recentRefs: tagReferenceDates.filter((d) => d.getTime() >= cutoff).length,
+    baseTotalRefs: allReferenceDates.length,
+    recentTotalRefs: allReferenceDates.filter((d) => d.getTime() >= cutoff).length,
+  });
+
+  assert.equal(fromDates, fromCounts);
+  assert.notEqual(fromDates, null);
+});
+
+test("RECENT_WINDOW_DAYS is 30 — the RPCs are called with this value", () => {
+  // If this changes, the tag_velocity_counts / curator_composition calls
+  // pick it up automatically (it is passed as window_days). The assertion
+  // exists so a change is a deliberate, visible act.
+  assert.equal(WINDOW_DAYS, 30);
 });
