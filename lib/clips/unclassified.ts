@@ -14,30 +14,25 @@ export type UnclassifiedClip = {
 // previously failed. Re-run reclassifyUnclassifiedClips whenever
 // classification errors out; this does NOT catch clips that already have
 // stale tags from before a taxonomy change — that's a different mode.
+//
+// 2026-08-28: the anti-join moved into Postgres (unclassified_clips RPC).
+// This used to fetch EVERY clip_tags row to build a Set of tagged ids and
+// subtract it from every candidate clip in JavaScript. Two unbounded
+// queries, and past PostgREST's max-rows cap the tagged Set would have
+// come back incomplete — which reports already-classified clips as
+// unclassified and re-sends them to the Claude API. Wrong data and real
+// spend, silently. NOT EXISTS also short-circuits on the first match
+// rather than materialising the whole join.
 export async function getUnclassifiedClips(
   limit?: number
 ): Promise<UnclassifiedClip[]> {
-  const { data: taggedRows, error: taggedError } = await supabaseAdmin
-    .from("clip_tags")
-    .select("clip_id");
-  if (taggedError) {
-    throw new Error(`Could not load tagged clips: ${taggedError.message}`);
+  const { data, error } = await supabaseAdmin.rpc("unclassified_clips", {
+    row_limit: typeof limit === "number" ? limit : null,
+  });
+  if (error) {
+    throw new Error(`Could not load unclassified clips: ${error.message}`);
   }
-  const taggedIds = new Set((taggedRows ?? []).map((r) => r.clip_id));
-
-  const { data: candidates, error: candidatesError } = await supabaseAdmin
-    .from("clips")
-    .select("id, url, image_url, title, caption")
-    .not("image_url", "is", null)
-    .is("archived_at", null)
-    .order("clipped_at", { ascending: true });
-  if (candidatesError) {
-    throw new Error(`Could not load clips: ${candidatesError.message}`);
-  }
-
-  const eligible = (candidates ?? []).filter(
-    (c): c is UnclassifiedClip => !!c.image_url && !taggedIds.has(c.id)
-  );
-
-  return typeof limit === "number" ? eligible.slice(0, limit) : eligible;
+  // image_url is NOT NULL by the RPC's own WHERE clause; the cast records
+  // that rather than re-filtering for it here.
+  return (data ?? []) as UnclassifiedClip[];
 }

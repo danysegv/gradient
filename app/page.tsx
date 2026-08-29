@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase/public";
-import { getConfidence, type ConfidenceState } from "@/lib/confidence";
-import { computeVelocitiesForTags } from "@/lib/velocity";
+import { getConfidence } from "@/lib/confidence";
+import { confidenceNoteText } from "@/lib/confidence-display";
+import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
+import { panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
 
@@ -13,12 +16,15 @@ const TRENDING_TAG_LIMIT = 8;
 // scroll) once the library outgrows this.
 const RECENT_CLIP_LIMIT = 200;
 
-type TagRow = {
+// As it arrives from the tag_velocity_counts RPC — counts are bigint and
+// therefore strings on the wire. Coerced immediately below.
+type RawTagRow = {
   tag_id: string;
   group: string;
   editorial_name: string;
   universal_term: string;
-  clip_count: number;
+  clip_count: number | string;
+  recent_count: number | string;
   earliest_reference_at: string | null;
   latest_reference_at: string | null;
 };
@@ -43,36 +49,28 @@ type ClipRow = {
   clip_tags: ClipTagRow[] | null;
 };
 
+// PostgREST serialises Postgres bigint as a JSON *string*, so every count
+// coming out of these RPCs is coerced with Number() at the boundary below.
+// Left as-is it would poison the arithmetic silently — "49" / "347" is NaN
+// in one direction and string concatenation in the other.
 type StatsRow = {
-  id: string;
-  clip_tags: { clip_id: string }[] | null;
+  total_clips: number | string;
+  classified_clips: number | string;
 };
 
-function confidenceNoteText(state: ConfidenceState): string {
-  if (state.label) return state.label;
-  if (state.velocity !== null) {
-    // Velocity is a share-shift (this tag's share of the trailing 30-day
-    // window vs its share of all-time) — see lib/velocity.ts. Labeled
-    // "30d" because that's the window the number is actually keyed to,
-    // even though the 45-day age gate above it still spans 90.
-    const pct = Math.round(state.velocity * 100);
-    return `${pct > 0 ? "+" : ""}${pct}% · 30d`;
-  }
-  // Age- and count-eligible, but the recent-window volume was too thin to
-  // trust a share figure yet (see MIN_RECENT_WINDOW_VOLUME) — show
-  // something true rather than nothing.
-  return `${state.referenceCount} references`;
-}
-
 export default async function Home() {
-  const [allTagsRes, clipsRes, statsRes, velocityRes] = await Promise.all([
-    supabasePublic
-      .from("tag_clip_counts")
-      .select(
-        "tag_id, group, editorial_name, universal_term, clip_count, earliest_reference_at, latest_reference_at"
-      )
-      .gt("clip_count", 0)
-      .order("clip_count", { ascending: false }),
+  const [tagCountsRes, clipsRes, statsRes, panelRes] = await Promise.all([
+    // Per-tag counts, all-time and in the trailing window, aggregated in
+    // Postgres. This replaced two unbounded full-table fetches on
+    // 2026-08-28: the page used to pull every active clip_tags row on
+    // every request and count them here. That was free at 350 rows, a
+    // full-library transfer on the landing page's critical path at
+    // 10,000, and — worse — silently TRUNCATED past PostgREST's max-rows
+    // cap, which would have meant velocity computed on a subset of the
+    // library with no error anywhere. Now ~21 rows regardless of size.
+    supabasePublic.rpc("tag_velocity_counts", {
+      window_days: RECENT_WINDOW_DAYS,
+    }),
     supabasePublic
       .from("clips")
       .select(
@@ -82,21 +80,30 @@ export default async function Home() {
       .is("archived_at", null)
       .order("clipped_at", { ascending: false })
       .limit(RECENT_CLIP_LIMIT),
-    supabasePublic
-      .from("clips")
-      .select("id, clip_tags ( clip_id )")
-      .is("archived_at", null),
-    // Every active clip_tags row's tag_id + created_at, library-wide — the
-    // raw material computeVelocitiesForTags needs. Matches tag_clip_counts'
-    // own archived-clip exclusion (see its view definition) so the two
-    // never disagree.
-    supabasePublic
-      .from("clips")
-      .select("clip_tags ( tag_id, created_at )")
-      .is("archived_at", null),
+    supabasePublic.rpc("library_clip_stats").single(),
+    // Per-curator COUNTS for the panel-drift gate. Deliberately counts and
+    // not rows: the names are reduced to a single boolean here on the
+    // server, so no curator identity reaches the browser. That keeps the
+    // 2026-08-25 decision ("the public homepage must not select the
+    // columns") intact in substance — nothing identifying is in the RSC
+    // payload — while still gating a number that would otherwise describe
+    // a change of curators rather than a change of taste.
+    supabasePublic.rpc("curator_composition", {
+      window_days: RECENT_WINDOW_DAYS,
+    }),
   ]);
 
-  const allTags = (allTagsRes.data ?? []) as unknown as TagRow[];
+  // The RPC returns every tag, including seeded ones with no references
+  // yet (MotionLoop, StoryScroll). Zero-count tags contribute nothing to
+  // the denominators, so filtering them here is display-only and cannot
+  // move a velocity figure.
+  const allTags = ((tagCountsRes.data ?? []) as unknown as RawTagRow[])
+    .map((t) => ({
+      ...t,
+      clip_count: Number(t.clip_count),
+      recent_count: Number(t.recent_count),
+    }))
+    .filter((t) => t.clip_count > 0);
   const trendingTags = allTags.slice(0, TRENDING_TAG_LIMIT);
   const tagsInPlay = allTags.length;
   const filterTags: FilterTag[] = allTags.map((t) => ({
@@ -105,13 +112,21 @@ export default async function Home() {
     editorial_name: t.editorial_name,
   }));
 
-  const velocityRows = (
-    (velocityRes.data ?? []) as unknown as {
-      clip_tags: { tag_id: string; created_at: string }[] | null;
-    }[]
-  ).flatMap((c) => c.clip_tags ?? []);
-  const velocities = computeVelocitiesForTags(
-    velocityRows.map((r) => ({ tagId: r.tag_id, createdAt: r.created_at }))
+  // Library-wide denominators are just the column sums — every tag's
+  // references, which is exactly what the formula's denominator means.
+  const baseTotalRefs = allTags.reduce((n, t) => n + t.clip_count, 0);
+  const recentTotalRefs = allTags.reduce((n, t) => n + t.recent_count, 0);
+
+  const velocities = new Map<string, number | null>(
+    allTags.map((t) => [
+      t.tag_id,
+      velocityFromCounts({
+        baseRefs: t.clip_count,
+        recentRefs: t.recent_count,
+        baseTotalRefs,
+        recentTotalRefs,
+      }),
+    ])
   );
 
   const clipRows = (clipsRes.data ?? []) as unknown as ClipRow[];
@@ -129,11 +144,26 @@ export default async function Home() {
       })),
   }));
 
-  const statsRows = (statsRes.data ?? []) as unknown as StatsRow[];
-  const totalClips = statsRows.length;
-  const classifiedClips = statsRows.filter(
-    (c) => (c.clip_tags?.length ?? 0) > 0
-  ).length;
+  // Reduced to one boolean before it is used anywhere in the tree.
+  const panel = panelCompositionFromCounts(
+    ((panelRes.data ?? []) as unknown as {
+      curator: string;
+      base_count: number | string;
+      recent_count: number | string;
+    }[]).map((c) => ({
+      curator: c.curator,
+      base: Number(c.base_count),
+      recent: Number(c.recent_count),
+    }))
+  );
+  const panelSafe = panel.safeForGlobalVelocity;
+
+  const stats = (statsRes.data ?? {
+    total_clips: 0,
+    classified_clips: 0,
+  }) as unknown as StatsRow;
+  const totalClips = Number(stats.total_clips);
+  const classifiedClips = Number(stats.classified_clips);
 
   return (
     <>
@@ -186,11 +216,13 @@ export default async function Home() {
               earliestReferenceAt: tag.earliest_reference_at,
               latestReferenceAt: tag.latest_reference_at,
               velocity: velocities.get(tag.tag_id) ?? null,
+              panelSafeForGlobalVelocity: panelSafe,
             });
             return (
-              <div
+              <Link
                 key={tag.tag_id}
-                className="w-[168px] flex-none rounded-lg border border-white/10 bg-ink-2 p-4"
+                href={`/trend/${encodeURIComponent(tag.editorial_name)}`}
+                className="w-[168px] flex-none rounded-lg border border-white/10 bg-ink-2 p-4 transition-colors hover:border-white/25"
               >
                 <p className="text-[15px] font-bold leading-tight">
                   {tag.editorial_name}
@@ -210,7 +242,7 @@ export default async function Home() {
                 >
                   {confidenceNoteText(confidence)}
                 </p>
-              </div>
+              </Link>
             );
           })}
         </div>
