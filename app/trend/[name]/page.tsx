@@ -289,6 +289,12 @@ export default async function TrendPage({
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
             Trend
           </span>
+          <Link
+            href="/genome"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
+            Genome
+          </Link>
           <a
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"

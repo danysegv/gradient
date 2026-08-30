@@ -173,14 +173,17 @@ export default async function Home() {
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
             Signals
           </span>
-          {/* Radar and Genome are locked V1 scope but not built yet —
-              inert placeholders rather than links to routes that 404. */}
+          {/* Radar stays an inert placeholder until velocity has a run of
+              days to plot — a link to a 404 is worse than a dim word. */}
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
             Radar
           </span>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
+          <Link
+            href="/genome"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
             Genome
-          </span>
+          </Link>
           <a
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
