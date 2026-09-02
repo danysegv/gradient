@@ -7,7 +7,6 @@ import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
-import { TagName } from "@/components/tag-name";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -188,7 +187,6 @@ export default async function CuratorPage({
           .map((t) => ({
             tag_id: t.tag_id,
             editorial_name: t.editorial_name,
-            universal_term: t.universal_term,
             lean:
               (theirCountByTag.get(t.tag_id) ?? 0) / theirBaseRefs -
               t.clip_count / libraryApplications,
@@ -223,7 +221,6 @@ export default async function CuratorPage({
     tag_id: t.tag_id,
     group: t.group,
     editorial_name: t.editorial_name,
-    universal_term: t.universal_term,
   }));
 
   const share =
@@ -327,12 +324,9 @@ export default async function CuratorPage({
                   <div key={t.tag_id} className="flex items-center gap-4">
                     <Link
                       href={`/trend/${encodeURIComponent(t.editorial_name)}`}
-                      className="w-[186px] flex-none hover:opacity-80"
+                      className="w-[186px] flex-none text-[11px] font-semibold uppercase tracking-wide hover:opacity-80"
                     >
-                      <TagName
-                        editorial={t.editorial_name}
-                        universal={t.universal_term}
-                      />
+                      {t.editorial_name}
                     </Link>
                     <div className="relative h-[14px] min-w-[140px] flex-1 bg-white/[.06]">
                       <span

@@ -110,7 +110,6 @@ export default async function Home() {
     tag_id: t.tag_id,
     group: t.group,
     editorial_name: t.editorial_name,
-    universal_term: t.universal_term,
   }));
 
   // Library-wide denominators are just the column sums — every tag's
