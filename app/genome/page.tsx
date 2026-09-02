@@ -143,6 +143,12 @@ export default async function GenomePage() {
           >
             Signals
           </Link>
+          <Link
+            href="/curators"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
+            Curators
+          </Link>
           {/* Radar stays inert until velocity has a run of days to plot. */}
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
             Radar
@@ -159,7 +165,7 @@ export default async function GenomePage() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
@@ -257,11 +263,11 @@ export default async function GenomePage() {
         </p>
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-8 pb-12">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-12">
         <GenomeMatrix tags={tags} cells={cells} />
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">
           <p className="max-w-xl text-xs leading-relaxed text-bone/70">
             Co-occurrence is counted per reference, across the hand-clipped

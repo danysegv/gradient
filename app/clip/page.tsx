@@ -129,7 +129,7 @@ export default async function ClipPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-[1180px] px-8 py-10">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 py-10">
         <div className="mb-6 flex items-baseline justify-between">
           <h1 className="text-lg font-semibold">Clipper</h1>
           {curatorName && (

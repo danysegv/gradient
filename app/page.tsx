@@ -174,6 +174,12 @@ export default async function Home() {
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
             Signals
           </span>
+          <Link
+            href="/curators"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
+            Curators
+          </Link>
           {/* Radar stays an inert placeholder until velocity has a run of
               days to plot — a link to a 404 is worse than a dim word. */}
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
@@ -194,7 +200,7 @@ export default async function Home() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
@@ -254,7 +260,7 @@ export default async function Home() {
 
       <HomeGrid clips={gridClips} filterTags={filterTags} />
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">
           <p className="max-w-xl text-xs leading-relaxed text-bone/70">
             Sources: Behance, Dribbble, Instagram, agency sites, awards

@@ -68,7 +68,7 @@ export function ClipThumbnail({
       // stops tiles from popping in hard against the page as they lazy-load.
       className={`${
         variant === "detail"
-          ? "mx-auto block max-h-[78vh] w-auto max-w-full object-contain"
+          ? "mx-auto block h-auto w-full max-h-[78vh] object-contain"
           : "block h-auto w-full"
       } bg-ink-2 transition-opacity duration-500 ${
         loaded ? "opacity-100" : "opacity-0"

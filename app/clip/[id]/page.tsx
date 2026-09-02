@@ -215,6 +215,12 @@ export default async function ClipDetailPage({
           >
             Signals
           </Link>
+          <Link
+            href="/curators"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
+            Curators
+          </Link>
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
             Radar
           </span>
@@ -233,7 +239,7 @@ export default async function ClipDetailPage({
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-8 pb-24">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-24">
         <div className="pt-7 pb-6">
           <Link
             href="/"

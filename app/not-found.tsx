@@ -24,6 +24,12 @@ export default function NotFound() {
             Signals
           </Link>
           <Link
+            href="/curators"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
+            Curators
+          </Link>
+          <Link
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
           >

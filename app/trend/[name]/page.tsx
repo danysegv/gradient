@@ -291,6 +291,12 @@ export default async function TrendPage({
           >
             Signals
           </Link>
+          <Link
+            href="/curators"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
+          >
+            Curators
+          </Link>
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
             Trend
           </span>
@@ -309,7 +315,7 @@ export default async function TrendPage({
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
@@ -430,7 +436,7 @@ export default async function TrendPage({
 
       <HomeGrid clips={gridClips} filterTags={[...coTags.values()]} />
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">
           <p className="max-w-xl text-xs leading-relaxed text-bone/70">
             Every reference here was clipped by hand and classified against a

@@ -4,8 +4,10 @@ import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence } from "@/lib/confidence";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
+import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
+import { TagName } from "@/components/tag-name";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -36,6 +38,12 @@ export async function generateMetadata({
 }
 
 const TAG_RAIL_LIMIT = 8;
+// The signature list is a spectrum, not a top-N: the tags a curator pulls
+// hardest toward and the ones they pull hardest away from, in one ranked
+// run. Both ends matter — "never touches AnalogNoise" is as much a
+// portrait as "clips nothing but BoldGrotesk."
+const SIGNATURE_TOWARD = 5;
+const SIGNATURE_AWAY = 3;
 const CLIP_LIMIT = 200;
 
 // clip_tags is a true to-many relation; its nested `tags` is a single
@@ -158,9 +166,44 @@ export default async function CuratorPage({
     ])
   );
 
-  const libraryApplications = (
-    (libraryCountsRes.data ?? []) as unknown as RawTagRow[]
-  ).reduce((n, t) => n + Number(t.clip_count), 0);
+  const libraryTags = ((libraryCountsRes.data ?? []) as unknown as RawTagRow[])
+    .map((t) => ({ ...t, clip_count: Number(t.clip_count) }))
+    .filter((t) => t.clip_count > 0);
+  const libraryApplications = libraryTags.reduce((n, t) => n + t.clip_count, 0);
+
+  // SIGNATURE — how this curator's attention is distributed compared with
+  // the library's. Ranking a curator's tags by their own raw count mostly
+  // reproduces the library's biggest tags, because a big tag is big for
+  // everyone; the difference of shares is what is actually theirs. Same
+  // base-rate correction the Genome audit applied to co-occurrence on
+  // 2026-09-02, and the same reason computeBalancedVelocities iterates
+  // every tag in the library rather than only the ones a curator touched:
+  // dropping a tag entirely is a real signal, and skipping the untouched
+  // ones would bias the list toward whatever they happen to use.
+  const theirCountByTag = new Map(tagStats.map((t) => [t.tag_id, t.clip_count]));
+  const leans =
+    theirBaseRefs === 0 || libraryApplications === 0
+      ? []
+      : libraryTags
+          .map((t) => ({
+            tag_id: t.tag_id,
+            editorial_name: t.editorial_name,
+            universal_term: t.universal_term,
+            lean:
+              (theirCountByTag.get(t.tag_id) ?? 0) / theirBaseRefs -
+              t.clip_count / libraryApplications,
+          }))
+          .sort((a, b) => b.lean - a.lean);
+  const signature =
+    leans.length <= SIGNATURE_TOWARD + SIGNATURE_AWAY
+      ? leans
+      : [...leans.slice(0, SIGNATURE_TOWARD), ...leans.slice(-SIGNATURE_AWAY)];
+  const maxLean = signature.reduce((m, t) => Math.max(m, Math.abs(t.lean)), 0);
+  // Withheld under the same floor a curator's own velocity uses: below ~30
+  // tag-applications a single clip moves a share by more than 3 points and
+  // the "signature" would be describing one afternoon.
+  const showSignature =
+    signature.length > 0 && theirBaseRefs >= MIN_CURATOR_BASE_VOLUME;
 
 
   const gridClips: GridClip[] = clips.map((c) => ({
@@ -211,9 +254,12 @@ export default async function CuratorPage({
           >
             Signals
           </Link>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
-            Curator
-          </span>
+          <Link
+            href="/curators"
+            className="text-[13px] font-semibold uppercase tracking-wide text-bone"
+          >
+            Curators
+          </Link>
           <Link
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
@@ -223,7 +269,7 @@ export default async function CuratorPage({
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
@@ -258,6 +304,66 @@ export default async function CuratorPage({
             </div>
           ))}
         </dl>
+
+        {showSignature && (
+          <section className="mb-12">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
+              Signature
+            </p>
+            <p className="mb-5 max-w-xl text-xs leading-relaxed text-bone/70">
+              What {curator}{" "}
+              clips more &mdash; and less &mdash; than the{" "}
+              library does overall, in percentage points of their own tagging.
+              A plain ranking of their tags would mostly rank the
+              library&rsquo;s biggest tags back at you. This is the part that
+              is theirs.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              {signature.map((t) => {
+                const pts = t.lean * 100;
+                const width =
+                  maxLean === 0 ? 0 : (Math.abs(t.lean) / maxLean) * 50;
+                return (
+                  <div key={t.tag_id} className="flex items-center gap-4">
+                    <Link
+                      href={`/trend/${encodeURIComponent(t.editorial_name)}`}
+                      className="w-[186px] flex-none hover:opacity-80"
+                    >
+                      <TagName
+                        editorial={t.editorial_name}
+                        universal={t.universal_term}
+                      />
+                    </Link>
+                    <div className="relative h-[14px] min-w-[140px] flex-1 bg-white/[.06]">
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-0 left-1/2 w-px bg-bone/40"
+                      />
+                      <span
+                        aria-hidden
+                        className={`absolute inset-y-0 ${
+                          pts >= 0 ? "bg-oxide" : "bg-slate"
+                        }`}
+                        style={
+                          pts >= 0
+                            ? { left: "50%", width: `${width}%` }
+                            : { right: "50%", width: `${width}%` }
+                        }
+                      />
+                    </div>
+                    <span className="w-[62px] flex-none text-right text-[13px] font-normal tabular-nums">
+                      {pts >= 0 ? "+" : "\u2212"}
+                      {Math.abs(pts).toFixed(1)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3.5 text-[11px] text-bone/70">
+              Percentage points. Oxide leans toward, Slate leans away.
+            </p>
+          </section>
+        )}
 
         <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
           Their tags
@@ -307,7 +413,7 @@ export default async function CuratorPage({
 
       <HomeGrid clips={gridClips} filterTags={filterTags} />
 
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">
           <p className="max-w-xl text-xs leading-relaxed text-bone/70">
             A curator page reads one person&rsquo;s library against itself.

@@ -89,7 +89,7 @@ export function HomeGrid({
 
   return (
     <>
-      <div className="mx-auto max-w-[1180px] px-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="mb-8 flex flex-wrap items-start gap-x-6 gap-y-3">
           {AXES.map((axis) => {
             const axisTags = tagsByAxis.get(axis.key);
