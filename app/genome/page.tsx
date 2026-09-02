@@ -150,12 +150,12 @@ export default async function GenomePage() {
           <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
             Genome
           </span>
-          <a
+          <Link
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
           >
             + Clip
-          </a>
+          </Link>
         </nav>
       </header>
 

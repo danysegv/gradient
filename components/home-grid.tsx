@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ClipThumbnail } from "./clip-thumbnail";
+import { TagName } from "./tag-name";
 
 // Same threshold/cap as the rest of the product — see app/page.tsx and
 // the earlier "filter at display time" decision. Filtering uses the full
@@ -26,6 +28,7 @@ export type FilterTag = {
   tag_id: string;
   group: string;
   editorial_name: string;
+  universal_term: string;
 };
 
 export type GridClip = {
@@ -105,13 +108,21 @@ export function HomeGrid({
                     type="button"
                     onClick={() => toggleTag(tag.editorial_name)}
                     aria-pressed={selected.has(tag.editorial_name)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                    className={`rounded-lg border px-2.5 py-1.5 transition-colors ${
                       selected.has(tag.editorial_name)
                         ? "border-oxide bg-oxide text-bone"
                         : "border-white/20 text-bone/75 hover:border-white/40 hover:text-bone"
                     }`}
                   >
-                    {tag.editorial_name}
+                    <TagName
+                      editorial={tag.editorial_name}
+                      universal={tag.universal_term}
+                      subClassName={
+                        selected.has(tag.editorial_name)
+                          ? "text-bone/85"
+                          : "text-bone/70"
+                      }
+                    />
                   </button>
                 ))}
               </div>
@@ -139,11 +150,9 @@ export function HomeGrid({
             {filteredClips.map((clip) => {
               const chips = displayableTags(clip).slice(0, CHIPS_PER_CARD);
               return (
-                <a
+                <Link
                   key={clip.id}
-                  href={clip.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  href={`/clip/${clip.id}`}
                   className="group relative mb-4 block break-inside-avoid overflow-hidden rounded-[3px]"
                 >
                   <div className="transition-transform duration-300 ease-out group-hover:scale-[1.02]">
@@ -187,7 +196,7 @@ export function HomeGrid({
                       ))}
                     </div>
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>

@@ -110,6 +110,7 @@ export default async function Home() {
     tag_id: t.tag_id,
     group: t.group,
     editorial_name: t.editorial_name,
+    universal_term: t.universal_term,
   }));
 
   // Library-wide denominators are just the column sums — every tag's
@@ -184,12 +185,12 @@ export default async function Home() {
           >
             Genome
           </Link>
-          <a
+          <Link
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
           >
             + Clip
-          </a>
+          </Link>
         </nav>
       </header>
 

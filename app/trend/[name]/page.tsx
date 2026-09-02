@@ -48,7 +48,11 @@ type BreakdownRow = {
 
 type ClipTagRow = {
   confidence: number | null;
-  tags: { editorial_name: string; group: string } | null;
+  tags: {
+    editorial_name: string;
+    universal_term: string;
+    group: string;
+  } | null;
 };
 
 type ClipRow = {
@@ -167,7 +171,7 @@ export default async function TrendPage({
           .from("clips")
           .select(
             `id, url, image_url, title, source, clipped_at,
-             clip_tags!inner ( confidence, tags ( editorial_name, group ) )`
+             clip_tags!inner ( confidence, tags ( editorial_name, universal_term, group ) )`
           )
           .in("id", clipIds)
           .order("clipped_at", { ascending: false })
@@ -224,6 +228,7 @@ export default async function TrendPage({
         tag_id: ct.tags.editorial_name,
         group: ct.tags.group,
         editorial_name: ct.tags.editorial_name,
+        universal_term: ct.tags.universal_term,
       });
     }
   }
@@ -295,12 +300,12 @@ export default async function TrendPage({
           >
             Genome
           </Link>
-          <a
+          <Link
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
           >
             + Clip
-          </a>
+          </Link>
         </nav>
       </header>
 

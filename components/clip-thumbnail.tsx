@@ -10,10 +10,18 @@ export function ClipThumbnail({
   imageUrl,
   title,
   source,
+  variant = "grid",
 }: {
   imageUrl: string | null;
   title: string | null;
   source: string | null;
+  /** "grid" keeps the masonry behaviour below exactly as it was. "detail"
+   * is the single-clip view, where the image is the subject rather than a
+   * tile and must not run past the fold on a tall portrait scan. The two
+   * class strings are swapped wholesale rather than merged, because
+   * Tailwind resolves conflicting utilities by stylesheet order, not by
+   * the order they appear in the attribute. */
+  variant?: "grid" | "detail";
 }) {
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -31,7 +39,11 @@ export function ClipThumbnail({
     // No natural image dimensions to size from — give the fallback its
     // own ratio so it doesn't collapse to zero height in the masonry flow.
     return (
-      <div className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1 bg-ink-2 p-5 text-center">
+      <div
+        className={`flex w-full flex-col items-center justify-center gap-1 bg-ink-2 p-5 text-center ${
+          variant === "detail" ? "aspect-[4/3]" : "aspect-[3/4]"
+        }`}
+      >
         <p className="text-sm font-semibold leading-snug">
           {title || "Untitled"}
         </p>
@@ -54,7 +66,11 @@ export function ClipThumbnail({
       // exactly what makes the masonry grid read as varied-height Cosmos-
       // style rather than a uniform card grid. The Ink-2 ground + fade-in
       // stops tiles from popping in hard against the page as they lazy-load.
-      className={`block h-auto w-full bg-ink-2 transition-opacity duration-500 ${
+      className={`${
+        variant === "detail"
+          ? "mx-auto block max-h-[78vh] w-auto max-w-full object-contain"
+          : "block h-auto w-full"
+      } bg-ink-2 transition-opacity duration-500 ${
         loaded ? "opacity-100" : "opacity-0"
       }`}
     />
