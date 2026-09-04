@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUnclassifiedClips } from "@/lib/clips/unclassified";
 import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
+import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
 import { ReclassifyButton } from "./reclassify-button";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
@@ -133,9 +134,19 @@ export default async function ClipPage() {
         <div className="mb-6 flex items-baseline justify-between">
           <h1 className="text-lg font-semibold">Clipper</h1>
           {curatorName && (
-            <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Clipping as {curatorName}
-            </p>
+            <div className="flex items-baseline gap-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
+                Clipping as {curatorName}
+              </p>
+              <form action={logoutFromClipper}>
+                <button
+                  type="submit"
+                  className="text-xs font-semibold uppercase tracking-wide text-bone/70 underline underline-offset-4 hover:text-bone"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
           )}
         </div>
         <ClipForm />

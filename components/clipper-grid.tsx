@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { ClipThumbnail } from "./clip-thumbnail";
 import { archiveClip, unarchiveClip } from "@/app/clip/archive-actions";
@@ -51,13 +52,18 @@ function ClipCard({
 }) {
   return (
     <div className="group relative mb-4 break-inside-avoid overflow-hidden rounded-[3px]">
-      <a href={clip.url} target="_blank" rel="noreferrer" className="block">
+      {/* Opens the clip, not the source host — same rule as the public
+          grid. In the clipper it is the more useful destination anyway:
+          reviewing a fresh clip means checking what the classifier read
+          off it, and the detail page shows every trait plus the credit
+          block. The source is one click further, as a labelled button. */}
+      <Link href={`/clip/${clip.id}`} className="block">
         <ClipThumbnail
           imageUrl={clip.image_url}
           title={clip.title}
           source={clip.source}
         />
-      </a>
+      </Link>
 
       {/* Always visible — spotting bad clips while scanning is the
           clipper's job, not gated behind hover. */}
