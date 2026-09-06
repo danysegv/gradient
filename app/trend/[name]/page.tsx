@@ -9,6 +9,7 @@ import {
   COOLING_DAYS,
 } from "@/lib/confidence";
 import { confidenceNoteText } from "@/lib/confidence-display";
+import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
@@ -136,12 +137,16 @@ export default async function TrendPage({
     recentTotalRefs,
   });
 
+  // Empty until the 37 frozen tags land — no behaviour change today.
+  const frozenAxes = await fetchFrozenAxes(supabasePublic);
+
   const confidence = getConfidence({
     referenceCount: tag.clip_count,
     earliestReferenceAt: tag.earliest_reference_at,
     latestReferenceAt: tag.latest_reference_at,
     velocity,
     now,
+    coolingSuspended: frozenAxes.has(tag.group),
     // The panel gate is not applied here yet — wiring it is coupled to the
     // homepage decision that is still with Luma. See the handoff.
   });

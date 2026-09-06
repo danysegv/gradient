@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence } from "@/lib/confidence";
+import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { panelCompositionFromCounts } from "@/lib/curator-velocity";
@@ -59,7 +60,8 @@ type StatsRow = {
 };
 
 export default async function Home() {
-  const [tagCountsRes, clipsRes, statsRes, panelRes] = await Promise.all([
+  const [tagCountsRes, clipsRes, statsRes, panelRes, frozenAxes] =
+    await Promise.all([
     // Per-tag counts, all-time and in the trailing window, aggregated in
     // Postgres. This replaced two unbounded full-table fetches on
     // 2026-08-28: the page used to pull every active clip_tags row on
@@ -91,6 +93,9 @@ export default async function Home() {
     supabasePublic.rpc("curator_composition", {
       window_days: RECENT_WINDOW_DAYS,
     }),
+    // Which axes are mid-expansion. Empty until the 37 frozen tags land,
+    // so this changes nothing today. See lib/taxonomy-freeze.ts.
+    fetchFrozenAxes(supabasePublic),
   ]);
 
   // The RPC returns every tag, including seeded ones with no references
@@ -226,6 +231,7 @@ export default async function Home() {
               latestReferenceAt: tag.latest_reference_at,
               velocity: velocities.get(tag.tag_id) ?? null,
               panelSafeForGlobalVelocity: panelSafe,
+              coolingSuspended: frozenAxes.has(tag.group),
             });
             return (
               <Link

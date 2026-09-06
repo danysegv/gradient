@@ -47,3 +47,71 @@ export const NEW_VOCABULARY_OPENS = "2026-09-27";
 export function classifierSeesFrozenTags(): boolean {
   return process.env.CLASSIFIER_INCLUDE_FROZEN_TAGS === "true";
 }
+
+
+/**
+ * Which axes currently carry frozen tags.
+ *
+ * Every published RPC now hides frozen tags, so no surface can otherwise
+ * tell that an axis is mid-expansion. Step 1.7 needs to know: once the
+ * classifier can reach TechMono or StretchType, a thin incumbent like
+ * HandType (2 references in 14 days) can go 30 days untouched and trip
+ * Cooling — the product announcing that a look is dying when the
+ * vocabulary merely got more precise.
+ *
+ * Returns an empty set on error, i.e. exactly today's Cooling behaviour.
+ * A transient RPC failure should not silently withhold a real Cooling
+ * signal library-wide; it should change nothing.
+ */
+type RpcClient = {
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>
+  ) => PromiseLike<{ data: unknown; error: unknown }>;
+};
+
+export async function fetchFrozenAxes(
+  client: RpcClient
+): Promise<ReadonlySet<string>> {
+  const { data, error } = await client.rpc("frozen_axes");
+  if (error || !Array.isArray(data)) return new Set<string>();
+  return new Set(
+    (data as { group?: unknown }[])
+      .map((r) => r.group)
+      .filter((g): g is string => typeof g === "string")
+  );
+}
+
+
+/**
+ * The only axes the widened-taxonomy reclassify path may ever be pointed
+ * at.
+ *
+ * `medium` and `subject` are NEW axes: adding one to an existing clip
+ * removes nothing, so no published share is rewritten. The five original
+ * axes are single-select and already populated — re-running against a
+ * widened `layout` leaves the clip holding two layout tags, which breaks
+ * the invariant every co-occurrence and share figure is computed against
+ * and silently restates published numbers.
+ *
+ * A hard allowlist, not a convention. Widening it is a decision about
+ * published numbers, not a refactor. Lives here rather than next to the
+ * query so it is pure and can be tested without standing up Supabase.
+ */
+export const ADDITIVE_AXES = ["medium", "subject"] as const;
+export type AdditiveAxis = (typeof ADDITIVE_AXES)[number];
+
+/** Throws on any axis that is not additive. Returns nothing on success. */
+export function assertAdditiveAxes(axes: readonly string[]): void {
+  const illegal = axes.filter(
+    (a) => !(ADDITIVE_AXES as readonly string[]).includes(a)
+  );
+  if (illegal.length > 0) {
+    throw new Error(
+      `Refusing to reclassify against non-additive axes: ${illegal.join(", ")}. ` +
+        `Only ${ADDITIVE_AXES.join(", ")} may be backfilled — the others are ` +
+        `single-select, so backfilling them replaces the tag already there ` +
+        `and restates published numbers.`
+    );
+  }
+}

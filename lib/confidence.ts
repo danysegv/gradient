@@ -41,6 +41,10 @@ export type ConfidenceState = {
    * the library just cannot say what the culture did, only what its
    * curators did. Per-curator reads are unaffected. */
   panelSkew: boolean;
+  /** True when Cooling was suppressed because this tag's axis is
+   * mid-expansion. The tag may genuinely have had no reference in 30
+   * days; during incubation that is not evidence the look is dying. */
+  coolingSuspended: boolean;
   /** What to render as the confidence note: "Cooling", "Early Signal",
    * "Panel Skew", or null (velocity/full-stat bands with a real number
    * don't need a special word — the number and reference count speak for
@@ -75,6 +79,24 @@ export function getConfidence(input: {
    * server-side, so no curator name needs to reach the browser.
    */
   panelSafeForGlobalVelocity?: boolean;
+  /**
+   * True when this tag sits on an axis that currently carries frozen
+   * (incubating) tags — pass `frozenAxes.has(tag.group)` from
+   * fetchFrozenAxes() in lib/taxonomy-freeze.ts.
+   *
+   * Widening an axis diverts references away from its incumbents. The
+   * thin ones are thin — Brainrot 1 reference in 14 days, HandType 2,
+   * ChoppyType 5 — so once the classifier can reach TechMono or
+   * StretchType they can sit untouched for 30 days and trip Cooling.
+   * "Cooling" is a claim about the culture, and during incubation it
+   * would be a claim caused by 04AM's own vocabulary change.
+   *
+   * Suspends ONLY Cooling. The count bands, the 45-day age gate and the
+   * panel gate all still apply — this withholds a false signal, it does
+   * not manufacture a true one. Reverses at graduation, when the axis
+   * stops carrying frozen tags and this goes false on its own.
+   */
+  coolingSuspended?: boolean;
   /** Injectable for tests; defaults to the real current time. */
   now?: Date;
 }): ConfidenceState {
@@ -95,7 +117,11 @@ export function getConfidence(input: {
   const band: ConfidenceBand =
     countBand === "early-signal" ? "early-signal" : ageEligible ? countBand : "early-signal";
 
-  const cooling = latest !== null && daysBetween(latest, now) >= COOLING_DAYS;
+  const coolingSuspended = input.coolingSuspended ?? false;
+  const cooling =
+    !coolingSuspended &&
+    latest !== null &&
+    daysBetween(latest, now) >= COOLING_DAYS;
 
   const panelSafe = input.panelSafeForGlobalVelocity ?? true;
   // Only meaningful once the other gates have cleared — a tag already
@@ -121,6 +147,7 @@ export function getConfidence(input: {
     band,
     referenceCount: input.referenceCount,
     cooling,
+    coolingSuspended,
     panelSkew,
     velocity,
     label,

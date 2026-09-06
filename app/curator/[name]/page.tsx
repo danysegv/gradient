@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence } from "@/lib/confidence";
+import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
@@ -108,7 +109,8 @@ export default async function CuratorPage({
   if (!stats?.curator) notFound();
   const curator = stats.curator;
 
-  const [clipsRes, tagCountsRes, libraryCountsRes] = await Promise.all([
+  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes] =
+    await Promise.all([
     // The only row-level query on this page, and deliberately capped —
     // CLIP_LIMIT is display pagination, not an accident.
     supabasePublic
@@ -134,6 +136,8 @@ export default async function CuratorPage({
     supabasePublic.rpc("tag_velocity_counts", {
       window_days: RECENT_WINDOW_DAYS,
     }),
+    // Which axes are mid-expansion. Empty until the 37 frozen tags land.
+    fetchFrozenAxes(supabasePublic),
   ]);
 
   const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
@@ -369,6 +373,7 @@ export default async function CuratorPage({
               earliestReferenceAt: tag.earliest_reference_at,
               latestReferenceAt: tag.latest_reference_at,
               velocity: velocities.get(tag.tag_id) ?? null,
+              coolingSuspended: frozenAxes.has(tag.group),
               // Deliberately absent: panelSafeForGlobalVelocity. The panel
               // gate exists to stop a GLOBAL number describing a change of
               // curators rather than a change of taste. A number scoped to

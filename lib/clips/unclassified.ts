@@ -1,5 +1,10 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  ADDITIVE_AXES,
+  assertAdditiveAxes,
+  type AdditiveAxis,
+} from "@/lib/taxonomy-freeze";
 
 export type UnclassifiedClip = {
   id: string;
@@ -13,7 +18,8 @@ export type UnclassifiedClip = {
 // carry zero clip_tags rows — never classified, or classification
 // previously failed. Re-run reclassifyUnclassifiedClips whenever
 // classification errors out; this does NOT catch clips that already have
-// stale tags from before a taxonomy change — that's a different mode.
+// stale tags from before a taxonomy change — that mode is
+// getClipsMissingAxes, below (added 2026-09-06, step 1.6).
 //
 // 2026-08-28: the anti-join moved into Postgres (unclassified_clips RPC).
 // This used to fetch EVERY clip_tags row to build a Set of tagged ids and
@@ -35,4 +41,41 @@ export async function getUnclassifiedClips(
   // image_url is NOT NULL by the RPC's own WHERE clause; the cast records
   // that rather than re-filtering for it here.
   return (data ?? []) as UnclassifiedClip[];
+}
+
+
+// ---------------------------------------------------------------------
+// The widened-taxonomy mode.
+//
+// Clips that ARE classified but carry nothing on one or more named axes.
+// After the expansion, the 115 already-classified clips are invisible to
+// getUnclassifiedClips, so without this they would never receive `medium`
+// or `subject`.
+// ---------------------------------------------------------------------
+
+export type ClipMissingAxes = UnclassifiedClip & {
+  /** Which of the requested axes this clip currently has nothing on. */
+  missing_axes: string[];
+};
+
+export { ADDITIVE_AXES, type AdditiveAxis };
+
+export async function getClipsMissingAxes(
+  axes: readonly AdditiveAxis[],
+  limit?: number
+): Promise<ClipMissingAxes[]> {
+  // Runtime guard as well as the type: this is reachable from a server
+  // action, and the cost of getting it wrong is a silent restatement of
+  // published numbers rather than an error anyone would notice.
+  assertAdditiveAxes(axes);
+  if (axes.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin.rpc("clips_missing_axes", {
+    p_axes: axes as unknown as string[],
+    row_limit: typeof limit === "number" ? limit : null,
+  });
+  if (error) {
+    throw new Error(`Could not load clips missing axes: ${error.message}`);
+  }
+  return (data ?? []) as ClipMissingAxes[];
 }

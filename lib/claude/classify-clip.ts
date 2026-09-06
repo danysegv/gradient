@@ -45,6 +45,9 @@ export type ClipReading = {
 export type Classification = {
   tagId: string;
   tag: string;
+  /** The tag's axis. Carried so a caller can write only the axes it
+   * asked for — see classifyAndTagClipOnAxes. */
+  group: string;
   confidence: number;
 };
 
@@ -84,6 +87,9 @@ export async function classifyClip(input: {
     ...string[],
   ];
   const idByName = new Map(tags.map((t) => [t.editorial_name, t.id]));
+  const groupByName = new Map(
+    tags.map((t) => [t.editorial_name, t.group as string])
+  );
 
   const ClassificationSchema = z.object({
     classifications: z.array(
@@ -178,6 +184,7 @@ export async function classifyClip(input: {
     classifications: response.parsed_output.classifications.map((c) => ({
       tagId: idByName.get(c.tag)!,
       tag: c.tag,
+      group: groupByName.get(c.tag)!,
       confidence: Math.min(1, Math.max(0, c.confidence)),
     })),
     attribution,
@@ -226,4 +233,72 @@ export async function classifyAndTagClip(clip: {
   }
 
   return classifications.length;
+}
+
+
+// ---------------------------------------------------------------------
+// Step 1.6 — reclassify against a WIDENED taxonomy.
+//
+// getUnclassifiedClips only returns clips with zero tags, so the 115
+// already-classified clips would never receive `medium` or `subject`.
+// This is the other mode.
+//
+// ⚠ THE HAZARD THIS FUNCTION EXISTS TO CONTAIN.
+// classifyAndTagClip writes EVERY tag the model returns and upserts on
+// (clip_id, tag_id). Running it again on an already-classified clip does
+// not replace that clip's layout tag — a different tag_id is a different
+// row, so the clip ends up carrying TWO layout tags. That breaks the
+// single-select invariant every co-occurrence and share figure in the
+// product is computed against, and it does it silently.
+//
+// So this path writes ONLY the axes it was asked for and discards
+// everything else the model returned. The model still reads the whole
+// taxonomy — it should see the full vocabulary to judge an image — but
+// its answer is filtered before it reaches the database.
+//
+// Call it with additive axes only: `medium` and `subject` take nothing
+// away from a clip. Never with the five original axes.
+export async function classifyAndTagClipOnAxes(
+  clip: {
+    id: string;
+    url: string;
+    imageUrl: string;
+    title: string | null;
+    caption: string | null;
+  },
+  axes: readonly string[]
+): Promise<number> {
+  if (axes.length === 0) return 0;
+  const wanted = new Set(axes);
+
+  const { classifications } = await classifyClip({
+    url: clip.url,
+    imageUrl: clip.imageUrl,
+    title: clip.title,
+    caption: clip.caption,
+  });
+
+  // Attribution is deliberately NOT written here. This path revisits
+  // clips that were already read once; fillEmptyAttribution is the
+  // create-flow's job and re-running it is out of scope for a taxonomy
+  // backfill.
+  const kept = classifications.filter((c) => wanted.has(c.group));
+  if (kept.length === 0) return 0;
+
+  const { error } = await supabaseAdmin.from("clip_tags").upsert(
+    kept.map((c) => ({
+      clip_id: clip.id,
+      tag_id: c.tagId,
+      confidence: c.confidence,
+    })),
+    { onConflict: "clip_id,tag_id" }
+  );
+
+  if (error) {
+    throw new Error(
+      `Failed to write clip_tags for clip ${clip.id}: ${error.message}`
+    );
+  }
+
+  return kept.length;
 }

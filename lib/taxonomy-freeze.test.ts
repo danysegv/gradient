@@ -4,7 +4,11 @@ import { readFileSync } from "node:fs";
 import {
   classifierSeesFrozenTags,
   NEW_VOCABULARY_OPENS,
+  ADDITIVE_AXES,
+  assertAdditiveAxes,
+  fetchFrozenAxes,
 } from "./taxonomy-freeze.ts";
+import { getConfidence, COOLING_DAYS } from "./confidence.ts";
 import { computeTagVelocity, computeVelocitiesForTags } from "./velocity.ts";
 
 const NOW = new Date("2026-09-26T04:00:00.000Z");
@@ -190,4 +194,140 @@ test("the prompt derives its axis list instead of hardcoding it", () => {
 
 test("the documented opening date has not drifted", () => {
   assert.equal(NEW_VOCABULARY_OPENS, "2026-09-27");
+});
+
+
+// ---------------------------------------------------------------------
+// 1.7 — Cooling is suspended on an axis that carries frozen tags.
+// ---------------------------------------------------------------------
+
+const STALE = {
+  referenceCount: 30,
+  earliestReferenceAt: daysAgo(60),
+  latestReferenceAt: daysAgo(COOLING_DAYS + 2),
+  velocity: -0.02,
+  now: NOW,
+};
+
+test("a stale tag still reads Cooling by default", () => {
+  const c = getConfidence(STALE);
+  assert.equal(c.cooling, true);
+  assert.equal(c.coolingSuspended, false);
+  assert.equal(c.label, "Cooling");
+  assert.equal(c.velocity, null, "Cooling withholds the figure");
+});
+
+test("suspending Cooling on a widened axis withholds the false signal", () => {
+  const c = getConfidence({ ...STALE, coolingSuspended: true });
+  assert.equal(c.cooling, false);
+  assert.equal(c.coolingSuspended, true);
+  assert.notEqual(c.label, "Cooling");
+  assert.equal(c.velocity, -0.02, "the tag is diverted, not dying");
+});
+
+test("suspension does not bypass the count band or the age gate", () => {
+  // Thin: 3 references. Must stay Early Signal regardless.
+  const thin = getConfidence({
+    referenceCount: 3,
+    earliestReferenceAt: daysAgo(90),
+    latestReferenceAt: daysAgo(60),
+    velocity: 0.05,
+    coolingSuspended: true,
+    now: NOW,
+  });
+  assert.equal(thin.band, "early-signal");
+  assert.equal(thin.label, "Early Signal");
+  assert.equal(thin.velocity, null);
+
+  // Young: plenty of references, but the axis is 10 days old.
+  const young = getConfidence({
+    referenceCount: 50,
+    earliestReferenceAt: daysAgo(10),
+    latestReferenceAt: daysAgo(1),
+    velocity: 0.05,
+    coolingSuspended: true,
+    now: NOW,
+  });
+  assert.equal(young.band, "early-signal", "45-day age gate still applies");
+  assert.equal(young.velocity, null);
+});
+
+test("suspension changes nothing for a tag that is not stale", () => {
+  const fresh = {
+    referenceCount: 30,
+    earliestReferenceAt: daysAgo(60),
+    latestReferenceAt: daysAgo(2),
+    velocity: 0.03,
+    now: NOW,
+  };
+  const off = getConfidence(fresh);
+  const on = getConfidence({ ...fresh, coolingSuspended: true });
+  assert.equal(off.cooling, false);
+  assert.equal(on.velocity, off.velocity);
+  assert.equal(on.label, off.label);
+});
+
+// ---------------------------------------------------------------------
+// 1.6 — only additive axes may be backfilled.
+// ---------------------------------------------------------------------
+
+test("only medium and subject are additive", () => {
+  assert.deepEqual([...ADDITIVE_AXES], ["medium", "subject"]);
+  assert.doesNotThrow(() => assertAdditiveAxes(["medium", "subject"]));
+  assert.doesNotThrow(() => assertAdditiveAxes([]));
+});
+
+test("backfilling a single-select axis is refused", () => {
+  for (const axis of [
+    "layout",
+    "movement",
+    "typography",
+    "palette_light",
+    "treatment",
+    "format_motion",
+  ]) {
+    assert.throws(
+      () => assertAdditiveAxes([axis]),
+      /Refusing to reclassify against non-additive axes/,
+      `${axis} must be refused`
+    );
+  }
+  // And it is refused even when smuggled in beside a legal one.
+  assert.throws(() => assertAdditiveAxes(["medium", "layout"]), /layout/);
+});
+
+// ---------------------------------------------------------------------
+// fetchFrozenAxes fails to today's behaviour, not to a blanket suspension.
+// ---------------------------------------------------------------------
+
+test("fetchFrozenAxes returns the axes carrying frozen tags", async () => {
+  const client = {
+    rpc: async () => ({
+      data: [{ group: "layout", frozen_count: 5 }, { group: "medium", frozen_count: 8 }],
+      error: null,
+    }),
+  };
+  const axes = await fetchFrozenAxes(client);
+  assert.equal(axes.has("layout"), true);
+  assert.equal(axes.has("medium"), true);
+  assert.equal(axes.has("movement"), false);
+});
+
+test("fetchFrozenAxes returns empty on error — no blanket suspension", async () => {
+  const failing = { rpc: async () => ({ data: null, error: { message: "boom" } }) };
+  assert.equal((await fetchFrozenAxes(failing)).size, 0);
+
+  const garbage = { rpc: async () => ({ data: { not: "an array" }, error: null }) };
+  assert.equal((await fetchFrozenAxes(garbage)).size, 0);
+});
+
+test("clips_missing_axes is only ever called through the guard", () => {
+  const src = readFileSync("lib/clips/unclassified.ts", "utf8");
+  assert.match(src, /assertAdditiveAxes\(axes\)/);
+  assert.match(src, /clips_missing_axes/);
+});
+
+test("the widened-taxonomy write path filters to the requested axes", () => {
+  const src = readFileSync("lib/claude/classify-clip.ts", "utf8");
+  assert.match(src, /classifications\.filter\(\(c\) => wanted\.has\(c\.group\)\)/);
 });
