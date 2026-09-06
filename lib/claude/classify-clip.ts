@@ -10,6 +10,7 @@ import {
   type Attribution,
 } from "./attribution-extract";
 import { fillEmptyAttribution } from "@/lib/clips/write-attribution";
+import { classifierSeesFrozenTags } from "@/lib/taxonomy-freeze";
 
 
 const CLASSIFIER_MODEL = "claude-opus-5";
@@ -50,16 +51,29 @@ export type Classification = {
 
 // The AI classifier skips `format_motion` entirely in v1 (locked scope
 // decision) — MotionLoop/StoryScroll are applied by hand at clip time.
+//
+// It also skips FROZEN tags (`tags.published_at is null`) until the new
+// vocabulary opens. This is the load-bearing half of the incubation
+// freeze: no human picks tags, so a read-path filter on the RPCs cannot
+// hold a freeze when the write path is a model reading the same table
+// directly. See lib/taxonomy-freeze.ts.
 export async function classifyClip(input: {
   url: string;
   imageUrl: string;
   title: string | null;
   caption: string | null;
 }): Promise<ClipReading> {
-  const { data: tags, error } = await supabaseAdmin
+  const taxonomyQuery = supabaseAdmin
     .from("tags")
     .select("id, group, editorial_name, universal_term, description")
     .neq("group", "format_motion");
+
+  // Frozen tags are withheld from the model, so it cannot apply what it
+  // cannot see. `validNames` below is derived from this same result, so
+  // the zod enum rejects a frozen tag as a second, independent guard.
+  const { data: tags, error } = await (classifierSeesFrozenTags()
+    ? taxonomyQuery
+    : taxonomyQuery.not("published_at", "is", null));
 
   if (error || !tags || tags.length === 0) {
     throw new Error(`Could not load taxonomy: ${error?.message ?? "no tags"}`);
@@ -88,6 +102,35 @@ export async function classifyClip(input: {
     )
     .join("\n");
 
+  // The prompt used to hardcode "five axes (movement, typography,
+  // palette_light, layout, treatment)". With medium and subject arriving
+  // frozen, a literal would have been wrong in both directions: eight
+  // while the model can still only see five, then wrong again if the
+  // taxonomy ever moves. Deriving it from the loaded taxonomy is correct
+  // at every point in the incubation and needs no edit on 09-27.
+  const AXIS_ORDER = [
+    "movement",
+    "typography",
+    "palette_light",
+    "layout",
+    "treatment",
+    "medium",
+    "subject",
+    "format_motion",
+  ];
+  const rank = (g: string) => {
+    const i = AXIS_ORDER.indexOf(g);
+    return i === -1 ? AXIS_ORDER.length : i;
+  };
+  const axes = [...new Set(tags.map((t) => t.group as string))].sort(
+    (a, b) => rank(a) - rank(b)
+  );
+  const NUMBER_WORDS = [
+    "zero", "one", "two", "three", "four", "five",
+    "six", "seven", "eight", "nine", "ten",
+  ];
+  const axisCount = NUMBER_WORDS[axes.length] ?? String(axes.length);
+
   const contextLines = [
     input.title ? `Title: ${input.title}` : null,
     input.caption ? `Caption: ${input.caption}` : null,
@@ -106,7 +149,7 @@ export async function classifyClip(input: {
     system: [
       {
         type: "text",
-        text: `You are classifying a design reference image against 04AM's taxonomy — a faceted system across five axes (movement, typography, palette_light, layout, treatment). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}\n\nSECOND TASK — ${attributionInstructions()}`,
+        text: `You are classifying a design reference image against 04AM's taxonomy — a faceted system across ${axisCount} axes (${axes.join(", ")}). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}\n\nSECOND TASK — ${attributionInstructions()}`,
         cache_control: { type: "ephemeral" },
       },
     ],
