@@ -35,27 +35,35 @@ function logCost(usage: {
 }
 
 /**
- * Whether a classifier failure is a fact about THIS CLIP rather than
- * about the account or the service.
+ * Whether a classifier failure is a fact about THIS CLIP'S IMAGE rather
+ * than about the account or the service.
  *
- * Anthropic returns 400 "Unable to download the file" when it cannot
- * fetch a clip's image_url — hotlink protection, a dead CDN, an expired
- * signed URL. That will be true on every retry, so the clip should be
- * parked and the batch should carry on.
+ * All of these are permanent properties of the URL — they will be true on
+ * every retry until the image_url itself changes — so the clip is parked
+ * and the batch carries on:
+ *
+ *   "Unable to download the file"            dead CDN, expired signed URL
+ *   "disallowed by the website's robots.txt" the host blocks the fetcher
+ *   "could not process image"                fetched, but unreadable
+ *   unsupported format / too large           the file itself
  *
  * Everything else — credit balance, authentication, rate limits, and
  * anything unrecognised — is deliberately NOT per-clip. Those abort the
  * batch and get surfaced, because the whole point of the probe is that a
  * broken account must never look like a slow one again. Unknown errors
  * fail loudly on purpose: parking clips on an error we do not understand
- * would quietly empty the queue.
+ * would quietly empty the queue, which is the worse bug.
  */
 export function isUnreadableImageError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   return (
     /unable to download the file/i.test(message) ||
+    /disallowed by the website's robots\.txt/i.test(message) ||
+    /robots\.txt/i.test(message) ||
     /could not process image/i.test(message) ||
-    /image (?:url )?(?:is )?(?:invalid|unsupported)/i.test(message)
+    /image (?:url )?(?:is )?(?:invalid|unsupported)/i.test(message) ||
+    /unsupported (?:image )?(?:format|media type)/i.test(message) ||
+    /image (?:exceeds|is too large)/i.test(message)
   );
 }
 

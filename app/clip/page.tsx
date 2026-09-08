@@ -161,8 +161,8 @@ export default async function ClipPage() {
         {parked.length > 0 && (
           <div className="mt-8">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              {parked.length} clip{parked.length === 1 ? "" : "s"} the
-              classifier can&rsquo;t read
+              {parked.length} clip{parked.length === 1 ? "" : "s"}{" "}
+              the classifier can&rsquo;t read
             </p>
             <p className="mb-3 max-w-md text-xs opacity-70">
               The image URL couldn&rsquo;t be fetched — usually hotlink

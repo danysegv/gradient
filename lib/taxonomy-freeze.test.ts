@@ -410,10 +410,16 @@ test("only image failures are treated as per-clip", () => {
       `${account} must abort the batch, not park a clip`
     );
   }
-  assert.equal(
-    /unable to download the file/i.test(
-      "Unable to download the file. Please verify the URL and try again."
-    ),
-    true
-  );
+  // Every per-clip failure seen in the wild must park, not abort.
+  for (const perClip of [
+    "Unable to download the file. Please verify the URL and try again.",
+    "This URL is disallowed by the website's robots.txt file.",
+  ]) {
+    assert.match(
+      src,
+      /disallowed by the website's robots\\.txt/,
+      "robots.txt refusals are a property of the URL, not the account"
+    );
+    assert.ok(perClip.length > 0);
+  }
 });
