@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   classifierSeesFrozenTags,
   NEW_VOCABULARY_OPENS,
@@ -330,4 +330,74 @@ test("clips_missing_axes is only ever called through the guard", () => {
 test("the widened-taxonomy write path filters to the requested axes", () => {
   const src = readFileSync("lib/claude/classify-clip.ts", "utf8");
   assert.match(src, /classifications\.filter\(\(c\) => wanted\.has\(c\.group\)\)/);
+});
+
+
+// ---------------------------------------------------------------------
+// taxonomy_catalog is the ONE read path that returns frozen tags.
+//
+// It exists to render /taxonomy as text. If it ever reaches a surface
+// that computes a share, a velocity, a drift or any denominator, it
+// silently readmits the 37 incubating tags into the figures the whole
+// freeze exists to protect — and it would do so without any test
+// elsewhere failing, because every number would still be internally
+// consistent. Just wrong.
+// ---------------------------------------------------------------------
+
+function walk(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = `${dir}/${e.name}`;
+    if (e.isDirectory()) out.push(...walk(full));
+    // Test files name these symbols in order to assert about them.
+    else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name))
+      out.push(full);
+  }
+  return out;
+}
+
+test("taxonomy_catalog is called from exactly one place", () => {
+  const callers = [...walk("app"), ...walk("lib")].filter((f) =>
+    readFileSync(f, "utf8").includes("taxonomy_catalog")
+  );
+  assert.deepEqual(
+    callers,
+    ["app/taxonomy/page.tsx"],
+    "taxonomy_catalog returns frozen tags — it may only feed the vocabulary page"
+  );
+});
+
+test("the vocabulary page computes no metric", () => {
+  const src = readFileSync("app/taxonomy/page.tsx", "utf8");
+  for (const forbidden of [
+    "lib/velocity",
+    "lib/curator-velocity",
+    "lib/confidence",
+    "velocityFromCounts",
+    "computeTagVelocity",
+    "getConfidence",
+    "tag_velocity_counts",
+    "curator_composition",
+  ]) {
+    assert.equal(
+      src.includes(forbidden),
+      false,
+      `/taxonomy must not touch ${forbidden} — it is the one page that sees frozen tags`
+    );
+  }
+});
+
+test("no published surface reads tags directly around the RPCs", () => {
+  // tag_velocity_counts and friends carry the published_at filter. A page
+  // that goes straight to .from("tags") to build a LIST would bypass it.
+  // app/trend/[name]/page.tsx does one single-row lookup by id, which
+  // cannot enumerate frozen tags; anything else is a new risk.
+  const offenders = walk("app")
+    .filter((f) => f !== "app/taxonomy/page.tsx")
+    .filter((f) => readFileSync(f, "utf8").includes('.from("tags")'));
+  assert.deepEqual(
+    offenders,
+    ["app/trend/[name]/page.tsx"],
+    "a new direct read of the tags table needs a published_at filter"
+  );
 });
