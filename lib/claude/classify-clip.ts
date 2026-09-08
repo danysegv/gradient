@@ -34,6 +34,31 @@ function logCost(usage: {
   );
 }
 
+/**
+ * Whether a classifier failure is a fact about THIS CLIP rather than
+ * about the account or the service.
+ *
+ * Anthropic returns 400 "Unable to download the file" when it cannot
+ * fetch a clip's image_url — hotlink protection, a dead CDN, an expired
+ * signed URL. That will be true on every retry, so the clip should be
+ * parked and the batch should carry on.
+ *
+ * Everything else — credit balance, authentication, rate limits, and
+ * anything unrecognised — is deliberately NOT per-clip. Those abort the
+ * batch and get surfaced, because the whole point of the probe is that a
+ * broken account must never look like a slow one again. Unknown errors
+ * fail loudly on purpose: parking clips on an error we do not understand
+ * would quietly empty the queue.
+ */
+export function isUnreadableImageError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    /unable to download the file/i.test(message) ||
+    /could not process image/i.test(message) ||
+    /image (?:url )?(?:is )?(?:invalid|unsupported)/i.test(message)
+  );
+}
+
 export type { Attribution };
 
 export type ClipReading = {

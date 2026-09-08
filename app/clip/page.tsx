@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getClipsMissingIncubatingTags } from "@/lib/clips/unclassified";
+import {
+  getClipsMissingIncubatingTags,
+  getParkedClips,
+} from "@/lib/clips/unclassified";
 import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
@@ -108,7 +111,7 @@ export default async function ClipPage() {
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
   // back that doesn't require SQL.
-  const [{ data: clips }, { data: archivedClips }, needsVocab] =
+  const [{ data: clips }, { data: archivedClips }, needsVocab, parked] =
     await Promise.all([
       supabaseAdmin
         .from("clips")
@@ -123,6 +126,7 @@ export default async function ClipPage() {
         .order("created_at", { ascending: false })
         .limit(RECENT_CLIP_LIMIT),
       getClipsMissingIncubatingTags(),
+      getParkedClips(),
     ]);
 
   const gridClips: ClipperClip[] = (clips ?? []).map(toGridClip);
@@ -153,6 +157,33 @@ export default async function ClipPage() {
         <div className="mt-8">
           <ReclassifyButton eligibleCount={needsVocab.length} />
         </div>
+
+        {parked.length > 0 && (
+          <div className="mt-8">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bone/70">
+              {parked.length} clip{parked.length === 1 ? "" : "s"} the
+              classifier can&rsquo;t read
+            </p>
+            <p className="mb-3 max-w-md text-xs opacity-70">
+              The image URL couldn&rsquo;t be fetched — usually hotlink
+              protection or a dead link. Fix the image URL and these rejoin the
+              queue automatically.
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {parked.map((c) => (
+                <li key={c.id} className="text-xs">
+                  <a
+                    href={`/clip/${c.id}`}
+                    className="underline underline-offset-4"
+                  >
+                    {c.title ?? "Untitled"}
+                  </a>
+                  <span className="opacity-60"> — {c.image_url}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="px-4 pb-24">

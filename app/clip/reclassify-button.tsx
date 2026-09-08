@@ -46,9 +46,16 @@ export function ReclassifyButton({
       )}
       {state?.startedCount !== undefined && (
         <p className="max-w-md text-sm text-green-700">
-          {state.startedCount === 0
+          {state.startedCount === 0 && state.parked === 0
             ? "Nothing left to apply."
-            : `First clip wrote ${state.firstTags} tag${state.firstTags === 1 ? "" : "s"} — the other ${state.startedCount - 1} are processing in the background. Refresh, then click again for the next batch.`}
+            : `First clip wrote ${state.firstTags} tag${state.firstTags === 1 ? "" : "s"} — the other ${Math.max(state.startedCount - 1, 0)} are processing in the background. Refresh, then click again for the next batch.`}
+        </p>
+      )}
+      {!!state?.parked && (
+        <p className="max-w-md text-sm opacity-70">
+          Parked {state.parked} clip{state.parked === 1 ? "" : "s"} whose image
+          could not be fetched. They are out of the queue so they stop blocking
+          the rest — listed below to fix.
         </p>
       )}
     </form>

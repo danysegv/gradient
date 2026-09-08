@@ -367,13 +367,12 @@ test("the reclassify button applies incubating tags only", () => {
   assert.match(src, /getClipsMissingIncubatingTags/);
 });
 
-test("the first clip is classified in the request, not the background", () => {
+test("the probe runs in the request, before anything is backgrounded", () => {
   // A background job that cannot report its own failure reported
   // "Started — 20 clips processing" for 25 minutes while the Anthropic
-  // API rejected every call and nothing was written. The probe is what
-  // puts the real error on screen.
+  // API rejected every call for want of credits.
   const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
-  const probeIndex = src.indexOf("const [probe, ...rest] = targets");
+  const probeIndex = src.indexOf("while (index < targets.length");
   const afterIndex = src.indexOf("after(async ()");
   assert.ok(probeIndex > 0, "the batch must classify a probe clip first");
   assert.ok(
@@ -381,4 +380,40 @@ test("the first clip is classified in the request, not the background", () => {
     "the probe must run before anything is handed to after()"
   );
   assert.match(src, /return \{ error: `Classifier failed on the first clip/);
+});
+
+test("a clip with an unfetchable image is parked, not fatal", () => {
+  // The opposite mistake to the silent one: a probe that aborts on ANY
+  // failure lets a single dead image URL block every clip behind it.
+  const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
+  assert.match(src, /if \(!isUnreadableImageError\(err\)\)/);
+  assert.match(src, /await parkClip\(/);
+  assert.match(src, /MAX_PROBE_ATTEMPTS/);
+});
+
+test("only image failures are treated as per-clip", () => {
+  const src = readFileSync("lib/claude/classify-clip.ts", "utf8");
+  assert.match(src, /export function isUnreadableImageError/);
+  // Parking on an error we do not understand would quietly drain the
+  // queue, so account-level failures must not match.
+  for (const account of [
+    "Your credit balance is too low to access the Anthropic API.",
+    "authentication_error: invalid x-api-key",
+    "rate_limit_error: too many requests",
+    "Overloaded",
+  ]) {
+    assert.equal(
+      /unable to download the file|could not process image|image (?:url )?(?:is )?(?:invalid|unsupported)/i.test(
+        account
+      ),
+      false,
+      `${account} must abort the batch, not park a clip`
+    );
+  }
+  assert.equal(
+    /unable to download the file/i.test(
+      "Unable to download the file. Please verify the URL and try again."
+    ),
+    true
+  );
 });

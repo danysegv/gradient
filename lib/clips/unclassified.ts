@@ -62,3 +62,53 @@ export async function getClipsMissingIncubatingTags(
   }
   return (data ?? []) as UnclassifiedClip[];
 }
+
+
+// ---------------------------------------------------------------------
+// Clips the classifier cannot read.
+// ---------------------------------------------------------------------
+
+export type ParkedClip = {
+  id: string;
+  url: string;
+  image_url: string;
+  title: string | null;
+  reason: string;
+  attempts: number;
+  last_failed_at: string;
+};
+
+/**
+ * Anthropic returns 400 "Unable to download the file" for a clip whose
+ * image_url it cannot fetch — hotlink protection, a dead CDN, an expired
+ * signed URL. That is a fact about the clip, not about the classifier,
+ * and it will be true on every retry.
+ *
+ * Parking the clip takes it out of the queue so it stops blocking the
+ * clips behind it and stops costing a request to rediscover. The row is
+ * the worklist: fix the URL, delete the row, and it comes back.
+ */
+export async function parkClip(
+  clipId: string,
+  reason: string
+): Promise<void> {
+  const { error } = await supabaseAdmin.rpc("park_clip", {
+    p_clip_id: clipId,
+    p_reason: reason.slice(0, 500),
+  });
+  if (error) {
+    // Never let bookkeeping break a batch — the worst case is that the
+    // clip is retried, which is what happened before this existed.
+    console.error(`[park] could not park ${clipId}: ${error.message}`);
+  }
+}
+
+export async function getParkedClips(limit?: number): Promise<ParkedClip[]> {
+  const { data, error } = await supabaseAdmin.rpc("parked_clips", {
+    row_limit: typeof limit === "number" ? limit : null,
+  });
+  if (error) {
+    throw new Error(`Could not load parked clips: ${error.message}`);
+  }
+  return (data ?? []) as ParkedClip[];
+}
