@@ -28,6 +28,7 @@ type RawTagRow = {
   recent_count: number | string;
   earliest_reference_at: string | null;
   latest_reference_at: string | null;
+  is_published: boolean;
 };
 
 // clip_tags is genuinely an array here (a clip has many clip_tags — a true
@@ -109,7 +110,20 @@ export default async function Home() {
       recent_count: Number(t.recent_count),
     }))
     .filter((t) => t.clip_count > 0);
-  const trendingTags = allTags.slice(0, TRENDING_TAG_LIMIT);
+
+  // THE LINE THE RADAR FREEZE IS DRAWN ON.
+  // Incubating tags are real tags — they filter, they appear on clips,
+  // they carry reference counts. They are simply not part of the
+  // published vocabulary the velocity figures are shares OF, so they are
+  // absent from both sides of every fraction below.
+  const publishedTags = allTags.filter((t) => t.is_published);
+
+  // Trending is the radar. Published only — an incubating tag has no
+  // velocity to be trending by, and after a backfill the new axes would
+  // otherwise crowd the rail with the largest counts and no numbers.
+  const trendingTags = publishedTags.slice(0, TRENDING_TAG_LIMIT);
+
+  // Navigation, not measurement: every tag with references is filterable.
   const tagsInPlay = allTags.length;
   const filterTags: FilterTag[] = allTags.map((t) => ({
     tag_id: t.tag_id,
@@ -117,13 +131,17 @@ export default async function Home() {
     editorial_name: t.editorial_name,
   }));
 
-  // Library-wide denominators are just the column sums — every tag's
-  // references, which is exactly what the formula's denominator means.
-  const baseTotalRefs = allTags.reduce((n, t) => n + t.clip_count, 0);
-  const recentTotalRefs = allTags.reduce((n, t) => n + t.recent_count, 0);
+  // Library-wide denominators are the column sums over the PUBLISHED
+  // vocabulary — which is exactly what the formula's denominator means
+  // once part of the taxonomy is incubating. Summing over allTags here
+  // would readmit every incubating application into the denominator and
+  // silently dilute every incumbent: the tags would not appear anywhere,
+  // and every number would still be internally consistent, and wrong.
+  const baseTotalRefs = publishedTags.reduce((n, t) => n + t.clip_count, 0);
+  const recentTotalRefs = publishedTags.reduce((n, t) => n + t.recent_count, 0);
 
   const velocities = new Map<string, number | null>(
-    allTags.map((t) => [
+    publishedTags.map((t) => [
       t.tag_id,
       velocityFromCounts({
         baseRefs: t.clip_count,
@@ -196,12 +214,6 @@ export default async function Home() {
             Genome
           </Link>
           <Link
-            href="/taxonomy"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Vocabulary
-          </Link>
-          <Link
             href="/clip"
             className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
           >
@@ -238,6 +250,7 @@ export default async function Home() {
               velocity: velocities.get(tag.tag_id) ?? null,
               panelSafeForGlobalVelocity: panelSafe,
               coolingSuspended: frozenAxes.has(tag.group),
+              isPublished: tag.is_published,
             });
             return (
               <Link

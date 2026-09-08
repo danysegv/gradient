@@ -38,6 +38,7 @@ type RawTagRow = {
   recent_count: number | string;
   earliest_reference_at: string | null;
   latest_reference_at: string | null;
+  is_published: boolean;
 };
 
 type BreakdownRow = {
@@ -127,15 +128,28 @@ export default async function TrendPage({
   );
   if (!tag) notFound();
 
-  const baseTotalRefs = allTags.reduce((n, t) => n + t.clip_count, 0);
-  const recentTotalRefs = allTags.reduce((n, t) => n + t.recent_count, 0);
+  // Denominators over the PUBLISHED vocabulary only — an incubating tag
+  // is not part of the total these shares are shares of. See
+  // lib/taxonomy-freeze.ts.
+  const publishedTags = allTags.filter((t) => t.is_published);
+  const baseTotalRefs = publishedTags.reduce((n, t) => n + t.clip_count, 0);
+  const recentTotalRefs = publishedTags.reduce(
+    (n, t) => n + t.recent_count,
+    0
+  );
 
-  const velocity = velocityFromCounts({
-    baseRefs: tag.clip_count,
-    recentRefs: tag.recent_count,
-    baseTotalRefs,
-    recentTotalRefs,
-  });
+  // Never computed for an incubating tag: it is absent from both
+  // denominators above, so the figure would be a share of a total the tag
+  // was not part of. getConfidence withholds it too — belt and braces,
+  // because this is the number the whole freeze exists to protect.
+  const velocity = tag.is_published
+    ? velocityFromCounts({
+        baseRefs: tag.clip_count,
+        recentRefs: tag.recent_count,
+        baseTotalRefs,
+        recentTotalRefs,
+      })
+    : null;
 
   // Empty until the 37 frozen tags land — no behaviour change today.
   const frozenAxes = await fetchFrozenAxes(supabasePublic);
@@ -147,6 +161,7 @@ export default async function TrendPage({
     velocity,
     now,
     coolingSuspended: frozenAxes.has(tag.group),
+    isPublished: tag.is_published,
     // The panel gate is not applied here yet — wiring it is coupled to the
     // homepage decision that is still with Luma. See the handoff.
   });
@@ -305,12 +320,6 @@ export default async function TrendPage({
             className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
           >
             Genome
-          </Link>
-          <Link
-            href="/taxonomy"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Vocabulary
           </Link>
           <Link
             href="/clip"

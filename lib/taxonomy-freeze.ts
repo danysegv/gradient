@@ -1,53 +1,44 @@
 // Deliberately NOT `import "server-only"`. This module holds no secrets
-// and does no I/O — one constant and one env read — and server-only makes
-// it unimportable from `node --test`, which is where the freeze is
-// verified. Its only consumer, lib/claude/classify-clip.ts, is
-// server-only itself.
+// and does no I/O beyond one RPC, and server-only makes it unimportable
+// from `node --test`, which is where the freeze is verified.
 
 /**
  * The incubation freeze. `tags.published_at` is the whole mechanism:
- * null = frozen, non-null = published.
+ * null = incubating, non-null = published.
  *
- * A frozen tag is invisible in two different places, with two different
- * lifetimes, and conflating them is the mistake this module exists to
- * prevent:
+ * ⚠ IT IS A FREEZE ON FIGURES, NOT ON THE TAXONOMY.
  *
- *   WRITE PATH — the classifier's taxonomy (`lib/claude/classify-clip.ts`).
- *     Frozen tags are hidden from the model so it cannot apply them.
- *     Lifts 2026-09-27, when the new vocabulary opens for clipping.
+ * Revised 2026-09-08. The original design hid incubating tags from every
+ * RPC, which also hid them from navigation, filters, tag rails and the
+ * clipper — far more than incubation needs, and not what it was for. An
+ * incubating tag is a normal tag: the classifier applies it, it appears
+ * on clips, it is filterable, and it shows its reference count.
  *
- *   READ PATH — every published metric (the eight RPCs).
- *     Frozen tags are excluded from the numerator AND the denominator, so
- *     a clip going to HardCrop instead of RawAsymmetry leaves both sides
- *     of the fraction and no incumbent is diluted.
- *     Lifts at graduation, ~2026-11-11 — seven weeks later.
+ * What it never gets is a NUMBER OF THE RADAR KIND — velocity, share,
+ * panel drift, co-occurrence. Those are all shares of a library-wide
+ * denominator, and an incubating tag is excluded from that denominator
+ * on both sides. Quoting one would be dividing by a total the tag was
+ * never part of.
  *
- * Lifting the write-path guard must not lift the read-path filter. That
- * is why this is a flag about the classifier and not a general
- * `isPublished()` helper shared by both.
+ * Where that split is enforced:
+ *   * tag_velocity_counts / curator_tag_counts return EVERY tag with an
+ *     `is_published` flag. The caller sums denominators over published
+ *     rows only, and getConfidence withholds velocity when
+ *     `isPublished` is false, labelling the tag "Incubating".
+ *   * curator_composition, tag_cooccurrence, tag_curator_breakdown,
+ *     library_clip_stats and curator_clip_stats stay published-only.
+ *     They produce figures and nothing else.
+ *   * The backfill writes ONLY incubating tags and never deletes, so no
+ *     published clip_tags row is created, changed or removed.
+ *
+ * Graduation sets `published_at` and the tag simply starts counting.
  */
-
-/** Documentation only. The date is deliberately not enforced in code. */
-export const NEW_VOCABULARY_OPENS = "2026-09-27";
 
 /**
- * Whether the classifier may see frozen tags.
- *
- * An env flag rather than a date comparison, on purpose. A date opens the
- * vocabulary by itself even if the 09-26 launch slips — a silent failure
- * in the expensive direction, since fourteen days of diverted
- * applications inside the launch window drop RawAsymmetry toward −16
- * points. This requires a person to set CLASSIFIER_INCLUDE_FROZEN_TAGS
- * in Vercel on 09-27; an absent, empty or misspelled value keeps the
- * freeze, which is the safe direction to fail in.
- *
- * Read at call time, not module load: `lib/clip-auth.ts` caches its env
- * at module level and that has already cost one debugging session.
+ * The date the incubating vocabulary was opened for classification.
+ * Documentation only — nothing enforces it in code any more.
  */
-export function classifierSeesFrozenTags(): boolean {
-  return process.env.CLASSIFIER_INCLUDE_FROZEN_TAGS === "true";
-}
-
+export const NEW_VOCABULARY_OPENED = "2026-09-08";
 
 /**
  * Which axes currently carry frozen tags.
@@ -80,38 +71,4 @@ export async function fetchFrozenAxes(
       .map((r) => r.group)
       .filter((g): g is string => typeof g === "string")
   );
-}
-
-
-/**
- * The only axes the widened-taxonomy reclassify path may ever be pointed
- * at.
- *
- * `medium` and `subject` are NEW axes: adding one to an existing clip
- * removes nothing, so no published share is rewritten. The five original
- * axes are single-select and already populated — re-running against a
- * widened `layout` leaves the clip holding two layout tags, which breaks
- * the invariant every co-occurrence and share figure is computed against
- * and silently restates published numbers.
- *
- * A hard allowlist, not a convention. Widening it is a decision about
- * published numbers, not a refactor. Lives here rather than next to the
- * query so it is pure and can be tested without standing up Supabase.
- */
-export const ADDITIVE_AXES = ["medium", "subject"] as const;
-export type AdditiveAxis = (typeof ADDITIVE_AXES)[number];
-
-/** Throws on any axis that is not additive. Returns nothing on success. */
-export function assertAdditiveAxes(axes: readonly string[]): void {
-  const illegal = axes.filter(
-    (a) => !(ADDITIVE_AXES as readonly string[]).includes(a)
-  );
-  if (illegal.length > 0) {
-    throw new Error(
-      `Refusing to reclassify against non-additive axes: ${illegal.join(", ")}. ` +
-        `Only ${ADDITIVE_AXES.join(", ")} may be backfilled — the others are ` +
-        `single-select, so backfilling them replaces the tag already there ` +
-        `and restates published numbers.`
-    );
-  }
 }

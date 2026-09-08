@@ -61,6 +61,7 @@ type RawTagRow = {
   recent_count: number | string;
   earliest_reference_at: string | null;
   latest_reference_at: string | null;
+  is_published: boolean;
 };
 
 type CuratorStatsRow = {
@@ -153,12 +154,18 @@ export default async function CuratorPage({
     .filter((t) => t.clip_count > 0);
 
   // Their own denominators — this page compares a person against
-  // themselves, so the totals are theirs, not the library's.
-  const theirBaseRefs = tagStats.reduce((n, t) => n + t.clip_count, 0);
-  const theirRecentRefs = tagStats.reduce((n, t) => n + t.recent_count, 0);
+  // themselves, so the totals are theirs, not the library's. Published
+  // only, for the same reason the homepage sums published rows: an
+  // incubating tag is not part of the vocabulary these shares are OF.
+  const theirPublished = tagStats.filter((t) => t.is_published);
+  const theirBaseRefs = theirPublished.reduce((n, t) => n + t.clip_count, 0);
+  const theirRecentRefs = theirPublished.reduce(
+    (n, t) => n + t.recent_count,
+    0
+  );
 
   const velocities = new Map<string, number | null>(
-    tagStats.map((t) => [
+    theirPublished.map((t) => [
       t.tag_id,
       velocityFromCounts({
         baseRefs: t.clip_count,
@@ -169,9 +176,11 @@ export default async function CuratorPage({
     ])
   );
 
+  // The Signature block compares shares against the library, so its
+  // denominator is published-only too.
   const libraryTags = ((libraryCountsRes.data ?? []) as unknown as RawTagRow[])
     .map((t) => ({ ...t, clip_count: Number(t.clip_count) }))
-    .filter((t) => t.clip_count > 0);
+    .filter((t) => t.clip_count > 0 && t.is_published);
   const libraryApplications = libraryTags.reduce((n, t) => n + t.clip_count, 0);
 
   // SIGNATURE — how this curator's attention is distributed compared with
@@ -260,12 +269,6 @@ export default async function CuratorPage({
             className="text-[13px] font-semibold uppercase tracking-wide text-bone"
           >
             Curators
-          </Link>
-          <Link
-            href="/taxonomy"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Vocabulary
           </Link>
           <Link
             href="/clip"
@@ -380,6 +383,7 @@ export default async function CuratorPage({
               latestReferenceAt: tag.latest_reference_at,
               velocity: velocities.get(tag.tag_id) ?? null,
               coolingSuspended: frozenAxes.has(tag.group),
+              isPublished: tag.is_published,
               // Deliberately absent: panelSafeForGlobalVelocity. The panel
               // gate exists to stop a GLOBAL number describing a change of
               // curators rather than a change of taste. A number scoped to

@@ -10,7 +10,6 @@ import {
   type Attribution,
 } from "./attribution-extract";
 import { fillEmptyAttribution } from "@/lib/clips/write-attribution";
-import { classifierSeesFrozenTags } from "@/lib/taxonomy-freeze";
 
 
 const CLASSIFIER_MODEL = "claude-opus-5";
@@ -45,9 +44,12 @@ export type ClipReading = {
 export type Classification = {
   tagId: string;
   tag: string;
-  /** The tag's axis. Carried so a caller can write only the axes it
-   * asked for — see classifyAndTagClipOnAxes. */
+  /** The tag's axis. */
   group: string;
+  /** Whether the tag is in the published vocabulary. Carried so the
+   * backfill can write ONLY incubating tags — see
+   * classifyAndTagClipIncubatingOnly. */
+  isPublished: boolean;
   confidence: number;
 };
 
@@ -55,28 +57,22 @@ export type Classification = {
 // The AI classifier skips `format_motion` entirely in v1 (locked scope
 // decision) — MotionLoop/StoryScroll are applied by hand at clip time.
 //
-// It also skips FROZEN tags (`tags.published_at is null`) until the new
-// vocabulary opens. This is the load-bearing half of the incubation
-// freeze: no human picks tags, so a read-path filter on the RPCs cannot
-// hold a freeze when the write path is a model reading the same table
-// directly. See lib/taxonomy-freeze.ts.
+// It sees the WHOLE vocabulary, incubating tags included. Reversed
+// 2026-09-08: the freeze is a freeze on published FIGURES, not on the
+// taxonomy. An incubating tag is applied to clips and shown in the
+// product from day one; what it never gets is a velocity, because it is
+// excluded from the library-wide denominator those figures are shares
+// of. That exclusion lives in the read path — see lib/taxonomy-freeze.ts.
 export async function classifyClip(input: {
   url: string;
   imageUrl: string;
   title: string | null;
   caption: string | null;
 }): Promise<ClipReading> {
-  const taxonomyQuery = supabaseAdmin
+  const { data: tags, error } = await supabaseAdmin
     .from("tags")
-    .select("id, group, editorial_name, universal_term, description")
+    .select("id, group, editorial_name, universal_term, description, published_at")
     .neq("group", "format_motion");
-
-  // Frozen tags are withheld from the model, so it cannot apply what it
-  // cannot see. `validNames` below is derived from this same result, so
-  // the zod enum rejects a frozen tag as a second, independent guard.
-  const { data: tags, error } = await (classifierSeesFrozenTags()
-    ? taxonomyQuery
-    : taxonomyQuery.not("published_at", "is", null));
 
   if (error || !tags || tags.length === 0) {
     throw new Error(`Could not load taxonomy: ${error?.message ?? "no tags"}`);
@@ -89,6 +85,9 @@ export async function classifyClip(input: {
   const idByName = new Map(tags.map((t) => [t.editorial_name, t.id]));
   const groupByName = new Map(
     tags.map((t) => [t.editorial_name, t.group as string])
+  );
+  const publishedByName = new Map(
+    tags.map((t) => [t.editorial_name, t.published_at !== null])
   );
 
   const ClassificationSchema = z.object({
@@ -185,6 +184,7 @@ export async function classifyClip(input: {
       tagId: idByName.get(c.tag)!,
       tag: c.tag,
       group: groupByName.get(c.tag)!,
+      isPublished: publishedByName.get(c.tag)!,
       confidence: Math.min(1, Math.max(0, c.confidence)),
     })),
     attribution,
@@ -237,40 +237,35 @@ export async function classifyAndTagClip(clip: {
 
 
 // ---------------------------------------------------------------------
-// Step 1.6 — reclassify against a WIDENED taxonomy.
+// The incubating-vocabulary backfill.
 //
-// getUnclassifiedClips only returns clips with zero tags, so the 115
-// already-classified clips would never receive `medium` or `subject`.
-// This is the other mode.
+// Reads a clip that is ALREADY classified against the old taxonomy and
+// writes only the tags it earns from the NEW vocabulary. Additive by
+// construction: it never deletes, and never writes a published tag.
 //
-// ⚠ THE HAZARD THIS FUNCTION EXISTS TO CONTAIN.
-// classifyAndTagClip writes EVERY tag the model returns and upserts on
-// (clip_id, tag_id). Running it again on an already-classified clip does
-// not replace that clip's layout tag — a different tag_id is a different
-// row, so the clip ends up carrying TWO layout tags. That breaks the
-// single-select invariant every co-occurrence and share figure in the
-// product is computed against, and it does it silently.
+// ⚠ WHY IT CANNOT JUST CALL classifyAndTagClip.
+// The five original axes are single-select. classifyAndTagClip writes
+// every tag the model returns and upserts on (clip_id, tag_id), so on an
+// already-tagged clip it does not REPLACE the layout tag — a different
+// tag_id is a different row, and the clip ends up carrying two published
+// layout tags. Every share and co-occurrence figure in the product is
+// computed against one-per-axis; breaking it silently corrupts all of
+// them.
 //
-// So this path writes ONLY the axes it was asked for and discards
-// everything else the model returned. The model still reads the whole
-// taxonomy — it should see the full vocabulary to judge an image — but
-// its answer is filtered before it reaches the database.
-//
-// Call it with additive axes only: `medium` and `subject` take nothing
-// away from a clip. Never with the five original axes.
-export async function classifyAndTagClipOnAxes(
-  clip: {
-    id: string;
-    url: string;
-    imageUrl: string;
-    title: string | null;
-    caption: string | null;
-  },
-  axes: readonly string[]
-): Promise<number> {
-  if (axes.length === 0) return 0;
-  const wanted = new Set(axes);
-
+// Filtering to incubating tags avoids that completely, and gives the
+// stronger guarantee the whole backfill rests on: **no published
+// clip_tags row is created, changed or deleted**, so no published number
+// can move. A clip may temporarily hold both RawAsymmetry (published)
+// and HardCrop (incubating) on the layout axis. That duplication is
+// deliberate and invisible — incubating tags are excluded from every
+// denominator — and graduation is where one of the two is chosen.
+export async function classifyAndTagClipIncubatingOnly(clip: {
+  id: string;
+  url: string;
+  imageUrl: string;
+  title: string | null;
+  caption: string | null;
+}): Promise<number> {
   const { classifications } = await classifyClip({
     url: clip.url,
     imageUrl: clip.imageUrl,
@@ -279,14 +274,13 @@ export async function classifyAndTagClipOnAxes(
   });
 
   // Attribution is deliberately NOT written here. This path revisits
-  // clips that were already read once; fillEmptyAttribution is the
-  // create-flow's job and re-running it is out of scope for a taxonomy
-  // backfill.
-  const kept = classifications.filter((c) => wanted.has(c.group));
-  if (kept.length === 0) return 0;
+  // clips that were already read once; fillEmptyAttribution belongs to
+  // the create flow and re-running it is out of scope for a backfill.
+  const incubating = classifications.filter((c) => !c.isPublished);
+  if (incubating.length === 0) return 0;
 
   const { error } = await supabaseAdmin.from("clip_tags").upsert(
-    kept.map((c) => ({
+    incubating.map((c) => ({
       clip_id: clip.id,
       tag_id: c.tagId,
       confidence: c.confidence,
@@ -300,5 +294,5 @@ export async function classifyAndTagClipOnAxes(
     );
   }
 
-  return kept.length;
+  return incubating.length;
 }

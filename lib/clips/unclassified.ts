@@ -1,10 +1,5 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import {
-  ADDITIVE_AXES,
-  assertAdditiveAxes,
-  type AdditiveAxis,
-} from "@/lib/taxonomy-freeze";
 
 export type UnclassifiedClip = {
   id: string;
@@ -18,8 +13,8 @@ export type UnclassifiedClip = {
 // carry zero clip_tags rows — never classified, or classification
 // previously failed. Re-run reclassifyUnclassifiedClips whenever
 // classification errors out; this does NOT catch clips that already have
-// stale tags from before a taxonomy change — that mode is
-// getClipsMissingAxes, below (added 2026-09-06, step 1.6).
+// tags from before a taxonomy change — that mode is
+// getClipsMissingIncubatingTags, below.
 //
 // 2026-08-28: the anti-join moved into Postgres (unclassified_clips RPC).
 // This used to fetch EVERY clip_tags row to build a Set of tagged ids and
@@ -45,37 +40,25 @@ export async function getUnclassifiedClips(
 
 
 // ---------------------------------------------------------------------
-// The widened-taxonomy mode.
+// The incubating-vocabulary backfill queue.
 //
-// Clips that ARE classified but carry nothing on one or more named axes.
-// After the expansion, the 115 already-classified clips are invisible to
-// getUnclassifiedClips, so without this they would never receive `medium`
-// or `subject`.
+// getUnclassifiedClips only returns clips with ZERO tags, so every
+// already-classified clip is invisible to it and would never receive the
+// new vocabulary. This is the other mode: clips that carry no incubating
+// tag yet, whether or not they are otherwise classified.
 // ---------------------------------------------------------------------
 
-export type ClipMissingAxes = UnclassifiedClip & {
-  /** Which of the requested axes this clip currently has nothing on. */
-  missing_axes: string[];
-};
-
-export { ADDITIVE_AXES, type AdditiveAxis };
-
-export async function getClipsMissingAxes(
-  axes: readonly AdditiveAxis[],
+export async function getClipsMissingIncubatingTags(
   limit?: number
-): Promise<ClipMissingAxes[]> {
-  // Runtime guard as well as the type: this is reachable from a server
-  // action, and the cost of getting it wrong is a silent restatement of
-  // published numbers rather than an error anyone would notice.
-  assertAdditiveAxes(axes);
-  if (axes.length === 0) return [];
-
-  const { data, error } = await supabaseAdmin.rpc("clips_missing_axes", {
-    p_axes: axes as unknown as string[],
-    row_limit: typeof limit === "number" ? limit : null,
-  });
+): Promise<UnclassifiedClip[]> {
+  const { data, error } = await supabaseAdmin.rpc(
+    "clips_missing_incubating_tags",
+    { row_limit: typeof limit === "number" ? limit : null }
+  );
   if (error) {
-    throw new Error(`Could not load clips missing axes: ${error.message}`);
+    throw new Error(
+      `Could not load clips missing incubating tags: ${error.message}`
+    );
   }
-  return (data ?? []) as ClipMissingAxes[];
+  return (data ?? []) as UnclassifiedClip[];
 }

@@ -41,6 +41,10 @@ export type ConfidenceState = {
    * the library just cannot say what the culture did, only what its
    * curators did. Per-curator reads are unaffected. */
   panelSkew: boolean;
+  /** True when this tag is incubating: applied to clips and visible in
+   * the product, but deliberately outside every published figure. Never
+   * carries a velocity. */
+  incubating: boolean;
   /** True when Cooling was suppressed because this tag's axis is
    * mid-expansion. The tag may genuinely have had no reference in 30
    * days; during incubation that is not evidence the look is dying. */
@@ -54,7 +58,7 @@ export type ConfidenceState = {
    * call; the mechanism is settled, the word is not. Per the identity
    * system it renders in Bone like every other small label — "Cooling" in
    * Slate is the one documented exception and this is not it. */
-  label: "Cooling" | "Early Signal" | "Panel Skew" | null;
+  label: "Incubating" | "Cooling" | "Early Signal" | "Panel Skew" | null;
 };
 
 export function getConfidence(input: {
@@ -97,6 +101,18 @@ export function getConfidence(input: {
    * stops carrying frozen tags and this goes false on its own.
    */
   coolingSuspended?: boolean;
+  /**
+   * Whether this tag is in the published vocabulary — pass the RPC's
+   * `is_published`. Defaults to true so every existing caller keeps its
+   * behaviour.
+   *
+   * An incubating tag is a normal tag everywhere except the numbers: it
+   * is applied to clips, filterable, and shown with its reference count.
+   * It never receives a velocity, because it is excluded from the
+   * library-wide denominator those figures are shares of — quoting one
+   * would be dividing by a total the tag was not part of.
+   */
+  isPublished?: boolean;
   /** Injectable for tests; defaults to the real current time. */
   now?: Date;
 }): ConfidenceState {
@@ -117,6 +133,7 @@ export function getConfidence(input: {
   const band: ConfidenceBand =
     countBand === "early-signal" ? "early-signal" : ageEligible ? countBand : "early-signal";
 
+  const incubating = !(input.isPublished ?? true);
   const coolingSuspended = input.coolingSuspended ?? false;
   const cooling =
     !coolingSuspended &&
@@ -129,24 +146,31 @@ export function getConfidence(input: {
   const panelSkew = !panelSafe && !cooling && band !== "early-signal";
 
   const velocity =
-    !cooling && !panelSkew && band !== "early-signal"
+    !incubating && !cooling && !panelSkew && band !== "early-signal"
       ? (input.velocity ?? null)
       : null;
 
   // Cooling takes precedence: a tag nobody has referenced in 30 days is
   // stale regardless of who was clipping in that window.
-  const label: ConfidenceState["label"] = cooling
-    ? "Cooling"
-    : band === "early-signal"
-      ? "Early Signal"
-      : panelSkew
-        ? "Panel Skew"
-        : null;
+  // Incubating outranks everything. A tag outside the denominator is not
+  // "early" and not "cooling" — those describe a tag being measured. This
+  // one is not being measured at all, and saying so is more useful than
+  // saying it is thin.
+  const label: ConfidenceState["label"] = incubating
+    ? "Incubating"
+    : cooling
+      ? "Cooling"
+      : band === "early-signal"
+        ? "Early Signal"
+        : panelSkew
+          ? "Panel Skew"
+          : null;
 
   return {
     band,
     referenceCount: input.referenceCount,
     cooling,
+    incubating,
     coolingSuspended,
     panelSkew,
     velocity,
