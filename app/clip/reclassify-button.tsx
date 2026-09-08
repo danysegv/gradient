@@ -15,7 +15,9 @@ export function ReclassifyButton({
 
   if (eligibleCount === 0 && !state) {
     return (
-      <p className="text-sm opacity-70">Nothing unclassified right now.</p>
+      <p className="text-sm opacity-70">
+        Every clip carries the new vocabulary.
+      </p>
     );
   }
 
@@ -29,19 +31,24 @@ export function ReclassifyButton({
         className="border rounded px-3 py-2 disabled:opacity-50"
       >
         {pending
-          ? "Starting…"
-          : `Reclassify ${batchSize} of ${eligibleCount} unclassified clip${eligibleCount === 1 ? "" : "s"}`}
+          ? "Classifying the first clip…"
+          : `Apply new vocabulary to ${batchSize} of ${eligibleCount} clip${eligibleCount === 1 ? "" : "s"}`}
       </button>
+      <p className="max-w-md text-xs opacity-70">
+        Adds only the incubating tags, to every clip missing them — including
+        the ones never classified at all. Nothing already on a clip is changed
+        or removed, so no published figure moves.
+      </p>
       {state?.error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="max-w-md text-sm text-red-600">
           {state.error}
         </p>
       )}
       {state?.startedCount !== undefined && (
-        <p className="text-sm text-green-700">
+        <p className="max-w-md text-sm text-green-700">
           {state.startedCount === 0
-            ? "Nothing to reclassify."
-            : `Started — ${state.startedCount} clip${state.startedCount === 1 ? "" : "s"} processing in the background. Refresh in a bit to see results.`}
+            ? "Nothing left to apply."
+            : `First clip wrote ${state.firstTags} tag${state.firstTags === 1 ? "" : "s"} — the other ${state.startedCount - 1} are processing in the background. Refresh, then click again for the next batch.`}
         </p>
       )}
     </form>

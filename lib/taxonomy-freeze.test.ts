@@ -335,3 +335,50 @@ test("the removed /taxonomy route is really gone", () => {
 test("the documented opening date is recorded", () => {
   assert.equal(NEW_VOCABULARY_OPENED, "2026-09-08");
 });
+
+
+// ---------------------------------------------------------------------
+// The board-moving classifier is reachable from exactly one place.
+//
+// classifyAndTagClip writes EVERY tag the model returns, published ones
+// included. On a brand-new clip that is correct — that is how a clip
+// enters the library. Wired to a button that reprocesses EXISTING clips
+// it would add published applications timestamped now, inside the
+// trailing window, and swamp a board whose whole range is ±2.5 points.
+// ---------------------------------------------------------------------
+
+const FULL_CLASSIFIER = /\bclassifyAndTagClip(?![A-Za-z])/;
+
+test("only the create flow calls the full classifier", () => {
+  const callers = walk("app").filter((f) =>
+    FULL_CLASSIFIER.test(readFileSync(f, "utf8"))
+  );
+  assert.deepEqual(
+    callers,
+    ["app/clip/actions.ts"],
+    "reprocessing an existing clip must use classifyAndTagClipIncubatingOnly"
+  );
+});
+
+test("the reclassify button applies incubating tags only", () => {
+  const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
+  assert.match(src, /classifyAndTagClipIncubatingOnly/);
+  assert.equal(FULL_CLASSIFIER.test(src), false);
+  assert.match(src, /getClipsMissingIncubatingTags/);
+});
+
+test("the first clip is classified in the request, not the background", () => {
+  // A background job that cannot report its own failure reported
+  // "Started — 20 clips processing" for 25 minutes while the Anthropic
+  // API rejected every call and nothing was written. The probe is what
+  // puts the real error on screen.
+  const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
+  const probeIndex = src.indexOf("const [probe, ...rest] = targets");
+  const afterIndex = src.indexOf("after(async ()");
+  assert.ok(probeIndex > 0, "the batch must classify a probe clip first");
+  assert.ok(
+    afterIndex > probeIndex,
+    "the probe must run before anything is handed to after()"
+  );
+  assert.match(src, /return \{ error: `Classifier failed on the first clip/);
+});
