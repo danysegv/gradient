@@ -146,3 +146,84 @@ export function computeVelocitiesForTags(
   }
   return result;
 }
+
+
+// =====================================================================
+// PHASE 04 — matched baseline and the per-axis regime reset.
+//
+// BUILT, NOT WIRED. Nothing calls these yet. The 09-26 board launches on
+// the locked metric above (verified safe: max age artifact 0.33 pts, no
+// reordering, no sign flips) and the switch happens in October, before
+// graduation. Both must be live by then or the November board opens with
+// 37 fake positives and 19 fake negatives.
+//
+// The two fixes are different artifacts with different causes:
+//
+//   DEBUT ARTIFACT (4.1). baseShare is a tag's share of ALL-TIME
+//   applications, but a tag younger than its axis was not there for most
+//   of that history. Its baseline is suppressed and it prints a fake
+//   positive. Measured on live data at the 09-26 window: LiquidGradients
+//   reads +0.90 and is actually −0.32 — a −1.22 shift, sign flipped.
+//   Fix: compute baseShare over the tag's OWN LIFETIME, both sides.
+//
+//   INCUMBENT ARTIFACT (4.2). Widening an axis takes share from the tags
+//   already on it. Five new layout tags drop RawAsymmetry from 53.6% to
+//   ~29% of its axis — about −24 pts, when every real signal is inside
+//   ±13. Matched baseline does NOT fix this: the share genuinely fell.
+//   Fix: when an axis's published tag set changes, every tag on it takes
+//   a baseline starting that day.
+//
+// They compose into ONE input, not two mechanisms:
+//
+//     baselineStart = max(tag's first reference, axis regime start)
+//
+// and the arithmetic is untouched — velocityFromCounts stays the single
+// definition everything reduces to. All that changes is which denominator
+// it is handed. That was the point of splitting it out on 08-28.
+// =====================================================================
+
+/**
+ * Where a tag's velocity baseline begins.
+ *
+ * `axisRegimeStart` is null until an axis is widened — graduation writes
+ * one row per widened axis into `axis_regimes`. Before that, a tag's
+ * baseline is simply its own first reference, which is 4.1 alone.
+ */
+export function baselineStart(
+  tagEarliestReferenceAt: Date | string | null,
+  axisRegimeStartedAt?: Date | string | null
+): Date | null {
+  if (tagEarliestReferenceAt === null) return null;
+  const tagStart = toTime(tagEarliestReferenceAt);
+  if (axisRegimeStartedAt === null || axisRegimeStartedAt === undefined) {
+    return new Date(tagStart);
+  }
+  return new Date(Math.max(tagStart, toTime(axisRegimeStartedAt)));
+}
+
+/**
+ * Velocity under a matched baseline.
+ *
+ * Deliberately a thin delegation rather than a second formula: the counts
+ * arrive already scoped to the baseline window by
+ * `tag_velocity_counts_matched`, and the subtraction that defines
+ * velocity still happens in exactly one place. If this file ever grows a
+ * second implementation of `recent − base`, that is the bug.
+ */
+export function matchedBaselineVelocity(input: {
+  /** The tag's references inside the trailing window. */
+  recentRefs: number;
+  /** Every published tag's references inside the trailing window. */
+  recentTotalRefs: number;
+  /** The tag's references since its baseline start. */
+  baseRefsSinceBaseline: number;
+  /** Every published reference since that same instant. */
+  baseTotalSinceBaseline: number;
+}): number | null {
+  return velocityFromCounts({
+    baseRefs: input.baseRefsSinceBaseline,
+    recentRefs: input.recentRefs,
+    baseTotalRefs: input.baseTotalSinceBaseline,
+    recentTotalRefs: input.recentTotalRefs,
+  });
+}
