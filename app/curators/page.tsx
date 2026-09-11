@@ -12,10 +12,7 @@ export const revalidate = 0;
 
 export const metadata = {
   title: "Curators — 04AM",
-  // Same pending decision as /curator/[name], /trend/[name] and
-  // /clip/[id]: this page is a roster of real people by name. It becomes
-  // indexable the moment curator identity is settled as public.
-  robots: { index: false, follow: false },
+  // Indexable: curator names were decided public on 2026-09-11.
 };
 
 // Thumbnails per curator on the roster. One query fetches the pool for

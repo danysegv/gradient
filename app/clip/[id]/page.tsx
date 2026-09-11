@@ -119,12 +119,9 @@ export async function generateMetadata({
   const name = row?.title || row?.source || "Clip";
   return {
     title: row ? `${name} — 04AM` : "Not found — 04AM",
-    // Noindex for the same reason /curator/[name] and /trend/[name] are:
-    // this page names the curator, and whether curator identity is public
-    // before the membership model ships is still an open decision (and per
-    // the 2026-08-25 note, partly Luma's). Flipping that decision makes all
-    // three indexable at once — it is one line in each file, not a rebuild.
-    robots: { index: false, follow: false },
+    // Indexable. Curator names were decided public on 2026-09-11, which
+    // lifted the noindex here, on /curator/[name], /trend/[name] and
+    // /curators together.
   };
 }
 

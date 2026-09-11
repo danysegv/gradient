@@ -96,9 +96,7 @@ export async function generateMetadata({
   // with the string the visitor mistyped.
   return {
     title: match ? `${match.editorial_name} — 04AM` : "Not found — 04AM",
-    // Coupled to the curator-privacy decision: this page names who is
-    // driving a tag. Drop the noindex once that is settled.
-    robots: { index: false, follow: false },
+    // Indexable since curator names were decided public (2026-09-11).
   };
 }
 

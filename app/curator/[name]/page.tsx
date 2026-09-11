@@ -30,10 +30,7 @@ export async function generateMetadata({
   // with the string the visitor mistyped.
   return {
     title: who ? `${who} — 04AM` : "Not found — 04AM",
-    // Curator pages are a real product surface but not one to hand to
-    // crawlers before the invite model is designed. Revisit alongside the
-    // curator-privacy decision (see claude/04am-new-chat-summary.md).
-    robots: { index: false, follow: false },
+    // Indexable: curator names were decided public on 2026-09-11.
   };
 }
 
