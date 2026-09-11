@@ -132,6 +132,22 @@ export async function createClip(
         title: inserted.title,
         caption: inserted.caption,
       });
+
+      // Search descriptors. Separate from tagging and allowed to fail on
+      // its own: a clip that can't be described is still tagged, and the
+      // describe queue on /clip picks it up later.
+      try {
+        const { describeAndStoreClip } = await import("@/lib/claude/describe-clip");
+        await describeAndStoreClip({
+          id: inserted.id,
+          url: inserted.url,
+          imageUrl: effectiveImageUrl,
+          title: inserted.title,
+          caption: inserted.caption,
+        });
+      } catch (err) {
+        console.error(`Describing clip ${inserted.id} for search failed:`, err);
+      }
     } catch (err) {
       console.error(`Clip enrichment failed for clip ${inserted.id}:`, err);
     }

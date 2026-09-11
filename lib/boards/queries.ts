@@ -87,28 +87,30 @@ export async function listBoards(
   const { data, error } = await query;
   if (error) throw new Error(`listBoards(${owner}): ${error.message}`);
 
-  return ((data ?? []) as unknown as RawSummary[]).map((b) => {
-    // An archived clip leaves the board's count and covers, as it leaves
-    // every other surface. The row stays, so restoring the clip restores it.
-    const live = (b.board_clips ?? [])
-      .filter((bc) => bc.clips && !bc.clips.archived_at)
-      .sort((x, y) => y.added_at.localeCompare(x.added_at));
-    return {
-      id: b.id,
-      slug: b.slug,
-      title: b.title,
-      description: b.description,
-      is_public: b.is_public,
-      updated_at: b.updated_at,
-      clip_count: live.length,
-      covers: live.slice(0, COVER_COUNT).map((bc) => ({
-        id: bc.clips!.id,
-        image_url: bc.clips!.image_url,
-        title: bc.clips!.title,
-        source: bc.clips!.source,
-      })),
-    };
-  });
+  return ((data ?? []) as unknown as RawSummary[]).map(summariseRaw);
+}
+
+function summariseRaw(b: RawSummary): BoardSummary {
+  // An archived clip leaves the board's count and covers, as it leaves
+  // every other surface. The row stays, so restoring the clip restores it.
+  const live = (b.board_clips ?? [])
+    .filter((bc) => bc.clips && !bc.clips.archived_at)
+    .sort((x, y) => y.added_at.localeCompare(x.added_at));
+  return {
+    id: b.id,
+    slug: b.slug,
+    title: b.title,
+    description: b.description,
+    is_public: b.is_public,
+    updated_at: b.updated_at,
+    clip_count: live.length,
+    covers: live.slice(0, COVER_COUNT).map((bc) => ({
+      id: bc.clips!.id,
+      image_url: bc.clips!.image_url,
+      title: bc.clips!.title,
+      source: bc.clips!.source,
+    })),
+  };
 }
 
 type RawBoardClip = {
@@ -280,4 +282,43 @@ export async function getLibraryPresence(minConfidence: number) {
       clips: Number(r.clips),
     })),
   };
+}
+
+export type BoardHit = BoardSummary & { owner_name: string };
+
+/**
+ * Boards whose title or description match. Visitors get public boards;
+ * a signed-in curator also gets their own private ones. scopeOwner keeps
+ * results to one profile.
+ */
+export async function searchBoards(
+  q: string,
+  opts: { viewer: string | null; scopeOwner?: string }
+): Promise<BoardHit[]> {
+  if (!q) return [];
+  const client = await clientFor(opts.viewer !== null);
+  const { data, error } = await client.rpc("search_boards", {
+    q,
+    viewer_name: opts.viewer,
+    scope_owner: opts.scopeOwner ?? null,
+  });
+  if (error) throw new Error(`search_boards: ${error.message}`);
+  const ids = ((data ?? []) as { board_id: string }[]).map((r) => r.board_id);
+  if (ids.length === 0) return [];
+
+  // Ids came from a query already limited to public boards plus the
+  // viewer's own, so reading their covers with the same client is safe.
+  const { data: rows, error: rowsError } = await client
+    .from("boards")
+    .select(
+      `id, owner_name, slug, title, description, is_public, updated_at,
+       board_clips ( added_at, clips ( id, image_url, title, source, archived_at ) )`
+    )
+    .in("id", ids);
+  if (rowsError) throw new Error(`searchBoards: ${rowsError.message}`);
+
+  const position = new Map(ids.map((id, i) => [id, i]));
+  return ((rows ?? []) as unknown as (RawSummary & { owner_name: string })[])
+    .sort((a, b) => position.get(a.id)! - position.get(b.id)!)
+    .map((b) => ({ ...summariseRaw(b), owner_name: b.owner_name }));
 }

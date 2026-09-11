@@ -7,11 +7,15 @@ import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
 import { Wordmark } from "@/components/wordmark";
-import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
+import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { BoardCard } from "@/components/boards/board-card";
 import { NewBoard } from "@/components/boards/new-board";
 import { getSessionCurator } from "@/lib/clip-session";
-import { boardHref, listBoards } from "@/lib/boards/queries";
+import { boardHref, listBoards, searchBoards } from "@/lib/boards/queries";
+import { SearchBar } from "@/components/search-bar";
+import { SearchSummary } from "@/components/search-summary";
+import { normaliseQuery } from "@/lib/search/query";
+import { fetchGridClips, searchClipIds } from "@/lib/search/results";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -102,10 +106,13 @@ type ClipRow = {
 
 export default async function CuratorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ name: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const { name } = await params;
+  const q = normaliseQuery((await searchParams).q);
   const requested = decodeURIComponent(name);
 
   // Resolve the URL segment to a canonical stored name. The match is
@@ -141,7 +148,19 @@ export default async function CuratorPage({
   }
   const isOwner = viewer === curator;
 
-  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes, boards] =
+  // Searching this profile: their clips and their boards only.
+  const searchPromise = q
+    ? Promise.all([
+        searchClipIds(q),
+        searchBoards(q, { viewer, scopeOwner: curator }),
+      ]).then(async ([clipSearch, boardHits]) => ({
+        clips: await fetchGridClips(clipSearch.ids, { curator }),
+        exact: clipSearch.exact,
+        boards: boardHits,
+      }))
+    : Promise.resolve(null);
+
+  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes, boards, search] =
     await Promise.all([
     // The only row-level query on this page, and deliberately capped —
     // CLIP_LIMIT is display pagination, not an accident.
@@ -172,6 +191,7 @@ export default async function CuratorPage({
     fetchFrozenAxes(supabasePublic),
     // Private boards are read only when the signed-in curator is this one.
     listBoards(curator, isOwner),
+    searchPromise,
   ]);
 
   const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
@@ -263,11 +283,6 @@ export default async function CuratorPage({
         confidence: ct.confidence ?? 0,
       })),
   }));
-  const filterTags: FilterTag[] = tagStats.map((t) => ({
-    tag_id: t.tag_id,
-    group: t.group,
-    editorial_name: t.editorial_name,
-  }));
 
   const share =
     libraryApplications === 0
@@ -348,7 +363,36 @@ export default async function CuratorPage({
           ))}
         </dl>
 
-        {(isOwner || boards.length > 0) && (
+        <div className="mb-10">
+          <SearchBar
+            initialQuery={q}
+            placeholder={`Search ${curator}’s clips and boards`}
+          />
+          {search && (
+            <SearchSummary
+              q={q}
+              clipCount={search.clips.length}
+              boardCount={search.boards.length}
+              exact={search.exact}
+              scope={`from ${curator}`}
+            />
+          )}
+        </div>
+
+        {search && search.boards.length > 0 && (
+          <section className="mb-12">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bone/70">
+              Boards
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
+              {search.boards.map((b) => (
+                <BoardCard key={b.id} href={boardHref(curator, b.slug)} board={b} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!search && (isOwner || boards.length > 0) && (
           <section className="mb-12">
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
@@ -474,14 +518,14 @@ export default async function CuratorPage({
         </div>
       </div>
 
-      {gridClips.length > 0 && (
+      {(search ? search.clips.length > 0 : gridClips.length > 0) && (
         <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
           <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-            Clipped by {curator}
+            {search ? "Clips" : `Clipped by ${curator}`}
           </p>
         </div>
       )}
-      <HomeGrid clips={gridClips} filterTags={filterTags} />
+      <HomeGrid clips={search ? search.clips : gridClips} emptyText={null} />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">

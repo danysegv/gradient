@@ -112,3 +112,20 @@ export async function getParkedClips(limit?: number): Promise<ParkedClip[]> {
   }
   return (data ?? []) as ParkedClip[];
 }
+
+// ---------------------------------------------------------------------
+// The describe queue (search). Active clips with an image that aren't
+// parked and have no search description yet. Newest first.
+// ---------------------------------------------------------------------
+
+export async function getClipsMissingDescriptions(
+  limit?: number
+): Promise<UnclassifiedClip[]> {
+  const { data, error } = await supabaseAdmin.rpc("clips_missing_descriptions", {
+    row_limit: typeof limit === "number" ? limit : null,
+  });
+  if (error) {
+    throw new Error(`Could not load clips missing descriptions: ${error.message}`);
+  }
+  return (data ?? []) as UnclassifiedClip[];
+}

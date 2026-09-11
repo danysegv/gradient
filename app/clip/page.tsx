@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
+  getClipsMissingDescriptions,
   getClipsMissingIncubatingTags,
   getParkedClips,
 } from "@/lib/clips/unclassified";
@@ -9,6 +10,7 @@ import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
 import { ReclassifyButton } from "./reclassify-button";
+import { DescribeButton } from "./describe-button";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 
 // Reclassification can process several clips sequentially in the
@@ -116,7 +118,7 @@ export default async function ClipPage() {
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
   // back that doesn't require SQL.
-  const [{ data: clips }, { data: archivedClips }, needsVocab, parked] =
+  const [{ data: clips }, { data: archivedClips }, needsVocab, parked, needsDescription] =
     await Promise.all([
       supabaseAdmin
         .from("clips")
@@ -132,6 +134,7 @@ export default async function ClipPage() {
         .limit(RECENT_CLIP_LIMIT),
       getClipsMissingIncubatingTags(),
       getParkedClips(),
+      getClipsMissingDescriptions(),
     ]);
 
   const gridClips: ClipperClip[] = (clips ?? []).map(toGridClip);
@@ -161,6 +164,9 @@ export default async function ClipPage() {
         <ClipForm />
         <div className="mt-8">
           <ReclassifyButton eligibleCount={needsVocab.length} />
+        </div>
+        <div className="mt-6">
+          <DescribeButton eligibleCount={needsDescription.length} />
         </div>
 
         {parked.length > 0 && (

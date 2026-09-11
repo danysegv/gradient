@@ -4,7 +4,16 @@ import type { BoardSummary } from "@/lib/boards/queries";
 // A board on a profile: a 2×2 stack of its latest clips, then its name.
 // The one place clips are cropped square — a cover is a glimpse of a
 // collection, not the work itself, which the board page shows uncropped.
-export function BoardCard({ href, board }: { href: string; board: BoardSummary }) {
+export function BoardCard({
+  href,
+  board,
+  owner,
+}: {
+  href: string;
+  board: BoardSummary;
+  /** Shown in search results, where boards come from many profiles. */
+  owner?: string;
+}) {
   const cells = Array.from({ length: 4 }, (_, i) => board.covers[i] ?? null);
   return (
     <Link
@@ -37,6 +46,7 @@ export function BoardCard({ href, board }: { href: string; board: BoardSummary }
             <span className="font-normal tabular-nums">{board.clip_count}</span>{" "}
             {board.clip_count === 1 ? "clip" : "clips"}
           </span>
+          {owner && <span className="truncate">{owner}</span>}
           {!board.is_public && (
             <span className="rounded-[2px] border border-white/20 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-bone/75">
               Private

@@ -12,7 +12,7 @@ import { confidenceNoteText } from "@/lib/confidence-display";
 import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { Wordmark } from "@/components/wordmark";
-import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
+import { HomeGrid, type GridClip } from "@/components/home-grid";
 
 export const revalidate = 0;
 
@@ -229,23 +229,6 @@ export default async function TrendPage({
       })),
   }));
 
-  // Co-occurring tags, for the grid's own filter rail — what else shows up
-  // on the same references is the interesting question on this page.
-  const coTags = new Map<string, FilterTag>();
-  for (const c of clips) {
-    for (const ct of c.clip_tags ?? []) {
-      if (!ct.tags) continue;
-      // Skip the tag this page is about: every reference carries it, so
-      // it is a filter that filters nothing.
-      if (ct.tags.editorial_name === tag.editorial_name) continue;
-      coTags.set(ct.tags.editorial_name, {
-        tag_id: ct.tags.editorial_name,
-        group: ct.tags.group,
-        editorial_name: ct.tags.editorial_name,
-      });
-    }
-  }
-
   // --- the confidence gates, each with its own verdict ------------------
   const ageDays = tag.earliest_reference_at
     ? daysBetween(tag.earliest_reference_at, now)
@@ -447,7 +430,7 @@ export default async function TrendPage({
         </p>
       </div>
 
-      <HomeGrid clips={gridClips} filterTags={[...coTags.values()]} />
+      <HomeGrid clips={gridClips} />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">

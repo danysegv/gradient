@@ -6,7 +6,14 @@ import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { Wordmark } from "@/components/wordmark";
-import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
+import { HomeGrid, type GridClip } from "@/components/home-grid";
+import { SearchBar } from "@/components/search-bar";
+import { SearchSummary } from "@/components/search-summary";
+import { BoardCard } from "@/components/boards/board-card";
+import { getSessionCurator } from "@/lib/clip-session";
+import { boardHref, searchBoards, type BoardHit } from "@/lib/boards/queries";
+import { normaliseQuery } from "@/lib/search/query";
+import { fetchGridClips, searchClipIds } from "@/lib/search/results";
 
 // Always fetch fresh — this is a live feed, not a static marketing page.
 export const revalidate = 0;
@@ -60,8 +67,28 @@ type StatsRow = {
   classified_clips: number | string;
 };
 
-export default async function Home() {
-  const [tagCountsRes, clipsRes, statsRes, panelRes, frozenAxes] =
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const q = normaliseQuery((await searchParams).q);
+
+  // Searching: clips ranked by tags, Claude's reading of each image, title
+  // and credits; boards by title and description. A signed-in curator also
+  // finds their own private boards.
+  const viewer = q ? await getSessionCurator() : null;
+  const searchPromise = q
+    ? Promise.all([searchClipIds(q), searchBoards(q, { viewer })]).then(
+        async ([clipSearch, boards]) => ({
+          clips: await fetchGridClips(clipSearch.ids),
+          exact: clipSearch.exact,
+          boards,
+        })
+      )
+    : Promise.resolve(null);
+
+  const [tagCountsRes, clipsRes, statsRes, panelRes, frozenAxes, search] =
     await Promise.all([
     // Per-tag counts, all-time and in the trailing window, aggregated in
     // Postgres. This replaced two unbounded full-table fetches on
@@ -101,6 +128,7 @@ export default async function Home() {
     // Which axes are mid-expansion. Empty until the 37 frozen tags land,
     // so this changes nothing today. See lib/taxonomy-freeze.ts.
     fetchFrozenAxes(supabasePublic),
+    searchPromise,
   ]);
 
   // The RPC returns every tag, including seeded ones with no references
@@ -127,13 +155,8 @@ export default async function Home() {
   // otherwise crowd the rail with the largest counts and no numbers.
   const trendingTags = publishedTags.slice(0, TRENDING_TAG_LIMIT);
 
-  // Navigation, not measurement: every tag with references is filterable.
+  // Navigation, not measurement: every tag with references is searchable.
   const tagsInPlay = allTags.length;
-  const filterTags: FilterTag[] = allTags.map((t) => ({
-    tag_id: t.tag_id,
-    group: t.group,
-    editorial_name: t.editorial_name,
-  }));
 
   // Library-wide denominators are the column sums over the PUBLISHED
   // vocabulary — which is exactly what the formula's denominator means
@@ -286,7 +309,31 @@ export default async function Home() {
         </div>
       </div>
 
-      <HomeGrid clips={gridClips} filterTags={filterTags} />
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
+        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
+          The library
+        </p>
+        <SearchBar
+          initialQuery={q}
+          placeholder="Search looks, subjects, techniques, boards"
+        />
+        {search ? (
+          <SearchSummary
+            q={q}
+            clipCount={search.clips.length}
+            boardCount={search.boards.length}
+            exact={search.exact}
+            scope="in the library"
+          />
+        ) : null}
+        <div className="mb-8" />
+        {search && search.boards.length > 0 && <BoardResults boards={search.boards} />}
+      </div>
+
+      <HomeGrid
+        clips={search ? search.clips : gridClips}
+        emptyText={search ? null : "No clips yet."}
+      />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">
@@ -300,5 +347,25 @@ export default async function Home() {
         </footer>
       </div>
     </>
+  );
+}
+
+function BoardResults({ boards }: { boards: BoardHit[] }) {
+  return (
+    <section className="mb-10">
+      <p className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-bone/70">
+        Boards
+      </p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-6">
+        {boards.map((b) => (
+          <BoardCard
+            key={b.id}
+            href={boardHref(b.owner_name, b.slug)}
+            board={b}
+            owner={b.owner_name}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Wordmark } from "@/components/wordmark";
-import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
+import { HomeGrid, type GridClip } from "@/components/home-grid";
+import { SearchBar } from "@/components/search-bar";
+import { SearchSummary } from "@/components/search-summary";
+import { normaliseQuery } from "@/lib/search/query";
+import { searchClipIds } from "@/lib/search/results";
 import { BoardOwnerControls } from "@/components/boards/board-owner-controls";
 import { BoardRadar } from "@/components/boards/board-radar";
 import { computeBoardRadar, PRESENCE_CONFIDENCE } from "@/lib/boards/radar";
@@ -45,9 +49,12 @@ export async function generateMetadata({
 
 export default async function BoardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ name: string; slug: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
+  const q = normaliseQuery((await searchParams).q);
   const found = await resolve(params);
   // A private board 404s for everyone but its owner — the same response as
   // a board that doesn't exist, so a URL can't confirm a private board is there.
@@ -66,21 +73,18 @@ export default async function BoardPage({
     })),
   }));
 
-  const seen = new Map<string, FilterTag>();
-  for (const c of board.clips) {
-    for (const t of c.tags) {
-      if (!seen.has(t.editorial_name)) {
-        seen.set(t.editorial_name, {
-          tag_id: t.editorial_name,
-          group: t.group,
-          editorial_name: t.editorial_name,
+  // Searching this board: the library-wide ranking, kept to this board's
+  // clips and in rank order. The radar above still reads the whole board.
+  const clipSearch = q && board.clips.length > 0 ? await searchClipIds(q) : null;
+  const shownClips = clipSearch
+    ? (() => {
+        const byId = new Map(gridClips.map((c) => [c.id, c]));
+        return clipSearch.ids.flatMap((id) => {
+          const c = byId.get(id);
+          return c ? [c] : [];
         });
-      }
-    }
-  }
-  const filterTags = [...seen.values()].sort((a, b) =>
-    a.editorial_name.localeCompare(b.editorial_name)
-  );
+      })()
+    : gridClips;
 
   // The board radar: this board's make-up against the library's. Its own
   // reading, computed here, sharing nothing with the Signals radar.
@@ -208,11 +212,21 @@ export default async function BoardPage({
           </p>
         </div>
       ) : (
-        <HomeGrid
-          clips={gridClips}
-          filterTags={filterTags}
-          searchLabel="Search this board"
-        />
+        <>
+          <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-8">
+            <SearchBar initialQuery={q} placeholder="Search this board" />
+            {clipSearch && (
+              <SearchSummary
+                q={q}
+                clipCount={shownClips.length}
+                boardCount={null}
+                exact={clipSearch.exact}
+                scope="on this board"
+              />
+            )}
+          </div>
+          <HomeGrid clips={shownClips} emptyText={null} />
+        </>
       )}
     </>
   );
