@@ -20,6 +20,7 @@ import {
   computeVelocitiesForCurator,
   MAX_PANEL_DRIFT,
   type CuratorRow,
+  type CuratorIdentities,
 } from "../lib/curator-velocity.ts";
 
 const atArg = process.argv.indexOf("--at");
@@ -36,6 +37,41 @@ if (!url || !key) {
   process.exit(1);
 }
 const db = createClient(url, key);
+
+// curator_identities is deliberately unreadable by anon — it is the one
+// table that would link a pen name to a person. The public read path above
+// therefore cannot see it, so the mapping is fetched with the service role
+// if it is present.
+//
+// If it is NOT present this script reports a NAME-level panel, which counts
+// one person with two identities as two curators and so understates drift
+// and overstates plurality. That is the confound this whole module exists
+// to remove, so it is announced loudly rather than assumed away.
+async function loadIdentities(): Promise<{
+  identities: CuratorIdentities;
+  trusted: boolean;
+}> {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return { identities: new Map(), trusted: false };
+
+  const admin = createClient(url!, serviceKey);
+  const { data, error } = await admin
+    .from("curator_identities")
+    .select("name, person");
+  if (error || !data) return { identities: new Map(), trusted: false };
+
+  return {
+    identities: new Map(
+      (data as { name: string; person: string }[]).map((r) => [
+        r.name,
+        r.person,
+      ])
+    ),
+    trusted: true,
+  };
+}
+
+const { identities, trusted: identitiesTrusted } = await loadIdentities();
 
 // Page explicitly — PostgREST caps at 1000 rows by default and this table
 // grows forever. Matches tag_clip_counts' archived-clip exclusion.
@@ -76,15 +112,19 @@ const rows: CuratorRow[] = clips.flatMap((c) =>
   }))
 );
 
-const panel = computePanelComposition(rows, NOW);
+const panel = computePanelComposition(rows, identities, NOW);
 const pooled = computeVelocitiesForTags(
   rows.map((r) => ({ tagId: r.tagId, createdAt: r.createdAt })),
   NOW
 );
-const balanced = computeBalancedVelocities(rows, NOW);
-const curators = [...panel.baseShares.keys()].sort();
+const balanced = computeBalancedVelocities(rows, identities, NOW);
+// Keyed by person. computeVelocitiesForCurator still reads one IDENTITY's
+// own history, which is the right unit for a per-profile page; here it is
+// called per person, so a person holding two names is read under whichever
+// name they clip as. Fine while nobody does; revisit if that changes.
+const people = [...panel.baseShares.keys()].sort();
 const perCurator = new Map(
-  curators.map((c) => [c, computeVelocitiesForCurator(rows, c, NOW)])
+  people.map((c) => [c, computeVelocitiesForCurator(rows, c, NOW)])
 );
 
 const pct = (v: number) => (v * 100).toFixed(1) + "%";
@@ -97,8 +137,19 @@ console.log("\n04AM PANEL REPORT   as of " + NOW.toISOString());
 console.log("=".repeat(64));
 console.log("clips (active)      " + clips.length);
 console.log("tag-applications    " + panel.baseTotal + " all-time, " + panel.recentTotal + " in trailing 30d");
-console.log("curators            " + panel.curatorCount);
-for (const c of curators) {
+console.log("people              " + panel.personCount);
+if (!identitiesTrusted) {
+  console.log(
+    "  !! curator_identities unreadable — this is a NAME-level panel."
+  );
+  console.log(
+    "     Drift is understated if any person holds two identities."
+  );
+  console.log(
+    "     Re-run with SUPABASE_SERVICE_ROLE_KEY in the env file."
+  );
+}
+for (const c of people) {
   console.log(
     "  " + c.padEnd(16) +
     "base " + pct(panel.baseShares.get(c) ?? 0).padStart(6) +
@@ -117,7 +168,7 @@ console.log("=".repeat(64));
 
 const header =
   "tag".padEnd(18) + "pooled".padStart(8) + "balanced".padStart(10) +
-  curators.map((c) => c.slice(0, 8).padStart(10)).join("");
+  people.map((c) => c.slice(0, 8).padStart(10)).join("");
 console.log("\n" + header);
 console.log("-".repeat(header.length));
 
@@ -135,7 +186,7 @@ let flips = 0;
       (tagName.get(tagId) ?? tagId).padEnd(18) +
         pts(p).padStart(8) +
         pts(b).padStart(10) +
-        curators.map((c) => pts(perCurator.get(c)!.get(tagId)).padStart(10)).join("") +
+        people.map((c) => pts(perCurator.get(c)!.get(tagId)).padStart(10)).join("") +
         (flip ? "   <- SIGN FLIP" : "")
     );
   });

@@ -5,11 +5,18 @@ import {
   computePanelComposition,
   computeBalancedVelocities,
   MAX_PANEL_DRIFT,
+  MIN_CURATOR_BASE_VOLUME,
+  MIN_CURATOR_RECENT_VOLUME,
   type CuratorRow,
+  type CuratorIdentities,
 } from "./curator-velocity.ts";
 import { computeVelocitiesForTags } from "./velocity.ts";
 
 const NOW = new Date("2026-09-24T00:00:00.000Z");
+
+// No identity holds a second name. Every existing test predates the person
+// layer and asserts name-level behaviour, which is what this means.
+const SOLO: CuratorIdentities = new Map();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function daysAgo(n: number): Date {
@@ -40,9 +47,10 @@ const OLD = 60; // outside it
 test("drift is zero for a one-person panel, however lopsided the window", () => {
   const panel = computePanelComposition(
     [...rows("dany", "a", 100, OLD), ...rows("dany", "b", 100, RECENT)],
+    SOLO,
     NOW
   );
-  assert.equal(panel.curatorCount, 1);
+  assert.equal(panel.personCount, 1);
   assert.equal(panel.drift, 0);
   assert.equal(panel.maxRecentShare, 1);
   // One curator cannot change the panel's composition. The gate must not
@@ -58,9 +66,10 @@ test("drift is zero when a dominant curator is dominant consistently", () => {
       ...rows("dany", "a", 70, RECENT),
       ...rows("luma", "a", 30, RECENT),
     ],
+    SOLO,
     NOW
   );
-  assert.equal(panel.curatorCount, 2);
+  assert.equal(panel.personCount, 2);
   assert.ok(panel.drift < 1e-9, "stable mix should not read as drift");
   assert.equal(panel.safeForGlobalVelocity, true);
 });
@@ -75,12 +84,13 @@ test("a newcomer surge drives drift up and closes the gate", () => {
       ...rows("dany", "a", 40, RECENT),
       ...rows("luma", "a", 80, RECENT),
     ],
+    SOLO,
     NOW
   );
-  assert.equal(panel.curatorCount, 2);
+  assert.equal(panel.personCount, 2);
   assert.ok(panel.drift > MAX_PANEL_DRIFT, "expected drift above the gate");
   assert.equal(panel.safeForGlobalVelocity, false);
-  assert.equal(panel.dominantCurator, "luma");
+  assert.equal(panel.dominantPerson, "luma");
   assert.ok(Math.abs(panel.maxRecentShare - 80 / 120) < 1e-9);
 });
 
@@ -91,18 +101,19 @@ test("unattributed rows are ignored rather than counted as a curator", () => {
       ...rows(null, "a", 50, RECENT),
       ...rows("dany", "a", 50, RECENT),
     ],
+    SOLO,
     NOW
   );
-  assert.equal(panel.curatorCount, 1);
+  assert.equal(panel.personCount, 1);
   assert.equal(panel.baseTotal, 100);
   assert.equal(panel.recentTotal, 50);
 });
 
 test("an empty library does not divide by zero", () => {
-  const panel = computePanelComposition([], NOW);
-  assert.equal(panel.curatorCount, 0);
+  const panel = computePanelComposition([], SOLO, NOW);
+  assert.equal(panel.personCount, 0);
   assert.equal(panel.drift, 0);
-  assert.equal(panel.dominantCurator, null);
+  assert.equal(panel.dominantPerson, null);
   assert.equal(panel.safeForGlobalVelocity, true);
 });
 
@@ -157,7 +168,7 @@ test("balanced velocity is null while fewer than two curators qualify", () => {
     // Luma is present but has nowhere near enough of her own history.
     ...rows("luma", "a", 5, RECENT),
   ];
-  const balanced = computeBalancedVelocities(library, NOW);
+  const balanced = computeBalancedVelocities(library, SOLO, NOW);
   assert.equal(balanced.get("a"), null);
 });
 
@@ -182,7 +193,7 @@ test("REGRESSION: balanced velocity survives the BoldGrotesk inversion", () => {
     library.map((r) => ({ tagId: r.tagId, createdAt: r.createdAt })),
     NOW
   );
-  const balanced = computeBalancedVelocities(library, NOW);
+  const balanced = computeBalancedVelocities(library, SOLO, NOW);
 
   const pooledX = pooled.get("x")!;
   const balancedX = balanced.get("x")!;
@@ -211,7 +222,7 @@ test("a tag a curator dropped entirely counts as a negative shift for them", () 
     ...rows("luma", "x", 20, RECENT),
     ...rows("luma", "other", 20, RECENT), // luma unchanged
   ];
-  const balanced = computeBalancedVelocities(library, NOW);
+  const balanced = computeBalancedVelocities(library, SOLO, NOW);
   // dany: 0/40 - 40/120 = -0.3333 ; luma: 20/40 - 40/80 = 0
   assert.ok(Math.abs(balanced.get("x")! - -1 / 6) < 1e-9);
   assert.ok(balanced.get("x")! < 0);
@@ -230,10 +241,115 @@ test("equal-weight means a louder curator does not outvote a quieter one", () =>
     ...rows("luma", "x", 200, RECENT),
     ...rows("luma", "other", 100, RECENT),
   ];
-  const balanced = computeBalancedVelocities(lopsided, NOW);
+  const balanced = computeBalancedVelocities(lopsided, SOLO, NOW);
   // Both curators shifted identically. Note all-time INCLUDES the recent
   // rows, so the baseline is 35/60, not 15/30: 2/3 - 35/60 = +1/12.
   assert.ok(Math.abs(balanced.get("x")! - 1 / 12) < 1e-9);
   // The 10x volume difference must not show up in the result at all.
   assert.ok(balanced.get("x")! > 0);
+});
+
+// ---------------------------------------------------------------------
+// One human, two clipping identities
+//
+// Added 2026-09-11, when a curator asked for a second profile to log in
+// and out of. The panel gate and the balanced average both reason about
+// PLURALITY — how many separate people are clipping — and both read the
+// name on the clip. A pen name is two names and one person, so both were
+// wrong in ways that do not announce themselves.
+// ---------------------------------------------------------------------
+
+const LUMA_HAS_TWO_NAMES: CuratorIdentities = new Map([
+  ["lumalhaes", "luma"],
+  ["veronagarcia", "luma"],
+]);
+
+test("an identity split is not a change of panel", () => {
+  // The same rows read two ways. Luma is winding down her main account and
+  // ramping up a pen name: no new human arrived, but name-level the pen
+  // name looks exactly like a newcomer surge.
+  const library: CuratorRow[] = [
+    ...rows("dany", "a", 160, OLD),
+    ...rows("dany", "a", 40, RECENT),
+    ...rows("lumalhaes", "a", 100, OLD),
+    ...rows("lumalhaes", "a", 10, RECENT),
+    ...rows("veronagarcia", "a", 70, RECENT),
+  ];
+
+  const byName = computePanelComposition(library, SOLO, NOW);
+  const byPerson = computePanelComposition(library, LUMA_HAS_TWO_NAMES, NOW);
+
+  assert.equal(byName.personCount, 3);
+  assert.equal(byPerson.personCount, 2);
+  // Grouping moves rows between buckets; it never adds or drops any.
+  assert.equal(byPerson.baseTotal, byName.baseTotal);
+  assert.equal(byPerson.recentTotal, byName.recentTotal);
+
+  // Name-level invents a compositional shift out of one person changing
+  // which name she signs with, and closes the gate on it.
+  assert.ok(Math.abs(byName.drift - 0.3991228) < 1e-6);
+  assert.equal(byName.safeForGlobalVelocity, false);
+
+  // Person-level sees the panel that is actually there.
+  assert.ok(Math.abs(byPerson.drift - 0.1929825) < 1e-6);
+  assert.equal(byPerson.safeForGlobalVelocity, true);
+  assert.equal(byPerson.dominantPerson, "luma");
+
+  // Drift can only fall when identities merge — splitting a person can
+  // add an apparent shift, never cancel a real one. (Triangle inequality
+  // on the two halves; equality when both drift the same way, which is
+  // why this had to be built with them drifting opposite ways to show a
+  // difference at all.)
+  assert.ok(byPerson.drift <= byName.drift + 1e-12);
+});
+
+test("splitting a person's volume must not void the balanced average", () => {
+  // Each name clears the base floor on its own but neither clears the
+  // recent floor. Name-level, Luma is disqualified twice over and only
+  // one curator is left — and an average over one person is refused, so
+  // every tag comes back null. The number disappears with no error.
+  const library: CuratorRow[] = [
+    ...rows("dany", "x", 10, OLD),
+    ...rows("dany", "other", 40, OLD),
+    ...rows("dany", "x", 10, RECENT),
+    ...rows("dany", "other", 40, RECENT),
+    ...rows("lumalhaes", "x", 5, OLD),
+    ...rows("lumalhaes", "other", 15, OLD),
+    ...rows("lumalhaes", "x", 5, RECENT),
+    ...rows("lumalhaes", "other", 15, RECENT),
+    ...rows("veronagarcia", "x", 5, OLD),
+    ...rows("veronagarcia", "other", 15, OLD),
+    ...rows("veronagarcia", "x", 5, RECENT),
+    ...rows("veronagarcia", "other", 15, RECENT),
+  ];
+
+  // Each name: base 40, recent 20. Merged: base 80, recent 40.
+  assert.ok(40 >= MIN_CURATOR_BASE_VOLUME);
+  assert.ok(20 < MIN_CURATOR_RECENT_VOLUME);
+  assert.ok(40 >= MIN_CURATOR_RECENT_VOLUME);
+
+  assert.equal(computeBalancedVelocities(library, SOLO, NOW).get("x"), null);
+
+  const byPerson = computeBalancedVelocities(library, LUMA_HAS_TWO_NAMES, NOW);
+  assert.equal(typeof byPerson.get("x"), "number");
+});
+
+test("an unmapped name is its own person, never a dropped row", () => {
+  // The dangerous failure is silent exclusion: a curator missing from the
+  // mapping vanishing out of the denominator would shrink the panel and
+  // flatter every figure computed from it.
+  const partial: CuratorIdentities = new Map([["lumalhaes", "luma"]]);
+  const panel = computePanelComposition(
+    [
+      ...rows("lumalhaes", "a", 40, OLD),
+      ...rows("igorsurrealism", "a", 60, RECENT),
+    ],
+    partial,
+    NOW
+  );
+
+  assert.equal(panel.personCount, 2);
+  assert.equal(panel.baseTotal, 100);
+  assert.ok(panel.baseShares.has("luma"));
+  assert.ok(panel.baseShares.has("igorsurrealism"));
 });

@@ -30,6 +30,17 @@ type CompositionRow = {
   recent_count: number | string;
 };
 
+// Same shape, different grouping. curator_composition is keyed by clipping
+// identity and drives what this page DISPLAYS — one row per profile.
+// panel_composition is keyed by the human behind it and drives the GATE.
+// They are equal until someone holds two identities, which is the whole
+// reason both exist. The person keys are never rendered.
+type PanelRow = {
+  person: string;
+  base_count: number | string;
+  recent_count: number | string;
+};
+
 type StatsRow = {
   curator: string | null;
   total_clips: number | string;
@@ -55,9 +66,14 @@ function formatSince(iso: string | null): string {
 }
 
 export default async function CuratorsPage() {
-  const { data: compRaw } = await supabasePublic.rpc("curator_composition", {
-    window_days: RECENT_WINDOW_DAYS,
-  });
+  const [{ data: compRaw }, { data: panelRaw }] = await Promise.all([
+    supabasePublic.rpc("curator_composition", {
+      window_days: RECENT_WINDOW_DAYS,
+    }),
+    supabasePublic.rpc("panel_composition", {
+      window_days: RECENT_WINDOW_DAYS,
+    }),
+  ]);
 
   // PostgREST serialises bigint as a JSON string — coerce once, here.
   const composition = ((compRaw ?? []) as unknown as CompositionRow[]).map(
@@ -68,7 +84,14 @@ export default async function CuratorsPage() {
     })
   );
 
-  const panel = panelCompositionFromCounts(composition);
+  // The gate reads people, not names.
+  const panel = panelCompositionFromCounts(
+    ((panelRaw ?? []) as unknown as PanelRow[]).map((c) => ({
+      person: c.person,
+      base: Number(c.base_count),
+      recent: Number(c.recent_count),
+    }))
+  );
   const names = composition.map((c) => c.curator);
 
   const [statsResults, stripRes] = await Promise.all([
@@ -187,7 +210,7 @@ export default async function CuratorsPage() {
               Curators
             </dt>
             <dd className="text-[26px] font-normal leading-none">
-              {panel.curatorCount}
+              {roster.length}
             </dd>
           </div>
           <div>

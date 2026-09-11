@@ -87,6 +87,32 @@ function named(rows: CuratorRow[]): (CuratorRow & { curator: string })[] {
 }
 
 /**
+ * Maps a clipping identity to the human behind it — `curator_identities`
+ * in the database, keyed by clips.clipped_by_name.
+ *
+ * One person can hold more than one identity (a pen name, a second
+ * editorial voice). The public surfaces keep showing the NAME; that is the
+ * editorial identity and it is the point. Everything that reasons about
+ * PANEL PLURALITY has to see the person, or one curator with two logins
+ * reads as two curators — which is precisely the confound the panel gate
+ * was built to catch.
+ */
+export type CuratorIdentities = ReadonlyMap<string, string>;
+
+/**
+ * An unmapped name is its own person. Never drop the row: leaving an
+ * unmapped curator out would shrink the panel silently and flatter every
+ * number computed from it — the same failure mode as letting an incubating
+ * tag into a published denominator.
+ */
+export function personOf(
+  curator: string,
+  identities: CuratorIdentities
+): string {
+  return identities.get(curator) ?? curator;
+}
+
+/**
  * One curator's velocity read, computed entirely against their own
  * history — their share of their own recent clipping, minus their share
  * of their own all-time clipping.
@@ -124,25 +150,25 @@ export function computeVelocitiesForCurator(
 }
 
 export type PanelComposition = {
-  /** Curators with at least one tag-application all-time. */
-  curatorCount: number;
+  /** People with at least one tag-application all-time. */
+  personCount: number;
   /** Tag-applications in the trailing window, library-wide. */
   recentTotal: number;
   /** Tag-applications all-time, library-wide. */
   baseTotal: number;
-  /** Each curator's share of the trailing window, 0-1. */
+  /** Each person's share of the trailing window, 0-1. */
   recentShares: Map<string, number>;
-  /** Each curator's share of all-time, 0-1. */
+  /** Each person's share of all-time, 0-1. */
   baseShares: Map<string, number>;
   /**
    * Total-variation distance between the two mixes, 0-1. Zero for a
    * one-person panel and for any panel whose mix has not changed.
    */
   drift: number;
-  /** Largest single-curator share of the trailing window. Diagnostic only. */
+  /** Largest single-person share of the trailing window. Diagnostic only. */
   maxRecentShare: number;
   /** Who holds maxRecentShare. Null when the window is empty. */
-  dominantCurator: string | null;
+  dominantPerson: string | null;
   /**
    * False when drift exceeds MAX_PANEL_DRIFT — the global velocity number
    * is describing a change in who is clipping, not a change in what is
@@ -162,7 +188,7 @@ export type PanelComposition = {
  * in and gets a boolean out, so no curator identity reaches the browser.
  */
 export function panelCompositionFromCounts(
-  counts: { curator: string; base: number; recent: number }[]
+  counts: { person: string; base: number; recent: number }[]
 ): PanelComposition {
   const baseShares = new Map<string, number>();
   const recentShares = new Map<string, number>();
@@ -175,40 +201,40 @@ export function panelCompositionFromCounts(
   }
 
   for (const c of counts) {
-    baseShares.set(c.curator, baseTotal === 0 ? 0 : c.base / baseTotal);
-    recentShares.set(c.curator, recentTotal === 0 ? 0 : c.recent / recentTotal);
+    baseShares.set(c.person, baseTotal === 0 ? 0 : c.base / baseTotal);
+    recentShares.set(c.person, recentTotal === 0 ? 0 : c.recent / recentTotal);
   }
 
   // Total-variation distance: half the sum of absolute share differences.
   let drift = 0;
   if (baseTotal > 0 && recentTotal > 0) {
     let sum = 0;
-    for (const curator of baseShares.keys()) {
+    for (const person of baseShares.keys()) {
       sum += Math.abs(
-        (recentShares.get(curator) ?? 0) - (baseShares.get(curator) ?? 0)
+        (recentShares.get(person) ?? 0) - (baseShares.get(person) ?? 0)
       );
     }
     drift = sum / 2;
   }
 
   let maxRecentShare = 0;
-  let dominantCurator: string | null = null;
-  for (const [curator, share] of recentShares) {
+  let dominantPerson: string | null = null;
+  for (const [person, share] of recentShares) {
     if (share > maxRecentShare) {
       maxRecentShare = share;
-      dominantCurator = curator;
+      dominantPerson = person;
     }
   }
 
   return {
-    curatorCount: counts.length,
+    personCount: counts.length,
     recentTotal,
     baseTotal,
     recentShares,
     baseShares,
     drift,
     maxRecentShare,
-    dominantCurator,
+    dominantPerson,
     safeForGlobalVelocity: drift <= MAX_PANEL_DRIFT,
   };
 }
@@ -220,6 +246,7 @@ export function panelCompositionFromCounts(
  */
 export function computePanelComposition(
   rows: CuratorRow[],
+  identities: CuratorIdentities,
   now?: Date
 ): PanelComposition {
   const at = now ?? new Date();
@@ -229,17 +256,18 @@ export function computePanelComposition(
   const base = new Map<string, number>();
   const recent = new Map<string, number>();
   for (const row of all) {
-    base.set(row.curator, (base.get(row.curator) ?? 0) + 1);
+    const person = personOf(row.curator, identities);
+    base.set(person, (base.get(person) ?? 0) + 1);
     if (toTime(row.createdAt) >= recentCutoff) {
-      recent.set(row.curator, (recent.get(row.curator) ?? 0) + 1);
+      recent.set(person, (recent.get(person) ?? 0) + 1);
     }
   }
 
   return panelCompositionFromCounts(
-    [...base.keys()].map((curator) => ({
-      curator,
-      base: base.get(curator) ?? 0,
-      recent: recent.get(curator) ?? 0,
+    [...base.keys()].map((person) => ({
+      person,
+      base: base.get(person) ?? 0,
+      recent: recent.get(person) ?? 0,
     }))
   );
 }
@@ -257,20 +285,30 @@ export function computePanelComposition(
  * NOTE this does not manufacture a panel. With N=2 it is one opinion
  * versus one other. It removes volume dominance; it does not remove the
  * fact that a two-person panel is two people.
+ *
+ * Grouped by PERSON, not by name, for the same reason — and here the stakes
+ * are higher than in the drift gate. This is an equal-weight mean over
+ * curators: one human holding two identities would get two votes in an
+ * average built specifically to give each person one. Splitting their
+ * clipping would also halve each identity's volume, and either half falling
+ * under MIN_CURATOR_BASE_VOLUME disqualifies it entirely — a person can be
+ * silently voted twice or not at all depending on how they log in.
  */
 export function computeBalancedVelocities(
   rows: CuratorRow[],
+  identities: CuratorIdentities,
   now?: Date
 ): Map<string, number | null> {
   const at = now ?? new Date();
   const recentCutoff = cutoff(at);
   const all = named(rows);
 
-  const byCurator = new Map<string, (CuratorRow & { curator: string })[]>();
+  const byPerson = new Map<string, (CuratorRow & { curator: string })[]>();
   for (const row of all) {
-    const list = byCurator.get(row.curator) ?? [];
+    const person = personOf(row.curator, identities);
+    const list = byPerson.get(person) ?? [];
     list.push(row);
-    byCurator.set(row.curator, list);
+    byPerson.set(person, list);
   }
 
   // Per-curator share-shift, only for curators with enough of their own
@@ -279,7 +317,7 @@ export function computeBalancedVelocities(
   const allTagIds = new Set(all.map((r) => r.tagId));
   let qualifying = 0;
 
-  for (const theirRows of byCurator.values()) {
+  for (const theirRows of byPerson.values()) {
     const baseTotal = theirRows.length;
     const recentRows = theirRows.filter(
       (r) => toTime(r.createdAt) >= recentCutoff

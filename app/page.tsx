@@ -91,7 +91,11 @@ export default async function Home() {
     // columns") intact in substance — nothing identifying is in the RSC
     // payload — while still gating a number that would otherwise describe
     // a change of curators rather than a change of taste.
-    supabasePublic.rpc("curator_composition", {
+    // panel_composition, not curator_composition: grouped by the human
+    // behind each clipping identity. One person with two names would
+    // otherwise read as a two-person panel and pass a gate built to catch
+    // exactly that. See lib/curator-velocity.ts.
+    supabasePublic.rpc("panel_composition", {
       window_days: RECENT_WINDOW_DAYS,
     }),
     // Which axes are mid-expansion. Empty until the 37 frozen tags land,
@@ -170,11 +174,11 @@ export default async function Home() {
   // Reduced to one boolean before it is used anywhere in the tree.
   const panel = panelCompositionFromCounts(
     ((panelRes.data ?? []) as unknown as {
-      curator: string;
+      person: string;
       base_count: number | string;
       recent_count: number | string;
     }[]).map((c) => ({
-      curator: c.curator,
+      person: c.person,
       base: Number(c.base_count),
       recent: Number(c.recent_count),
     }))
