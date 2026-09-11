@@ -8,11 +8,11 @@ import { TagName } from "@/components/tag-name";
 // Live, like every other read surface in the product.
 export const revalidate = 0;
 
-// This route is a sibling of the clipper at /clip, not a child of it.
-// There is no middleware in this project — /clip gates itself inside its
-// own page component via lib/clip-auth — so nothing here inherits that
-// password gate. If a middleware.ts is ever added, it must exclude
-// /clip/<uuid> explicitly or this page disappears behind the gate.
+// This route is a sibling of the clipper at /clip, not a child of it, and
+// it is PUBLIC. Next 16 calls middleware "proxy" — proxy.ts exists and
+// matches exactly "/clip". It once matched "/clip/:path*", which silently
+// put this page behind the password form (fixed 2026-09-11). Never widen
+// that matcher again.
 
 const CHIP_CONFIDENCE_THRESHOLD = 0.5; // matches components/home-grid.tsx
 const RELATED_LIMIT = 12;

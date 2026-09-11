@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   getClipsMissingIncubatingTags,
@@ -107,6 +108,10 @@ export default async function ClipPage() {
   const curatorName = sessionCurator(
     cookieStore.get(CLIP_SESSION_COOKIE)?.value
   );
+  // Defence in depth: proxy.ts gates this route too, but this page reads
+  // through the service-role client (archived clips, parked URLs), so it
+  // must never render for a request the proxy happened not to match.
+  if (!curatorName) redirect("/clip-login");
 
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
