@@ -17,7 +17,9 @@ import { normaliseDescription } from "@/lib/search/describe-normalise";
 // Search-only (decided 2026-09-11): nothing in the app reads the text back.
 // lib/search/search.test.ts fails if anything but this file names the table.
 
-const DESCRIBER_MODEL = "claude-opus-5";
+// Cheapest current Haiku model, verified against Anthropic's model list 2026-09-11.
+// Descriptions are search-only text output (no vision reasoning depth needed).
+const DESCRIBER_MODEL = "claude-haiku-4-5";
 
 const DescriptionSchema = z.object({
   summary: z.string(),
@@ -56,8 +58,8 @@ export async function describeClip(input: {
   const response = await anthropic.messages.parse({
     model: DESCRIBER_MODEL,
     max_tokens: 1024,
+    // Haiku 4.5 doesn't accept output_config.effort (400) — only format.
     output_config: {
-      effort: "low",
       format: zodOutputFormat(DescriptionSchema),
     },
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
@@ -76,11 +78,13 @@ export async function describeClip(input: {
     throw new Error("Description response did not match the expected schema");
   }
   const u = response.usage;
+  // Claude Haiku 4.5 pricing as of 2026-09-11: $1/$5 per MTok input/output,
+  // cache write 1.25x input, cache read 0.1x input.
   const cost =
-    (u.input_tokens / 1e6) * 5 +
-    (u.output_tokens / 1e6) * 25 +
-    ((u.cache_creation_input_tokens ?? 0) / 1e6) * 6.25 +
-    ((u.cache_read_input_tokens ?? 0) / 1e6) * 0.5;
+    (u.input_tokens / 1e6) * 1 +
+    (u.output_tokens / 1e6) * 5 +
+    ((u.cache_creation_input_tokens ?? 0) / 1e6) * 1.25 +
+    ((u.cache_read_input_tokens ?? 0) / 1e6) * 0.1;
   console.log(
     `[describe-clip] tokens: in=${u.input_tokens} out=${u.output_tokens} — est. cost $${cost.toFixed(4)}`
   );
