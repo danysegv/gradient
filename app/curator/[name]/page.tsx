@@ -8,6 +8,10 @@ import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
+import { BoardCard } from "@/components/boards/board-card";
+import { NewBoard } from "@/components/boards/new-board";
+import { getSessionCurator } from "@/lib/clip-session";
+import { boardHref, listBoards } from "@/lib/boards/queries";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -24,8 +28,17 @@ export async function generateMetadata({
   const { data } = await supabasePublic
     .rpc("curator_clip_stats", { curator_name: decodeURIComponent(name) })
     .single();
-  const who =
+  let who =
     (data as unknown as { curator: string | null } | null)?.curator ?? null;
+  if (!who) {
+    // A profile with boards but no clips yet still has a page.
+    const { data: profile } = await supabasePublic
+      .from("profiles")
+      .select("name")
+      .eq("name", decodeURIComponent(name).toLowerCase())
+      .maybeSingle();
+    who = (profile as { name: string } | null)?.name ?? null;
+  }
   // No match means this request is about to 404 — do not title the tab
   // with the string the visitor mistyped.
   return {
@@ -104,10 +117,31 @@ export default async function CuratorPage({
     .rpc("curator_clip_stats", { curator_name: requested })
     .single();
   const stats = statsRow as unknown as CuratorStatsRow | null;
-  if (!stats?.curator) notFound();
-  const curator = stats.curator;
+  const viewer = await getSessionCurator();
 
-  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes] =
+  let curator: string;
+  if (stats?.curator) {
+    curator = stats.curator;
+  } else {
+    // No clips yet. The page exists for its owner, who needs somewhere to
+    // make boards before their first clip, and for visitors once the
+    // profile has a public board. Otherwise it 404s as before — a name
+    // with nothing to show leaves no ghost page.
+    const { data: profile } = await supabasePublic
+      .from("profiles")
+      .select("name")
+      .eq("name", requested.toLowerCase())
+      .maybeSingle();
+    const profileName = (profile as { name: string } | null)?.name;
+    if (!profileName) notFound();
+    curator = profileName;
+    if (viewer !== curator && (await listBoards(curator, false)).length === 0) {
+      notFound();
+    }
+  }
+  const isOwner = viewer === curator;
+
+  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes, boards] =
     await Promise.all([
     // The only row-level query on this page, and deliberately capped —
     // CLIP_LIMIT is display pagination, not an accident.
@@ -136,11 +170,13 @@ export default async function CuratorPage({
     }),
     // Which axes are mid-expansion. Empty until the 37 frozen tags land.
     fetchFrozenAxes(supabasePublic),
+    // Private boards are read only when the signed-in curator is this one.
+    listBoards(curator, isOwner),
   ]);
 
   const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
-  const totalClips = Number(stats.total_clips);
-  const classifiedClips = Number(stats.classified_clips);
+  const totalClips = Number(stats?.total_clips ?? 0);
+  const classifiedClips = Number(stats?.classified_clips ?? 0);
 
   const tagStats = ((tagCountsRes.data ?? []) as unknown as RawTagRow[])
     .map((t) => ({
@@ -239,7 +275,7 @@ export default async function CuratorPage({
       : Math.round((theirBaseRefs / libraryApplications) * 100);
   // From the RPC, not the tail of the capped clips query — that would have
   // shown the oldest of the most recent 200 clips and called it "since".
-  const firstClip = stats.first_clipped_at
+  const firstClip = stats?.first_clipped_at
     ? new Date(stats.first_clipped_at).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -311,6 +347,27 @@ export default async function CuratorPage({
             </div>
           ))}
         </dl>
+
+        {(isOwner || boards.length > 0) && (
+          <section className="mb-12">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
+                Boards
+              </p>
+              {isOwner && (
+                <p className="text-[11px] text-bone/60">
+                  Signed in as {curator}. Only you see private boards.
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
+              {boards.map((b) => (
+                <BoardCard key={b.id} href={boardHref(curator, b.slug)} board={b} />
+              ))}
+              {isOwner && <NewBoard ownerName={curator} />}
+            </div>
+          </section>
+        )}
 
         {showSignature && (
           <section className="mb-12">
@@ -417,6 +474,13 @@ export default async function CuratorPage({
         </div>
       </div>
 
+      {gridClips.length > 0 && (
+        <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
+          <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
+            Clipped by {curator}
+          </p>
+        </div>
+      )}
       <HomeGrid clips={gridClips} filterTags={filterTags} />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">

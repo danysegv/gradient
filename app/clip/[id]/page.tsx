@@ -4,6 +4,14 @@ import { supabasePublic } from "@/lib/supabase/public";
 import { Wordmark } from "@/components/wordmark";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { TagName } from "@/components/tag-name";
+import { SaveToBoards } from "@/components/boards/save-to-boards";
+import { AXES } from "@/lib/axes";
+import { getSessionCurator } from "@/lib/clip-session";
+import {
+  boardChoicesForClip,
+  boardHref,
+  publicBoardsForClip,
+} from "@/lib/boards/queries";
 
 // Live, like every other read surface in the product.
 export const revalidate = 0;
@@ -24,22 +32,6 @@ const RELATED_LIMIT = 12;
 // a group-by that Postgres should be doing anyway.
 const RELATED_SCAN_LIMIT = 1000;
 
-const AXIS_ORDER = [
-  "movement",
-  "typography",
-  "palette_light",
-  "layout",
-  "format_motion",
-  "treatment",
-];
-const AXIS_LABEL: Record<string, string> = {
-  movement: "Movement",
-  typography: "Typography",
-  palette_light: "Palette & Light",
-  layout: "Layout",
-  format_motion: "Format & Motion",
-  treatment: "Treatment",
-};
 
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -153,11 +145,19 @@ export default async function ClipDetailPage({
     .filter((t) => t.confidence >= CHIP_CONFIDENCE_THRESHOLD)
     .sort((a, b) => b.confidence - a.confidence);
 
-  const byAxis = AXIS_ORDER.map((axis) => ({
-    axis,
-    label: AXIS_LABEL[axis] ?? axis,
-    tags: tags.filter((t) => t.group === axis),
+  const byAxis = AXES.map((axis) => ({
+    axis: axis.key,
+    label: axis.label,
+    tags: tags.filter((t) => t.group === axis.key),
   })).filter((a) => a.tags.length > 0);
+
+  // Boards. A visitor sees the public boards this clip is on; a signed-in
+  // curator also gets their own boards to tick, private ones included.
+  const viewer = await getSessionCurator();
+  const [onPublicBoards, choices] = await Promise.all([
+    publicBoardsForClip(clip.id),
+    viewer ? boardChoicesForClip(viewer, clip.id) : Promise.resolve(null),
+  ]);
 
   // "More like this" computed from the clip, not from the viewer — shared
   // tags only. The 2026-08-26 decision: recommendation from the object,
@@ -351,6 +351,45 @@ export default async function ClipDetailPage({
                 {formatDate(clip.clipped_at)}
               </p>
             </section>
+
+            {(onPublicBoards.length > 0 || (viewer && choices)) && (
+              <section className="mt-8 border-t border-white/10 pt-5">
+                <h2 className="mb-3.5 text-[11px] font-semibold uppercase tracking-wide text-bone/70">
+                  {viewer ? "Save to your boards" : "On boards"}
+                </h2>
+                {viewer && choices && (
+                  <SaveToBoards
+                    clipId={clip.id}
+                    ownerName={viewer}
+                    boards={choices}
+                  />
+                )}
+                {onPublicBoards.length > 0 && (
+                  <ul
+                    className={`flex flex-col gap-1.5 ${
+                      viewer ? "mt-5 border-t border-white/10 pt-4" : ""
+                    }`}
+                  >
+                    {viewer && (
+                      <li className="text-[10px] font-semibold uppercase tracking-wide text-bone/60">
+                        On public boards
+                      </li>
+                    )}
+                    {onPublicBoards.map((b) => (
+                      <li key={`${b.owner_name}/${b.slug}`} className="text-[14px]">
+                        <Link
+                          href={boardHref(b.owner_name, b.slug)}
+                          className="underline decoration-white/30 underline-offset-4 hover:decoration-bone"
+                        >
+                          {b.title}
+                        </Link>
+                        <span className="text-bone/60"> · {b.owner_name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
           </div>
         </div>
 
