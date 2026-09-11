@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type FilterTag, type GridClip } from "@/components/home-grid";
 import { BoardOwnerControls } from "@/components/boards/board-owner-controls";
+import { BoardRadar } from "@/components/boards/board-radar";
+import { computeBoardRadar, PRESENCE_CONFIDENCE } from "@/lib/boards/radar";
 import { getSessionCurator } from "@/lib/clip-session";
-import { getBoard } from "@/lib/boards/queries";
+import { getBoard, getLibraryPresence } from "@/lib/boards/queries";
 import { SLUG_PATTERN } from "@/lib/boards/slug";
 
 // A board: the clips someone gathered for one project, from anywhere in
@@ -79,6 +81,23 @@ export default async function BoardPage({
   const filterTags = [...seen.values()].sort((a, b) =>
     a.editorial_name.localeCompare(b.editorial_name)
   );
+
+  // The board radar: this board's make-up against the library's. Its own
+  // reading, computed here, sharing nothing with the Signals radar.
+  const radar =
+    board.clips.length > 0
+      ? computeBoardRadar(
+          board.clips.map((c) => ({
+            tags: c.tags.map((t) => ({
+              name: t.editorial_name,
+              group: t.group,
+              confidence: t.confidence,
+              isPublished: t.is_published,
+            })),
+          })),
+          await getLibraryPresence(PRESENCE_CONFIDENCE)
+        )
+      : null;
 
   const updated = new Date(board.updated_at).toLocaleDateString("en-US", {
     month: "short",
@@ -164,6 +183,12 @@ export default async function BoardPage({
           )}
         </div>
       </div>
+
+      {radar && radar.tags.length > 0 && (
+        <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
+          <BoardRadar radar={radar} />
+        </div>
+      )}
 
       {board.clips.length === 0 ? (
         <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-24">

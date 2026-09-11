@@ -32,7 +32,12 @@ export type BoardClip = {
   title: string | null;
   source: string | null;
   added_at: string;
-  tags: { editorial_name: string; group: string; confidence: number }[];
+  tags: {
+    editorial_name: string;
+    group: string;
+    confidence: number;
+    is_published: boolean;
+  }[];
 };
 
 export type Board = Omit<BoardSummary, "clip_count" | "covers"> & {
@@ -118,7 +123,11 @@ type RawBoardClip = {
   clip_tags:
     | {
         confidence: number | null;
-        tags: { editorial_name: string; group: string } | null;
+        tags: {
+          editorial_name: string;
+          group: string;
+          published_at: string | null;
+        } | null;
       }[]
     | null;
 };
@@ -139,7 +148,7 @@ export async function getBoard(
       `id, owner_name, slug, title, description, is_public, updated_at,
        board_clips ( added_at, clips ( id, url, image_url, title, source,
          creator, rights_holder, archived_at,
-         clip_tags ( confidence, tags ( editorial_name, group ) ) ) )`
+         clip_tags ( confidence, tags ( editorial_name, group, published_at ) ) ) )`
     )
     .eq("owner_name", owner)
     .eq("slug", slug);
@@ -168,6 +177,7 @@ export async function getBoard(
             editorial_name: ct.tags!.editorial_name,
             group: ct.tags!.group,
             confidence: ct.confidence ?? 0,
+            is_published: ct.tags!.published_at !== null,
           })),
       };
     });
@@ -242,4 +252,32 @@ export async function publicBoardsForClip(
 
 export function boardHref(owner: string, slug: string): string {
   return `/curator/${encodeURIComponent(owner)}/boards/${encodeURIComponent(slug)}`;
+}
+
+type PresenceRow = {
+  editorial_name: string;
+  group: string;
+  clips: number | string;
+  classified_clips: number | string;
+};
+
+/**
+ * Library-wide presence of each published tag, for the board radar's "vs
+ * library" comparison. PostgREST serialises bigint as a string — Number()
+ * once, here at the boundary.
+ */
+export async function getLibraryPresence(minConfidence: number) {
+  const { data, error } = await supabasePublic.rpc("tag_clip_presence", {
+    min_confidence: minConfidence,
+  });
+  if (error) throw new Error(`tag_clip_presence: ${error.message}`);
+  const rows = (data ?? []) as PresenceRow[];
+  return {
+    classifiedClips: rows.length ? Number(rows[0].classified_clips) : 0,
+    tags: rows.map((r) => ({
+      name: r.editorial_name,
+      group: r.group,
+      clips: Number(r.clips),
+    })),
+  };
 }
