@@ -115,23 +115,59 @@ test("the score comes from the highest-confidence eligible tag, not the highest 
     { tag_id: "high-conf-low-velocity", confidence: 0.95 },
   ]);
   // Both should score identically (velocity 1, from the higher-confidence
-  // tag) and therefore tie on date, landing in input order.
+  // tag) and therefore tie on date, falling to the id tiebreak ("reference"
+  // sorts before "mixed" descending).
   assert.deepEqual(
     rankClips([withBothTags, reference], velocities).map((c) => c.id),
-    ["mixed", "reference"]
+    ["reference", "mixed"]
   );
 });
 
-test("is stable: a genuine tie (same score, same date) keeps input order", () => {
+test("a genuine tie (same score, same date) is ordered by id descending, regardless of input order", () => {
   const velocities = new Map([["tag", 7]]);
+  const tags = [{ tag_id: "tag", confidence: 0.9 }];
+  const a = clip("a", "2026-09-01", tags);
+  const b = clip("b", "2026-09-01", tags);
+  const c = clip("c", "2026-09-01", tags);
+  assert.deepEqual(
+    rankClips([a, b, c], velocities).map((x) => x.id),
+    ["c", "b", "a"]
+  );
+  assert.deepEqual(
+    rankClips([c, a, b], velocities).map((x) => x.id),
+    ["c", "b", "a"]
+  );
+});
+
+test("a confidence tie is broken on velocity, regardless of tag array order", () => {
+  const velocities = new Map([
+    ["low-velocity", 1],
+    ["high-velocity", 9],
+  ]);
+  const forward = clip("forward", "2026-01-01", [
+    { tag_id: "low-velocity", confidence: 0.9 },
+    { tag_id: "high-velocity", confidence: 0.9 },
+  ]);
+  const reversed = clip("reversed", "2026-01-01", [
+    { tag_id: "high-velocity", confidence: 0.9 },
+    { tag_id: "low-velocity", confidence: 0.9 },
+  ]);
+  const ranked = rankClips([forward, reversed], velocities);
+  // Both should score 9 (the higher-velocity tag wins the confidence tie in
+  // either array order) and therefore tie on date, falling to the id
+  // tiebreak ("reversed" sorts before "forward" descending).
+  assert.deepEqual(ranked.map((c) => c.id), ["reversed", "forward"]);
+});
+
+test("an exact clipped_at tie falls back to id descending, the final tiebreak", () => {
+  const velocities = new Map([["tag", 5]]);
   const clips = [
-    clip("first", "2026-09-01", [{ tag_id: "tag", confidence: 0.9 }]),
-    clip("second", "2026-09-01", [{ tag_id: "tag", confidence: 0.9 }]),
-    clip("third", "2026-09-01", [{ tag_id: "tag", confidence: 0.9 }]),
+    clip("aaa", "2026-09-01", [{ tag_id: "tag", confidence: 0.9 }]),
+    clip("zzz", "2026-09-01", [{ tag_id: "tag", confidence: 0.9 }]),
   ];
   assert.deepEqual(
     rankClips(clips, velocities).map((c) => c.id),
-    ["first", "second", "third"]
+    ["zzz", "aaa"]
   );
 });
 

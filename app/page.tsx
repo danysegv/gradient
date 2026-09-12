@@ -6,6 +6,7 @@ import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { rankClips } from "@/lib/feed-order";
+import { publishedVelocities } from "@/lib/publication";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { SearchBar } from "@/components/search-bar";
@@ -225,7 +226,20 @@ export default async function Home({
       .filter((ct) => ct.tags !== null)
       .map((ct) => ({ tag_id: ct.tag_id, confidence: ct.confidence ?? 0 })),
   }));
-  const orderedIds = rankClips(rankInput, velocityByTagId).map((c) => c.id);
+  // Confidence-eligible is not the same as publishable: publishedVelocities
+  // additionally holds the whole map to an empty set before the board's
+  // publish date, and drops specific withheld tags after it — see
+  // lib/publication.ts. That gate lives there, not here, so both this feed
+  // and anything else keyed to the same publish date stay in lockstep.
+  // Server component, rendered once per request: export const revalidate =
+  // 0 above forces this regardless of what data the route reads, so
+  // Date.now() below reflects the moment of this render, never a cached or
+  // stale one.
+  const orderedIds = rankClips(
+    rankInput,
+    // eslint-disable-next-line react-hooks/purity
+    publishedVelocities(velocityByTagId, Date.now())
+  ).map((c) => c.id);
   const clipRowById = new Map(clipRows.map((c) => [c.id, c]));
   // Display-only: this reorders gridClips, nothing else. Search results
   // bypass this entirely and keep rank order (see the `search` branch

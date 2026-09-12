@@ -8,6 +8,7 @@
 const MIN_TAG_CONFIDENCE = 0.5;
 
 export type FeedClip = {
+  id: string;
   clipped_at: string;
   tags: { tag_id: string; confidence: number }[];
 };
@@ -20,18 +21,29 @@ function scoreOf(
     (t) => t.confidence >= MIN_TAG_CONFIDENCE && velocityByTagId.has(t.tag_id)
   );
   if (eligible.length === 0) return null;
-  // Highest-confidence tag among the eligible ones — ties keep whichever
-  // was seen first, which is irrelevant to the result since the map is a
-  // pure lookup, not a second ranking.
-  const best = eligible.reduce((a, b) => (b.confidence > a.confidence ? b : a));
+  // Highest-confidence tag among the eligible ones. PostgREST doesn't
+  // guarantee which same-confidence tag comes back first, so a confidence
+  // tie is broken on velocity instead — without this, the score (and
+  // therefore the clip's position) depended on row order, not on data.
+  const best = eligible.reduce((a, b) => {
+    if (b.confidence !== a.confidence) {
+      return b.confidence > a.confidence ? b : a;
+    }
+    return velocityByTagId.get(b.tag_id)! > velocityByTagId.get(a.tag_id)!
+      ? b
+      : a;
+  });
   return velocityByTagId.get(best.tag_id)!;
 }
 
 /**
  * Ranks clips for display: scored clips first (by score descending), then
  * unscored clips. Ties within the scored group, and the entire unscored
- * group, sort by clipped_at descending. Stable (Array.prototype.sort's
- * guarantee holds throughout) and pure — never mutates `clips`.
+ * group, sort by clipped_at descending, then by id descending as a final,
+ * fully deterministic tiebreak — PostgREST doesn't guarantee row order on
+ * an exact timestamp tie, even though none exists in the data today.
+ * Stable (Array.prototype.sort's guarantee holds throughout) and pure —
+ * never mutates `clips`.
  *
  * An empty velocityByTagId map means every clip is unscored, so every
  * comparison falls through to clipped_at descending — the input's own
@@ -52,7 +64,10 @@ export function rankClips<T extends FeedClip>(
       if ((a.score !== null) !== (b.score !== null)) {
         return a.score !== null ? -1 : 1;
       }
-      return b.clip.clipped_at.localeCompare(a.clip.clipped_at);
+      if (a.clip.clipped_at !== b.clip.clipped_at) {
+        return b.clip.clipped_at.localeCompare(a.clip.clipped_at);
+      }
+      return b.clip.id.localeCompare(a.clip.id);
     })
     .map((s) => s.clip);
 }
