@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Wordmark } from "@/components/wordmark";
-import { HomeGrid, type GridClip } from "@/components/home-grid";
+import { type GridClip } from "@/components/home-grid";
+import { BoardClipGrid } from "@/components/boards/board-clip-grid";
 import { SearchBar } from "@/components/search-bar";
 import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
@@ -225,7 +226,11 @@ export default async function BoardPage({
               />
             )}
           </div>
-          <HomeGrid clips={shownClips} emptyText={null} />
+          <BoardClipGrid
+            boardId={board.id}
+            canRearrange={isOwner && !clipSearch}
+            initialClips={shownClips}
+          />
         </>
       )}
     </>

@@ -5,6 +5,7 @@ import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { panelCompositionFromCounts } from "@/lib/curator-velocity";
+import { rankClips } from "@/lib/feed-order";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { SearchBar } from "@/components/search-bar";
@@ -44,6 +45,7 @@ type RawTagRow = {
 // Database types — same gotcha documented in app/clip/page.tsx, same fix:
 // declare the real shape and cast at the query boundary.
 type ClipTagRow = {
+  tag_id: string;
   confidence: number | null;
   tags: { editorial_name: string; group: string } | null;
 };
@@ -105,7 +107,7 @@ export default async function Home({
       .from("clips")
       .select(
         `id, url, image_url, title, source, clipped_at,
-         clip_tags!inner ( confidence, tags ( editorial_name, group ) )`
+         clip_tags!inner ( tag_id, confidence, tags ( editorial_name, group ) )`
       )
       .is("archived_at", null)
       .order("clipped_at", { ascending: false })
@@ -179,21 +181,6 @@ export default async function Home({
     ])
   );
 
-  const clipRows = (clipsRes.data ?? []) as unknown as ClipRow[];
-  const gridClips: GridClip[] = clipRows.map((c) => ({
-    id: c.id,
-    url: c.url,
-    image_url: c.image_url,
-    title: c.title,
-    source: c.source,
-    tags: (c.clip_tags ?? [])
-      .filter((ct) => ct.tags !== null)
-      .map((ct) => ({
-        editorial_name: ct.tags!.editorial_name,
-        confidence: ct.confidence ?? 0,
-      })),
-  }));
-
   // Reduced to one boolean before it is used anywhere in the tree.
   const panel = panelCompositionFromCounts(
     ((panelRes.data ?? []) as unknown as {
@@ -207,6 +194,61 @@ export default async function Home({
     }))
   );
   const panelSafe = panel.safeForGlobalVelocity;
+
+  // The feed order's only inputs: a tag's velocity, but ONLY once
+  // getConfidence has actually cleared it for display. An incubating tag,
+  // one still in Early Signal, a Cooling one, or a published one the panel
+  // gate is withholding — none of them get an entry, so none of them can
+  // move a clip. This reads the same figures the trending rail already
+  // shows; it computes nothing new and gates nothing itself.
+  const velocityByTagId = new Map<string, number>();
+  for (const tag of publishedTags) {
+    const confidence = getConfidence({
+      referenceCount: tag.clip_count,
+      earliestReferenceAt: tag.earliest_reference_at,
+      latestReferenceAt: tag.latest_reference_at,
+      velocity: velocities.get(tag.tag_id) ?? null,
+      panelSafeForGlobalVelocity: panelSafe,
+      coolingSuspended: frozenAxes.has(tag.group),
+      isPublished: tag.is_published,
+    });
+    if (confidence.velocity !== null) {
+      velocityByTagId.set(tag.tag_id, confidence.velocity);
+    }
+  }
+
+  const clipRows = (clipsRes.data ?? []) as unknown as ClipRow[];
+  const rankInput = clipRows.map((c) => ({
+    id: c.id,
+    clipped_at: c.clipped_at,
+    tags: (c.clip_tags ?? [])
+      .filter((ct) => ct.tags !== null)
+      .map((ct) => ({ tag_id: ct.tag_id, confidence: ct.confidence ?? 0 })),
+  }));
+  const orderedIds = rankClips(rankInput, velocityByTagId).map((c) => c.id);
+  const clipRowById = new Map(clipRows.map((c) => [c.id, c]));
+  // Display-only: this reorders gridClips, nothing else. Search results
+  // bypass this entirely and keep rank order (see the `search` branch
+  // passed to HomeGrid below).
+  const gridClips: GridClip[] = orderedIds.flatMap((id) => {
+    const c = clipRowById.get(id);
+    if (!c) return [];
+    return [
+      {
+        id: c.id,
+        url: c.url,
+        image_url: c.image_url,
+        title: c.title,
+        source: c.source,
+        tags: (c.clip_tags ?? [])
+          .filter((ct) => ct.tags !== null)
+          .map((ct) => ({
+            editorial_name: ct.tags!.editorial_name,
+            confidence: ct.confidence ?? 0,
+          })),
+      },
+    ];
+  });
 
   const stats = (statsRes.data ?? {
     total_clips: 0,

@@ -166,18 +166,37 @@ export async function setClipOnBoard(
   const board = await ownedBoard(boardId, curator);
   if (!board) return { error: "You can only change your own boards." };
 
-  const { error } = on
-    ? await supabaseAdmin
-        .from("board_clips")
-        .upsert(
-          { board_id: board.id, clip_id: clipId },
-          { onConflict: "board_id,clip_id", ignoreDuplicates: true }
-        )
-    : await supabaseAdmin
-        .from("board_clips")
-        .delete()
-        .eq("board_id", board.id)
-        .eq("clip_id", clipId);
+  let error;
+  if (on) {
+    // A clip saved later goes to the front, matching newest-first. Leaving
+    // position null would sort it AFTER every already-arranged clip
+    // (nulls last) — wrong for a board someone has hand-ordered — so it
+    // only stays null when nothing on the board has a position yet, where
+    // added_at desc already puts the newest clip first on its own.
+    const { data: existing, error: posError } = await supabaseAdmin
+      .from("board_clips")
+      .select("position")
+      .eq("board_id", board.id)
+      .not("position", "is", null);
+    if (posError) return { error: posError.message };
+    const positions = (existing ?? []) as { position: number }[];
+    const frontPosition = positions.length
+      ? Math.min(...positions.map((p) => p.position)) - 1
+      : null;
+
+    ({ error } = await supabaseAdmin
+      .from("board_clips")
+      .upsert(
+        { board_id: board.id, clip_id: clipId, position: frontPosition },
+        { onConflict: "board_id,clip_id", ignoreDuplicates: true }
+      ));
+  } else {
+    ({ error } = await supabaseAdmin
+      .from("board_clips")
+      .delete()
+      .eq("board_id", board.id)
+      .eq("clip_id", clipId));
+  }
   if (error) return { error: error.message };
 
   await supabaseAdmin
@@ -186,6 +205,83 @@ export async function setClipOnBoard(
     .eq("id", board.id);
 
   revalidatePath(`/clip/${clipId}`);
+  revalidatePath(profilePath(curator));
+  revalidatePath(boardPath(curator, board.slug));
+  return {};
+}
+
+/**
+ * Reorders one clip on a board. beforeClipId/afterClipId are whatever two
+ * clips now sit on either side of the drop point — null on either side
+ * means "the edge of the board" there. Writes ONE row: the midpoint of
+ * the neighbours' positions, so every other clip's position (and thus its
+ * relation to everything else) is untouched. The board is never
+ * renumbered, no matter how many times a clip gets moved.
+ *
+ * A neighbour that's missing, or whose own position is still null
+ * (unarranged — it always sorts last), can't contribute a number to
+ * average against. In that case this falls back to the board-wide
+ * min/max: one step before the lowest known position for a missing
+ * "before", one step after the highest for a missing "after". At the
+ * board's true edges this IS the midpoint calculation you'd want; at the
+ * boundary between an arranged prefix and the unarranged tail, the
+ * boundary clip already IS the board-wide min or max, so the two
+ * formulas agree there too.
+ */
+export async function moveClipOnBoard(
+  boardId: string,
+  clipId: string,
+  beforeClipId: string | null,
+  afterClipId: string | null
+): Promise<BoardActionResult> {
+  const curator = await getSessionCurator();
+  if (!curator) return { error: NOT_SIGNED_IN };
+  if (!isUuid(clipId)) return { error: "That clip link isn't valid." };
+
+  const board = await ownedBoard(boardId, curator);
+  if (!board) return { error: "You can only reorder your own boards." };
+
+  const { data, error: rowsError } = await supabaseAdmin
+    .from("board_clips")
+    .select("clip_id, position")
+    .eq("board_id", board.id);
+  if (rowsError) return { error: rowsError.message };
+
+  const rows = (data ?? []) as { clip_id: string; position: number | null }[];
+  const positionOf = (id: string | null) =>
+    id ? rows.find((r) => r.clip_id === id)?.position ?? null : null;
+
+  const beforePos = positionOf(beforeClipId);
+  const afterPos = positionOf(afterClipId);
+  const known = rows
+    .map((r) => r.position)
+    .filter((p): p is number => p !== null);
+  const globalMin = known.length ? Math.min(...known) : 0;
+  const globalMax = known.length ? Math.max(...known) : 0;
+
+  let newPosition: number;
+  if (beforePos !== null && afterPos !== null) {
+    newPosition = (beforePos + afterPos) / 2;
+  } else if (afterPos !== null) {
+    newPosition = globalMin - 1;
+  } else if (beforePos !== null) {
+    newPosition = globalMax + 1;
+  } else {
+    newPosition = globalMax + 1;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("board_clips")
+    .update({ position: newPosition })
+    .eq("board_id", board.id)
+    .eq("clip_id", clipId);
+  if (error) return { error: error.message };
+
+  await supabaseAdmin
+    .from("boards")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", board.id);
+
   revalidatePath(profilePath(curator));
   revalidatePath(boardPath(curator, board.slug));
   return {};

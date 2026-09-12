@@ -525,7 +525,11 @@ export default async function CuratorPage({
           </p>
         </div>
       )}
-      <HomeGrid clips={search ? search.clips : gridClips} emptyText={null} />
+      <HomeGrid
+        clips={search ? search.clips : gridClips}
+        emptyText={null}
+        layout="dealt"
+      />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <footer className="border-t border-white/10 py-10">

@@ -32,6 +32,8 @@ export type BoardClip = {
   title: string | null;
   source: string | null;
   added_at: string;
+  /** Hand-made order. null = unarranged, sorts after every positioned clip. */
+  position: number | null;
   tags: {
     editorial_name: string;
     group: string;
@@ -137,8 +139,23 @@ type RawBoardClip = {
 };
 
 type RawBoard = Omit<Board, "clips"> & {
-  board_clips: { added_at: string; clips: RawBoardClip | null }[] | null;
+  board_clips:
+    | { added_at: string; position: number | null; clips: RawBoardClip | null }[]
+    | null;
 };
+
+// position asc nulls last, then added_at desc — matches board_clips_order_idx.
+// Every other read path (covers, search) stays added_at-only on purpose: a
+// cover shows the board's newest clip, not its arranged order.
+function byPositionThenNewest(
+  x: { position: number | null; added_at: string },
+  y: { position: number | null; added_at: string }
+): number {
+  if (x.position !== null && y.position !== null) return x.position - y.position;
+  if (x.position !== null) return -1;
+  if (y.position !== null) return 1;
+  return y.added_at.localeCompare(x.added_at);
+}
 
 export async function getBoard(
   owner: string,
@@ -150,7 +167,7 @@ export async function getBoard(
     .from("boards")
     .select(
       `id, owner_name, slug, title, description, is_public, updated_at,
-       board_clips ( added_at, clips ( id, url, image_url, title, source,
+       board_clips ( added_at, position, clips ( id, url, image_url, title, source,
          creator, rights_holder, archived_at,
          clip_tags ( confidence, tags ( editorial_name, group, published_at ) ) ) )`
     )
@@ -165,7 +182,7 @@ export async function getBoard(
   const b = data as unknown as RawBoard;
   const clips: BoardClip[] = (b.board_clips ?? [])
     .filter((bc) => bc.clips && !bc.clips.archived_at)
-    .sort((x, y) => y.added_at.localeCompare(x.added_at))
+    .sort(byPositionThenNewest)
     .map((bc) => {
       const c = bc.clips!;
       return {
@@ -175,6 +192,7 @@ export async function getBoard(
         title: c.title,
         source: credit(c),
         added_at: bc.added_at,
+        position: bc.position,
         tags: (c.clip_tags ?? [])
           .filter((ct) => ct.tags !== null)
           .map((ct) => ({
