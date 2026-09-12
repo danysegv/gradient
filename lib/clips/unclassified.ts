@@ -144,3 +144,20 @@ export async function getClipsMissingDescriptions(
   }
   return (data ?? []) as UnclassifiedClip[];
 }
+
+/**
+ * Clips with no colours yet. Its own queue, not a subset of the description
+ * one: every clip described before colour existed has a description and no
+ * colours, so this backfill runs over almost the whole library once.
+ */
+export async function getClipsMissingColors(
+  limit?: number
+): Promise<UnclassifiedClip[]> {
+  const { data, error } = await supabaseAdmin.rpc("clips_missing_colors", {
+    row_limit: typeof limit === "number" ? limit : null,
+  });
+  if (error) {
+    throw new Error(`Could not load clips missing colours: ${error.message}`);
+  }
+  return (data ?? []) as UnclassifiedClip[];
+}

@@ -1,0 +1,73 @@
+"use client";
+
+import { useActionState } from "react";
+import { processClips } from "./process-actions";
+
+// One button for the whole pipeline. The breakdown underneath says what
+// the batch will actually spend a call on, because the two calls cost very
+// different amounts: tagging runs on Opus at roughly 5-8c a clip, while a
+// description and its colours come back from one Haiku call for well under
+// a cent. Twenty clips to describe is pocket change; twenty to tag is not.
+export function ProcessButton({
+  totalCount,
+  classifyCount,
+  describeCount,
+  colorCount,
+}: {
+  totalCount: number;
+  classifyCount: number;
+  describeCount: number;
+  colorCount: number;
+}) {
+  const [state, action, pending] = useActionState(processClips, undefined);
+
+  if (totalCount === 0 && !state) {
+    return <p className="text-sm opacity-70">Every clip is fully processed.</p>;
+  }
+
+  const batchSize = Math.min(totalCount, 20);
+  const parts = [
+    classifyCount > 0 ? `${classifyCount} to tag` : null,
+    describeCount > 0 ? `${describeCount} to describe` : null,
+    colorCount > 0 ? `${colorCount} to colour` : null,
+  ].filter(Boolean);
+
+  return (
+    <form action={action} className="flex flex-col items-start gap-2">
+      <button
+        disabled={pending || totalCount === 0}
+        type="submit"
+        className="rounded border border-white/25 px-3 py-2 text-sm disabled:opacity-50"
+      >
+        {pending
+          ? "Processing the first clip…"
+          : `Process ${batchSize} of ${totalCount} clip${totalCount === 1 ? "" : "s"}`}
+      </button>
+      <p className="max-w-md text-xs opacity-70">
+        {parts.length > 0 ? `${parts.join(" · ")}. ` : ""}
+        Each clip gets whatever it&rsquo;s missing: tags against the frozen
+        vocabulary, and one Haiku call that writes both its search description
+        and its colours. Tagging is the expensive part — roughly 5&ndash;8&cent; a
+        clip on Opus; describing and colouring together cost well under a cent.
+      </p>
+      {state?.error && (
+        <p role="alert" className="max-w-md text-sm text-bone">
+          {state.error}
+        </p>
+      )}
+      {state?.startedCount !== undefined && (
+        <p className="max-w-md text-sm opacity-80">
+          {state.startedCount === 0 && state.parked === 0
+            ? "Nothing left to process."
+            : `First clip done. The other ${Math.max(state.startedCount - 1, 0)} are processing in the background${state.remaining > 0 ? `, with ${state.remaining} still queued after this batch` : ""}. Refresh, then click again.`}
+        </p>
+      )}
+      {!!state?.parked && (
+        <p className="max-w-md text-sm opacity-70">
+          Parked {state.parked} clip{state.parked === 1 ? "" : "s"} whose image
+          couldn&rsquo;t be fetched. They&rsquo;re listed below to fix.
+        </p>
+      )}
+    </form>
+  );
+}

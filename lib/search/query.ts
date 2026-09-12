@@ -1,5 +1,7 @@
-// The search query as it travels through a URL: ?q=film+photography.
+// The search query as it travels through a URL: ?q=film+photography&color=teal.
 // Pure, so the rules are tested rather than assumed.
+
+import { isColorBucket, type ColorBucket } from "../color/buckets.ts";
 
 export const QUERY_MAX = 200;
 
@@ -16,4 +18,15 @@ export function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): 
   return rows
     .filter((r) => position.has(r.id))
     .sort((a, b) => position.get(a.id)! - position.get(b.id)!);
+}
+
+/**
+ * The colour swatch as it travels through a URL. Anything that isn't one of
+ * the dozen buckets is dropped rather than passed on: the value reaches a
+ * SECURITY DEFINER function, so it gets checked against the list here and
+ * again by the bucket the row was stored under, never trusted from the bar.
+ */
+export function normaliseColor(raw: unknown): ColorBucket | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return isColorBucket(value) ? value : null;
 }

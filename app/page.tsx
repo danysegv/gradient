@@ -14,7 +14,7 @@ import { SearchSummary } from "@/components/search-summary";
 import { BoardCard } from "@/components/boards/board-card";
 import { getSessionCurator } from "@/lib/clip-session";
 import { boardHref, searchBoards, type BoardHit } from "@/lib/boards/queries";
-import { normaliseQuery } from "@/lib/search/query";
+import { normaliseQuery, normaliseColor } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds } from "@/lib/search/results";
 
 // Always fetch fresh — this is a live feed, not a static marketing page.
@@ -73,16 +73,25 @@ type StatsRow = {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[] }>;
+  searchParams: Promise<{ q?: string | string[]; color?: string | string[] }>;
 }) {
-  const q = normaliseQuery((await searchParams).q);
+  const params = await searchParams;
+  const q = normaliseQuery(params.q);
+  // A swatch on its own is a search: browse that colour, most of it first.
+  const color = normaliseColor(params.color);
+  const searching = Boolean(q || color);
 
   // Searching: clips ranked by tags, Claude's reading of each image, title
   // and credits; boards by title and description. A signed-in curator also
   // finds their own private boards.
-  const viewer = q ? await getSessionCurator() : null;
-  const searchPromise = q
-    ? Promise.all([searchClipIds(q), searchBoards(q, { viewer })]).then(
+  const viewer = searching ? await getSessionCurator() : null;
+  const searchPromise = searching
+    ? Promise.all([
+        searchClipIds(q, color),
+        // Boards have no colour of their own, so a swatch alone matches no
+        // board rather than every board.
+        q ? searchBoards(q, { viewer }) : Promise.resolve([]),
+      ]).then(
         async ([clipSearch, boards]) => ({
           clips: await fetchGridClips(clipSearch.ids),
           exact: clipSearch.exact,
@@ -372,6 +381,8 @@ export default async function Home({
         <SearchBar
           initialQuery={q}
           placeholder="Search looks, subjects, techniques, boards"
+          color={color}
+          showColors
         />
         {search ? (
           <SearchSummary

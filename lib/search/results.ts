@@ -2,6 +2,7 @@ import "server-only";
 import { supabasePublic } from "@/lib/supabase/public";
 import type { GridClip } from "@/components/home-grid";
 import { orderByIds } from "./query";
+import type { ColorBucket } from "@/lib/color/buckets";
 
 // Clip search. search_clips ranks every active clip by its tags, Claude's
 // description of the image, its title and its credits, and returns ids
@@ -13,9 +14,17 @@ export type ClipSearch = {
   exact: boolean;
 };
 
-export async function searchClipIds(q: string): Promise<ClipSearch> {
-  if (!q) return { ids: [], exact: true };
-  const { data, error } = await supabasePublic.rpc("search_clips", { q });
+export async function searchClipIds(
+  q: string,
+  color: ColorBucket | null = null
+): Promise<ClipSearch> {
+  // A colour on its own is a real search: the swatch row browses a bucket
+  // with no words typed, ordered by how much of each image is that colour.
+  if (!q && !color) return { ids: [], exact: true };
+  const { data, error } = await supabasePublic.rpc("search_clips", {
+    q,
+    color,
+  });
   if (error) throw new Error(`search_clips: ${error.message}`);
   const rows = (data ?? []) as { clip_id: string; exact: boolean }[];
   return {

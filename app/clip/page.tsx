@@ -3,14 +3,14 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   getClipsMissingDescriptions,
+  getClipsMissingColors,
   getClipsNeedingClassification,
   getParkedClips,
 } from "@/lib/clips/unclassified";
 import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
-import { ClassifyButton } from "./classify-button";
-import { DescribeButton } from "./describe-button";
+import { ProcessButton } from "./process-button";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 
 // Classification can process several clips sequentially in the
@@ -124,6 +124,7 @@ export default async function ClipPage() {
     needsClassification,
     parked,
     needsDescription,
+    needsColors,
   ] = await Promise.all([
     supabaseAdmin
       .from("clips")
@@ -140,12 +141,21 @@ export default async function ClipPage() {
     getClipsNeedingClassification(),
     getParkedClips(),
     getClipsMissingDescriptions(),
+    getClipsMissingColors(),
   ]);
 
   const gridClips: ClipperClip[] = (clips ?? []).map(toGridClip);
   const archivedGridClips: ClipperClip[] = (archivedClips ?? []).map(toGridClip);
-  const fullCount = needsClassification.filter((c) => c.mode === "full").length;
-  const incubatingCount = needsClassification.length - fullCount;
+  // One queue for the button: a clip that needs three things is still one
+  // clip to process, and the breakdown below the button says what each
+  // call will actually be spent on.
+  const needsWork = new Set([
+    ...needsClassification.map((c) => c.id),
+    ...needsDescription.map((c) => c.id),
+    ...needsColors.map((c) => c.id),
+  ]).size;
+  const describedIds = new Set(needsDescription.map((c) => c.id));
+  const colourOnlyCount = needsColors.filter((c) => !describedIds.has(c.id)).length;
 
   return (
     <>
@@ -170,10 +180,12 @@ export default async function ClipPage() {
         </div>
         <ClipForm />
         <div className="mt-8">
-          <ClassifyButton fullCount={fullCount} incubatingCount={incubatingCount} />
-        </div>
-        <div className="mt-6">
-          <DescribeButton eligibleCount={needsDescription.length} />
+          <ProcessButton
+            totalCount={needsWork}
+            classifyCount={needsClassification.length}
+            describeCount={needsDescription.length}
+            colorCount={colourOnlyCount}
+          />
         </div>
 
         {parked.length > 0 && (

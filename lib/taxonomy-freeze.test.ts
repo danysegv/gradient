@@ -364,17 +364,31 @@ test("only the create flow and the unified classify action call the full classif
   );
   assert.deepEqual(
     callers,
-    ["app/clip/actions.ts", "app/clip/classify-actions.ts"],
+    [
+      "app/clip/actions.ts",
+      "app/clip/classify-actions.ts",
+      "app/clip/process-actions.ts",
+    ],
     "reprocessing an already-published clip must use classifyAndTagClipIncubatingOnly"
   );
 });
 
-test("the classify action dispatches on the row's mode, never decides it, and both write paths ignore duplicates", () => {
-  const src = readFileSync("app/clip/classify-actions.ts", "utf8");
-  assert.match(src, /classifyAndTagClip\(/);
-  assert.match(src, /classifyAndTagClipIncubatingOnly\(/);
-  assert.match(src, /getClipsNeedingClassification/);
-  assert.match(src, /clip\.mode === "full"/);
+// Both actions are checked, not just the one wired to a button today. A
+// guard that only covers the file that stopped being the live path is a
+// guard that passes while the invariant rots somewhere else.
+const MODE_DISPATCHERS = [
+  "app/clip/classify-actions.ts",
+  "app/clip/process-actions.ts",
+];
+
+test("the classify actions dispatch on the row's mode, never decide it, and both write paths ignore duplicates", () => {
+  for (const file of MODE_DISPATCHERS) {
+    const src = readFileSync(file, "utf8");
+    assert.match(src, /classifyAndTagClip\(/, file);
+    assert.match(src, /classifyAndTagClipIncubatingOnly\(/, file);
+    assert.match(src, /getClipsNeedingClassification/, file);
+    assert.match(src, /\.mode === "full"/, file);
+  }
 
   const write = readFileSync("lib/claude/classify-clip.ts", "utf8");
   const ignoreDuplicatesCount = (write.match(/ignoreDuplicates: true/g) ?? []).length;
@@ -389,14 +403,17 @@ test("the probe runs in the request, before anything is backgrounded", () => {
   // A background job that cannot report its own failure reported
   // "Started — 20 clips processing" for 25 minutes while the Anthropic
   // API rejected every call for want of credits.
+  for (const file of MODE_DISPATCHERS) {
+    const src = readFileSync(file, "utf8");
+    const probeIndex = src.indexOf("while (index <");
+    const afterIndex = src.indexOf("after(async ()");
+    assert.ok(probeIndex > 0, `${file}: the batch must process a probe clip first`);
+    assert.ok(
+      afterIndex > probeIndex,
+      `${file}: the probe must run before anything is handed to after()`
+    );
+  }
   const src = readFileSync("app/clip/classify-actions.ts", "utf8");
-  const probeIndex = src.indexOf("while (index < targets.length");
-  const afterIndex = src.indexOf("after(async ()");
-  assert.ok(probeIndex > 0, "the batch must classify a probe clip first");
-  assert.ok(
-    afterIndex > probeIndex,
-    "the probe must run before anything is handed to after()"
-  );
   assert.match(src, /return \{ error: `Classifier failed on the first clip/);
 });
 

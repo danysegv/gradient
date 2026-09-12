@@ -4,6 +4,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropic } from "./admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normaliseDescription } from "@/lib/search/describe-normalise";
+import { normaliseColors, type ClipColor } from "@/lib/color/normalise";
 
 // Search descriptors for one clip: a literal description of what is in the
 // image, plus the words a designer would type to find it. Written once per
@@ -24,6 +25,7 @@ const DESCRIBER_MODEL = "claude-haiku-4-5";
 const DescriptionSchema = z.object({
   summary: z.string(),
   keywords: z.array(z.string()),
+  colors: z.array(z.object({ hex: z.string(), coverage: z.number() })),
 });
 
 const SYSTEM = `You write search descriptors for 04AM, a library of visual design references. Designers search it in plain language — "film photography", "package design", "brutalist poster", "risograph", "3d type", "book cover", "hands", "chrome". Look at the image and return two things.
@@ -37,9 +39,15 @@ keywords — 15 to 30 lowercase search terms and short phrases that a designer w
 - colour and light ("black and white", "monochrome", "neon", "pastel", "golden hour")
 - typography, if present ("serif", "hand lettering", "bold sans")
 - style or era only when clearly visible ("brutalist", "y2k", "swiss style")
-Include singular forms and the everyday synonym next to the technical term. Leave out anything you are unsure of: a wrong keyword makes the image show up in the wrong search.`;
+Include singular forms and the everyday synonym next to the technical term. Leave out anything you are unsure of: a wrong keyword makes the image show up in the wrong search.
 
-export type ClipDescription = { summary: string; keywords: string[] };
+colors — the three to six colours that actually carry the image, each as a hex string with \`coverage\`, roughly the fraction of the frame it occupies (0 to 1). Read what is in front of you, including neutrals: a black-and-white photograph's colours are black, white and grey, and a warm paper scan is an off-white, not a yellow. Order most-present first, and leave out anything smaller than about a twentieth of the frame — a red button on a grey machine does not make the image red.`;
+
+export type ClipDescription = {
+  summary: string;
+  keywords: string[];
+  colors: ClipColor[];
+};
 
 export async function describeClip(input: {
   url: string;
@@ -89,7 +97,49 @@ export async function describeClip(input: {
     `[describe-clip] tokens: in=${u.input_tokens} out=${u.output_tokens} — est. cost $${cost.toFixed(4)}`
   );
 
-  return normaliseDescription(response.parsed_output);
+  return {
+    ...normaliseDescription(response.parsed_output),
+    colors: normaliseColors(response.parsed_output.colors ?? []),
+  };
+}
+
+/** Colours for one clip, replacing whatever was there. */
+async function storeColors(clipId: string, colors: ClipColor[]): Promise<void> {
+  const { error: clearError } = await supabaseAdmin
+    .from("clip_colors")
+    .delete()
+    .eq("clip_id", clipId);
+  if (clearError) throw new Error(`Could not clear colours: ${clearError.message}`);
+  if (colors.length === 0) return;
+
+  const { error } = await supabaseAdmin.from("clip_colors").insert(
+    colors.map((c) => ({
+      clip_id: clipId,
+      bucket: c.bucket,
+      coverage: c.coverage,
+      hex: c.hex,
+      described_at: new Date().toISOString(),
+    }))
+  );
+  if (error) throw new Error(`Could not store colours: ${error.message}`);
+}
+
+/**
+ * Colours only, for the backfill over clips described before colour
+ * existed. Deliberately does NOT rewrite the description: those summaries
+ * and keywords are what search has been ranking on, and replacing 147 of
+ * them to add a colour column would quietly change every search result.
+ */
+export async function colorAndStoreClip(clip: {
+  id: string;
+  url: string;
+  imageUrl: string;
+  title: string | null;
+  caption: string | null;
+}): Promise<number> {
+  const { colors } = await describeClip(clip);
+  await storeColors(clip.id, colors);
+  return colors.length;
 }
 
 /** Describe one clip and store it. Returns the number of keywords written. */
@@ -112,5 +162,8 @@ export async function describeAndStoreClip(clip: {
     { onConflict: "clip_id" }
   );
   if (error) throw new Error(`Could not store description: ${error.message}`);
+  // Colours come from the same call, so a new clip is described and
+  // coloured for the price of one request.
+  await storeColors(clip.id, description.colors);
   return description.keywords.length;
 }

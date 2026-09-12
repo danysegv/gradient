@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { normaliseQuery, orderByIds, QUERY_MAX } from "./query.ts";
+import { normaliseQuery, normaliseColor, orderByIds, QUERY_MAX } from "./query.ts";
 import { normaliseDescription, KEYWORDS_MAX, SUMMARY_MAX } from "./describe-normalise.ts";
 
 test("a query is trimmed, collapsed, capped, and empty when absent", () => {
@@ -54,4 +54,35 @@ test("only the describer names clip_descriptions, and it never selects from it",
   );
   const writer = readFileSync(new URL("lib/claude/describe-clip.ts", root), "utf8");
   assert.doesNotMatch(writer, /from\("clip_descriptions"\)\s*\.select/);
+});
+
+// Colour is stored and read exactly like a description: search-only, and
+// written from one place. If a second file starts naming clip_colors, the
+// boundary that protects clip_descriptions has been crossed for colour too.
+test("only the describer names clip_colors", () => {
+  const root = new URL("../../", import.meta.url);
+  const hits: string[] = [];
+  const walk = (dir: URL) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+      const url = new URL(e.name + (e.isDirectory() ? "/" : ""), dir);
+      if (e.isDirectory()) walk(url);
+      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
+        if (/["\'`]clip_colors["\'`]/.test(readFileSync(url, "utf8"))) hits.push(url.pathname);
+      }
+    }
+  };
+  for (const d of ["app/", "components/", "lib/"]) walk(new URL(d, root));
+  assert.deepEqual(
+    hits.map((h) => h.slice(h.indexOf("/lib/") >= 0 ? h.indexOf("/lib/") : h.indexOf("/app/"))),
+    ["/lib/claude/describe-clip.ts"]
+  );
+});
+
+test("a colour from the URL is only accepted if it is one of the swatches", () => {
+  assert.equal(normaliseColor("teal"), "teal");
+  assert.equal(normaliseColor(["blue", "red"]), "blue");
+  assert.equal(normaliseColor("chartreuse"), null);
+  assert.equal(normaliseColor(undefined), null);
+  assert.equal(normaliseColor("'; drop table clips; --"), null);
 });
