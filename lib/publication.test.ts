@@ -36,6 +36,15 @@ test("a withheld tag at confidence 1.0 still can't score a clip, post-launch", (
   assert.equal(result.size, 0);
 });
 
+test("BOARD_PUBLISHES_AT is later than the last launch-cohort tag's age gate", () => {
+  // Sciura is the last tag of the 09-26 launch cohort to clear the 45-day
+  // age gate, at 2026-09-26T08:01:13Z. BOARD_PUBLISHES_AT must stay later
+  // than that instant, or the feed could start ranking by a tag's velocity
+  // before the board itself has published anything — the exact bug this
+  // module exists to prevent, just with a smaller window to hide in.
+  assert.ok(BOARD_PUBLISHES_AT > Date.parse("2026-09-26T08:01:13Z"));
+});
+
 test("every withheld id is dropped, not just the first", () => {
   const all = new Map<string, number>(
     [...WITHHELD_TAG_IDS].map((id) => [id, 42])

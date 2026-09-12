@@ -2,13 +2,13 @@
 // board has not published: before launch nothing is published, and after
 // launch the withheld tags still aren't. One rule, read by both surfaces.
 
-// PROVISIONAL — confirm the real publish hour with Daniela. This value must
-// equal the moment the board actually goes live, nothing else. It must stay
-// later than 2026-09-26T08:01Z (when the last 09-26 tag clears the age
-// gate), and the board must publish strictly BEFORE this timestamp — a gate
-// earlier than the real publish re-creates the exact bug this module
-// exists to prevent, just in a smaller window.
-export const BOARD_PUBLISHES_AT = Date.parse("2026-09-26T12:00:00Z");
+// 11:00 ET on launch Saturday, decided 2026-09-12. The last tag of the launch
+// cohort clears its 45-day age gate at 08:01Z, so any value after that is safe
+// from a mid-cohort flip. Sequence: derive the board (scripts/panel-report.ts)
+// from ~13:00Z, publish it STRICTLY BEFORE 15:00Z, feed ranking opens at 15:00Z.
+// Publishing the board after this timestamp re-creates the bug this module
+// exists to prevent.
+export const BOARD_PUBLISHES_AT = Date.parse("2026-09-26T15:00:00Z");
 
 // RawAsymmetry, HighEnergy, FrontalSymmetry — resolved once against the
 // tags table (faxdpkqkufbywoxfmnka) on 2026-09-12. All three are also on
