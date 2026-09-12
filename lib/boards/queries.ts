@@ -1,5 +1,6 @@
 import "server-only";
 import { supabasePublic } from "@/lib/supabase/public";
+import { byPositionThenNewest } from "./position";
 
 // Reads for boards. Visitors read through the publishable key, where RLS
 // returns public boards only. The owner reads through the service role —
@@ -144,18 +145,6 @@ type RawBoard = Omit<Board, "clips"> & {
     | null;
 };
 
-// position asc nulls last, then added_at desc — matches board_clips_order_idx.
-// Every other read path (covers, search) stays added_at-only on purpose: a
-// cover shows the board's newest clip, not its arranged order.
-function byPositionThenNewest(
-  x: { position: number | null; added_at: string },
-  y: { position: number | null; added_at: string }
-): number {
-  if (x.position !== null && y.position !== null) return x.position - y.position;
-  if (x.position !== null) return -1;
-  if (y.position !== null) return 1;
-  return y.added_at.localeCompare(x.added_at);
-}
 
 export async function getBoard(
   owner: string,

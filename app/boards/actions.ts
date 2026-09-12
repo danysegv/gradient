@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getSessionCurator } from "@/lib/clip-session";
 import { isUuid, parseBoardInput } from "@/lib/boards/input";
 import { uniqueSlug } from "@/lib/boards/slug";
+import { planMove, type OrderedClip } from "@/lib/boards/position";
 
 // Every board write. Server actions are reachable by direct POST, so each
 // one re-verifies the /clip session AND that the signed-in curator owns
@@ -213,20 +214,13 @@ export async function setClipOnBoard(
 /**
  * Reorders one clip on a board. beforeClipId/afterClipId are whatever two
  * clips now sit on either side of the drop point — null on either side
- * means "the edge of the board" there. Writes ONE row: the midpoint of
- * the neighbours' positions, so every other clip's position (and thus its
- * relation to everything else) is untouched. The board is never
- * renumbered, no matter how many times a clip gets moved.
+ * means that edge of the board.
  *
- * A neighbour that's missing, or whose own position is still null
- * (unarranged — it always sorts last), can't contribute a number to
- * average against. In that case this falls back to the board-wide
- * min/max: one step before the lowest known position for a missing
- * "before", one step after the highest for a missing "after". At the
- * board's true edges this IS the midpoint calculation you'd want; at the
- * boundary between an arranged prefix and the unarranged tail, the
- * boundary clip already IS the board-wide min or max, so the two
- * formulas agree there too.
+ * All the arithmetic lives in lib/boards/position.ts, which also owns the
+ * comparator the board is displayed with. They have to be the same code: the
+ * first version of this computed positions independently of the display
+ * order and dropped clips at the front of any board that hadn't been
+ * arranged yet — which is every board, until its first drag.
  */
 export async function moveClipOnBoard(
   boardId: string,
@@ -243,38 +237,29 @@ export async function moveClipOnBoard(
 
   const { data, error: rowsError } = await supabaseAdmin
     .from("board_clips")
-    .select("clip_id, position")
+    .select("clip_id, position, added_at")
     .eq("board_id", board.id);
   if (rowsError) return { error: rowsError.message };
 
-  const rows = (data ?? []) as { clip_id: string; position: number | null }[];
-  const positionOf = (id: string | null) =>
-    id ? rows.find((r) => r.clip_id === id)?.position ?? null : null;
+  const writes = planMove(
+    (data ?? []) as OrderedClip[],
+    clipId,
+    beforeClipId,
+    afterClipId
+  );
+  if (writes.length === 0) return { error: "That clip isn't on this board." };
 
-  const beforePos = positionOf(beforeClipId);
-  const afterPos = positionOf(afterClipId);
-  const known = rows
-    .map((r) => r.position)
-    .filter((p): p is number => p !== null);
-  const globalMin = known.length ? Math.min(...known) : 0;
-  const globalMax = known.length ? Math.max(...known) : 0;
-
-  let newPosition: number;
-  if (beforePos !== null && afterPos !== null) {
-    newPosition = (beforePos + afterPos) / 2;
-  } else if (afterPos !== null) {
-    newPosition = globalMin - 1;
-  } else if (beforePos !== null) {
-    newPosition = globalMax + 1;
-  } else {
-    newPosition = globalMax + 1;
-  }
-
-  const { error } = await supabaseAdmin
-    .from("board_clips")
-    .update({ position: newPosition })
-    .eq("board_id", board.id)
-    .eq("clip_id", clipId);
+  // Usually one row. A board with unarranged clips, or neighbours with no
+  // room left between them, comes back fully renumbered instead — omitting
+  // added_at leaves it untouched on conflict, so nothing loses its clip date.
+  const { error } = await supabaseAdmin.from("board_clips").upsert(
+    writes.map((w) => ({
+      board_id: board.id,
+      clip_id: w.clip_id,
+      position: w.position,
+    })),
+    { onConflict: "board_id,clip_id" }
+  );
   if (error) return { error: error.message };
 
   await supabaseAdmin
