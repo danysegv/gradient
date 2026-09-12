@@ -11,10 +11,10 @@ export type UnclassifiedClip = {
 
 // Clips that have an image (so were eligible for classification) but
 // carry zero clip_tags rows — never classified, or classification
-// previously failed. Re-run reclassifyUnclassifiedClips whenever
-// classification errors out; this does NOT catch clips that already have
-// tags from before a taxonomy change — that mode is
-// getClipsMissingIncubatingTags, below.
+// previously failed. This does NOT catch clips that already have tags
+// from before a taxonomy change, or a clip with only incubating tags and
+// no published one yet — see getClipsNeedingClassification, below, which
+// is what the clipper UI actually uses.
 //
 // 2026-08-28: the anti-join moved into Postgres (unclassified_clips RPC).
 // This used to fetch EVERY clip_tags row to build a Set of tagged ids and
@@ -40,27 +40,42 @@ export async function getUnclassifiedClips(
 
 
 // ---------------------------------------------------------------------
-// The incubating-vocabulary backfill queue.
+// The one classification queue the clipper UI runs against. A clip needs
+// classification for one of two distinct reasons, and the two need
+// different classifiers — see scripts/clips-needing-classification.sql
+// for the exact criteria:
 //
-// getUnclassifiedClips only returns clips with ZERO tags, so every
-// already-classified clip is invisible to it and would never receive the
-// new vocabulary. This is the other mode: clips that carry no incubating
-// tag yet, whether or not they are otherwise classified.
+//   mode 'full'       zero published clip_tags rows. Safe for the FULL
+//                      classifier (classifyAndTagClip) — there's no
+//                      existing published application to re-date.
+//   mode 'incubating' already has a published tag, missing only some
+//                      incubating/new-vocabulary tag. Must use
+//                      classifyAndTagClipIncubatingOnly — the full
+//                      classifier would write published applications
+//                      timestamped now and swamp a board's trailing
+//                      window.
+//
+// The row carries the mode; app/clip/classify-actions.ts only dispatches
+// on it, never decides it.
 // ---------------------------------------------------------------------
 
-export async function getClipsMissingIncubatingTags(
+export type ClassificationQueueClip = UnclassifiedClip & {
+  mode: "full" | "incubating";
+};
+
+export async function getClipsNeedingClassification(
   limit?: number
-): Promise<UnclassifiedClip[]> {
+): Promise<ClassificationQueueClip[]> {
   const { data, error } = await supabaseAdmin.rpc(
-    "clips_missing_incubating_tags",
+    "clips_needing_classification",
     { row_limit: typeof limit === "number" ? limit : null }
   );
   if (error) {
     throw new Error(
-      `Could not load clips missing incubating tags: ${error.message}`
+      `Could not load clips needing classification: ${error.message}`
     );
   }
-  return (data ?? []) as UnclassifiedClip[];
+  return (data ?? []) as ClassificationQueueClip[];
 }
 
 

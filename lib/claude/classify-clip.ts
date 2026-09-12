@@ -255,9 +255,14 @@ export async function classifyAndTagClip(clip: {
     confidence: c.confidence,
   }));
 
+  // ignoreDuplicates: a clip reaching this path can already carry an
+  // incubating tag from a reclassify pass. ON CONFLICT DO NOTHING leaves
+  // that row's created_at untouched — panel drift is dated by that
+  // column, so re-classifying an existing clip must never look like a
+  // fresh tag application made today.
   const { error } = await supabaseAdmin
     .from("clip_tags")
-    .upsert(rows, { onConflict: "clip_id,tag_id" });
+    .upsert(rows, { onConflict: "clip_id,tag_id", ignoreDuplicates: true });
 
   if (error) {
     throw new Error(
@@ -312,13 +317,16 @@ export async function classifyAndTagClipIncubatingOnly(clip: {
   const incubating = classifications.filter((c) => !c.isPublished);
   if (incubating.length === 0) return 0;
 
+  // ignoreDuplicates — same reasoning as classifyAndTagClip: panel drift
+  // is dated by created_at, so a tag the clip already carries must never
+  // look like a fresh application made today.
   const { error } = await supabaseAdmin.from("clip_tags").upsert(
     incubating.map((c) => ({
       clip_id: clip.id,
       tag_id: c.tagId,
       confidence: c.confidence,
     })),
-    { onConflict: "clip_id,tag_id" }
+    { onConflict: "clip_id,tag_id", ignoreDuplicates: true }
   );
 
   if (error) {

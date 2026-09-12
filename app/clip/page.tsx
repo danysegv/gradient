@@ -3,17 +3,17 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   getClipsMissingDescriptions,
-  getClipsMissingIncubatingTags,
+  getClipsNeedingClassification,
   getParkedClips,
 } from "@/lib/clips/unclassified";
 import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
-import { ReclassifyButton } from "./reclassify-button";
+import { ClassifyButton } from "./classify-button";
 import { DescribeButton } from "./describe-button";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 
-// Reclassification can process several clips sequentially in the
+// Classification can process several clips sequentially in the
 // background (after()) — give the route more room than the default.
 export const maxDuration = 300;
 
@@ -118,27 +118,34 @@ export default async function ClipPage() {
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
   // back that doesn't require SQL.
-  const [{ data: clips }, { data: archivedClips }, needsVocab, parked, needsDescription] =
-    await Promise.all([
-      supabaseAdmin
-        .from("clips")
-        .select(CLIP_SELECT)
-        .is("archived_at", null)
-        .order("created_at", { ascending: false })
-        .limit(RECENT_CLIP_LIMIT),
-      supabaseAdmin
-        .from("clips")
-        .select(CLIP_SELECT)
-        .not("archived_at", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(RECENT_CLIP_LIMIT),
-      getClipsMissingIncubatingTags(),
-      getParkedClips(),
-      getClipsMissingDescriptions(),
-    ]);
+  const [
+    { data: clips },
+    { data: archivedClips },
+    needsClassification,
+    parked,
+    needsDescription,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("clips")
+      .select(CLIP_SELECT)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
+      .limit(RECENT_CLIP_LIMIT),
+    supabaseAdmin
+      .from("clips")
+      .select(CLIP_SELECT)
+      .not("archived_at", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(RECENT_CLIP_LIMIT),
+    getClipsNeedingClassification(),
+    getParkedClips(),
+    getClipsMissingDescriptions(),
+  ]);
 
   const gridClips: ClipperClip[] = (clips ?? []).map(toGridClip);
   const archivedGridClips: ClipperClip[] = (archivedClips ?? []).map(toGridClip);
+  const fullCount = needsClassification.filter((c) => c.mode === "full").length;
+  const incubatingCount = needsClassification.length - fullCount;
 
   return (
     <>
@@ -163,7 +170,7 @@ export default async function ClipPage() {
         </div>
         <ClipForm />
         <div className="mt-8">
-          <ReclassifyButton eligibleCount={needsVocab.length} />
+          <ClassifyButton fullCount={fullCount} incubatingCount={incubatingCount} />
         </div>
         <div className="mt-6">
           <DescribeButton eligibleCount={needsDescription.length} />

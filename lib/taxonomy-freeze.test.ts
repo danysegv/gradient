@@ -338,40 +338,58 @@ test("the documented opening date is recorded", () => {
 
 
 // ---------------------------------------------------------------------
-// The board-moving classifier is reachable from exactly one place.
+// The board-moving classifier is reachable from exactly two places.
 //
 // classifyAndTagClip writes EVERY tag the model returns, published ones
 // included. On a brand-new clip that is correct — that is how a clip
-// enters the library. Wired to a button that reprocesses EXISTING clips
-// it would add published applications timestamped now, inside the
-// trailing window, and swamp a board whose whole range is ±2.5 points.
+// enters the library. Running it on an already-published clip would add
+// published applications timestamped now, inside the trailing window,
+// and swamp a board whose whole range is ±2.5 points.
+//
+// app/clip/classify-actions.ts is the one deliberate exception, and only
+// because clips_needing_classification hands it mode: 'full' exclusively
+// for a clip with ZERO published clip_tags rows — there is no existing
+// published application to re-date, so this is completing a
+// classification that never ran, not reprocessing one that did. THE ROW
+// DECIDES THE MODE; the action only dispatches on it, never chooses.
+// Both write paths upsert with ignoreDuplicates, so a tag the clip
+// already carries is never touched or re-dated either way.
 // ---------------------------------------------------------------------
 
 const FULL_CLASSIFIER = /\bclassifyAndTagClip(?![A-Za-z])/;
 
-test("only the create flow calls the full classifier", () => {
+test("only the create flow and the unified classify action call the full classifier", () => {
   const callers = walk("app").filter((f) =>
     FULL_CLASSIFIER.test(readFileSync(f, "utf8"))
   );
   assert.deepEqual(
     callers,
-    ["app/clip/actions.ts"],
-    "reprocessing an existing clip must use classifyAndTagClipIncubatingOnly"
+    ["app/clip/actions.ts", "app/clip/classify-actions.ts"],
+    "reprocessing an already-published clip must use classifyAndTagClipIncubatingOnly"
   );
 });
 
-test("the reclassify button applies incubating tags only", () => {
-  const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
-  assert.match(src, /classifyAndTagClipIncubatingOnly/);
-  assert.equal(FULL_CLASSIFIER.test(src), false);
-  assert.match(src, /getClipsMissingIncubatingTags/);
+test("the classify action dispatches on the row's mode, never decides it, and both write paths ignore duplicates", () => {
+  const src = readFileSync("app/clip/classify-actions.ts", "utf8");
+  assert.match(src, /classifyAndTagClip\(/);
+  assert.match(src, /classifyAndTagClipIncubatingOnly\(/);
+  assert.match(src, /getClipsNeedingClassification/);
+  assert.match(src, /clip\.mode === "full"/);
+
+  const write = readFileSync("lib/claude/classify-clip.ts", "utf8");
+  const ignoreDuplicatesCount = (write.match(/ignoreDuplicates: true/g) ?? []).length;
+  assert.equal(
+    ignoreDuplicatesCount,
+    2,
+    "both classifyAndTagClip and classifyAndTagClipIncubatingOnly must ignore duplicates so created_at is never touched"
+  );
 });
 
 test("the probe runs in the request, before anything is backgrounded", () => {
   // A background job that cannot report its own failure reported
   // "Started — 20 clips processing" for 25 minutes while the Anthropic
   // API rejected every call for want of credits.
-  const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
+  const src = readFileSync("app/clip/classify-actions.ts", "utf8");
   const probeIndex = src.indexOf("while (index < targets.length");
   const afterIndex = src.indexOf("after(async ()");
   assert.ok(probeIndex > 0, "the batch must classify a probe clip first");
@@ -385,7 +403,7 @@ test("the probe runs in the request, before anything is backgrounded", () => {
 test("a clip with an unfetchable image is parked, not fatal", () => {
   // The opposite mistake to the silent one: a probe that aborts on ANY
   // failure lets a single dead image URL block every clip behind it.
-  const src = readFileSync("app/clip/reclassify-actions.ts", "utf8");
+  const src = readFileSync("app/clip/classify-actions.ts", "utf8");
   assert.match(src, /if \(!isUnreadableImageError\(err\)\)/);
   assert.match(src, /await parkClip\(/);
   assert.match(src, /MAX_PROBE_ATTEMPTS/);

@@ -10,7 +10,7 @@ import {
 } from "@/lib/clips/unclassified";
 
 // Describes clips for search, a batch at a time. Same shape as
-// reclassify-actions.ts, for the same hard-won reasons:
+// classify-actions.ts, for the same hard-won reasons:
 //
 // - The FIRST clip is described inside the request, so an account-level
 //   failure (credits, auth, rate limit) reaches the screen instead of

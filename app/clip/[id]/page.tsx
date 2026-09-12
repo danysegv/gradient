@@ -248,7 +248,7 @@ export default async function ClipDetailPage({
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
           {/* The image is the subject, so it leads and it is not cropped. */}
-          <div className="rounded-[3px] bg-ink-2 p-3">
+          <div className="flex justify-center">
             <ClipThumbnail
               imageUrl={clip.image_url}
               title={clip.title}

@@ -309,16 +309,17 @@ export default async function CuratorsPage() {
                   ))}
                 </dl>
               </div>
-              <div className="grid grid-cols-5 gap-2 self-start">
+              <div className="flex items-start gap-2 self-start overflow-x-auto">
                 {c.strip.map((clip) => (
                   <div
                     key={clip.id}
-                    className="overflow-hidden rounded-[3px] bg-ink-2"
+                    className="flex-none overflow-hidden rounded-[3px]"
                   >
                     <ClipThumbnail
                       imageUrl={clip.image_url}
                       title={clip.title}
                       source={clip.source}
+                      variant="strip"
                     />
                   </div>
                 ))}

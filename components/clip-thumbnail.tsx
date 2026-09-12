@@ -17,11 +17,14 @@ export function ClipThumbnail({
   source: string | null;
   /** "grid" keeps the masonry behaviour below exactly as it was. "detail"
    * is the single-clip view, where the image is the subject rather than a
-   * tile and must not run past the fold on a tall portrait scan. The two
-   * class strings are swapped wholesale rather than merged, because
-   * Tailwind resolves conflicting utilities by stylesheet order, not by
-   * the order they appear in the attribute. */
-  variant?: "grid" | "detail";
+   * tile and must not run past the fold on a tall portrait scan. "strip"
+   * is a horizontal filmstrip (e.g. the curators roster): a fixed height
+   * and an auto width, so images of differing aspect ratios sit at
+   * differing widths in a row instead of being letterboxed into a
+   * uniform box. The class strings are swapped wholesale rather than
+   * merged, because Tailwind resolves conflicting utilities by
+   * stylesheet order, not by the order they appear in the attribute. */
+  variant?: "grid" | "detail" | "strip";
 }) {
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -36,12 +39,18 @@ export function ClipThumbnail({
   }, []);
 
   if (!imageUrl || broken) {
-    // No natural image dimensions to size from — give the fallback its
-    // own ratio so it doesn't collapse to zero height in the masonry flow.
+    // This is a card, not a photo — no image to misrepresent — so it's
+    // the one place an aspect ratio and a background are still fine. It
+    // still needs its own ratio so it doesn't collapse to zero height in
+    // the masonry flow (or zero width in the strip flow).
     return (
       <div
-        className={`flex w-full flex-col items-center justify-center gap-1 bg-ink-2 p-5 text-center ${
-          variant === "detail" ? "aspect-[4/3]" : "aspect-[3/4]"
+        className={`flex flex-col items-center justify-center gap-1 bg-ink-2 p-5 text-center ${
+          variant === "detail"
+            ? "w-full aspect-[4/3]"
+            : variant === "strip"
+              ? "h-[220px] w-auto flex-none aspect-[3/4]"
+              : "w-full aspect-[3/4]"
         }`}
       >
         <p className="text-sm font-semibold leading-snug">
@@ -62,15 +71,20 @@ export function ClipThumbnail({
       referrerPolicy="no-referrer"
       onError={() => setBroken(true)}
       onLoad={() => setLoaded(true)}
-      // No object-fit crop, no fixed aspect ratio — natural dimensions are
-      // exactly what makes the masonry grid read as varied-height Cosmos-
-      // style rather than a uniform card grid. The Ink-2 ground + fade-in
-      // stops tiles from popping in hard against the page as they lazy-load.
+      // The clip's own aspect ratio, always: no object-fit crop, no
+      // aspect-* box, no background frame. Exactly one dimension is
+      // constrained per variant and the other follows naturally —
+      //   grid    w-full h-auto        (masonry — varied tile heights)
+      //   detail  max-h-[78vh] w-auto  (single-clip view, centred)
+      //   strip   h-[220px] w-auto     (curators filmstrip — varied widths)
+      // The fade-in on load is the only visual treatment applied.
       className={`${
         variant === "detail"
-          ? "mx-auto block h-auto w-full max-h-[78vh] object-contain"
-          : "block h-auto w-full"
-      } bg-ink-2 transition-opacity duration-500 ${
+          ? "mx-auto block h-auto w-auto max-h-[78vh] max-w-full"
+          : variant === "strip"
+            ? "block h-[220px] w-auto max-w-none flex-none"
+            : "block h-auto w-full"
+      } transition-opacity duration-500 ${
         loaded ? "opacity-100" : "opacity-0"
       }`}
     />

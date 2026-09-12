@@ -45,7 +45,9 @@ export type Board = Omit<BoardSummary, "clip_count" | "covers"> & {
   clips: BoardClip[];
 };
 
-const COVER_COUNT = 4;
+// BoardCard shows only the newest clip now (its natural aspect ratio,
+// uncropped) rather than a 2x2 grid, so one cover is all any caller uses.
+const COVER_COUNT = 1;
 
 async function clientFor(viewerIsOwner: boolean) {
   if (!viewerIsOwner) return supabasePublic;
