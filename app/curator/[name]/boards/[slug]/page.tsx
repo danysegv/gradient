@@ -230,6 +230,7 @@ export default async function BoardPage({
             boardId={board.id}
             canRearrange={isOwner && !clipSearch}
             initialClips={shownClips}
+            initialCoverClipIds={board.cover_clip_ids}
           />
         </>
       )}

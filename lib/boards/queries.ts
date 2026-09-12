@@ -1,6 +1,7 @@
 import "server-only";
 import { supabasePublic } from "@/lib/supabase/public";
-import { byPositionThenNewest } from "./position";
+import { byPositionThenNewest } from "./position.ts";
+import { resolveCover } from "./cover.ts";
 
 // Reads for boards. Visitors read through the publishable key, where RLS
 // returns public boards only. The owner reads through the service role —
@@ -24,6 +25,9 @@ export type BoardSummary = {
   updated_at: string;
   clip_count: number;
   covers: BoardCover[];
+  /** Owner's chosen cover, in order. Null = the default (first four in
+   *  board order). Resolved by lib/boards/cover.ts, never read raw. */
+  cover_clip_ids: string[] | null;
 };
 
 export type BoardClip = {
@@ -50,7 +54,6 @@ export type Board = Omit<BoardSummary, "clip_count" | "covers"> & {
 
 // BoardCard shows only the newest clip now (its natural aspect ratio,
 // uncropped) rather than a 2x2 grid, so one cover is all any caller uses.
-const COVER_COUNT = 1;
 
 async function clientFor(viewerIsOwner: boolean) {
   if (!viewerIsOwner) return supabasePublic;
@@ -63,7 +66,9 @@ async function clientFor(viewerIsOwner: boolean) {
 // gotcha as app/page.tsx — cast at the boundary.
 type RawCoverClip = BoardCover & { archived_at: string | null };
 type RawSummary = Omit<BoardSummary, "clip_count" | "covers"> & {
-  board_clips: { added_at: string; clips: RawCoverClip | null }[] | null;
+  board_clips:
+    | { added_at: string; position: number | null; clips: RawCoverClip | null }[]
+    | null;
 };
 
 function credit(c: {
@@ -83,7 +88,8 @@ export async function listBoards(
     .from("boards")
     .select(
       `id, slug, title, description, is_public, updated_at,
-       board_clips ( added_at, clips ( id, image_url, title, source, archived_at ) )`
+       cover_clip_ids,
+       board_clips ( added_at, position, clips ( id, image_url, title, source, archived_at ) )`
     )
     .eq("owner_name", owner)
     .order("updated_at", { ascending: false });
@@ -100,7 +106,17 @@ function summariseRaw(b: RawSummary): BoardSummary {
   // every other surface. The row stays, so restoring the clip restores it.
   const live = (b.board_clips ?? [])
     .filter((bc) => bc.clips && !bc.clips.archived_at)
-    .sort((x, y) => y.added_at.localeCompare(x.added_at));
+    .map((bc) => ({
+      clip_id: bc.clips!.id,
+      position: bc.position,
+      added_at: bc.added_at,
+      cover: {
+        id: bc.clips!.id,
+        image_url: bc.clips!.image_url,
+        title: bc.clips!.title,
+        source: bc.clips!.source,
+      } satisfies BoardCover,
+    }));
   return {
     id: b.id,
     slug: b.slug,
@@ -109,12 +125,9 @@ function summariseRaw(b: RawSummary): BoardSummary {
     is_public: b.is_public,
     updated_at: b.updated_at,
     clip_count: live.length,
-    covers: live.slice(0, COVER_COUNT).map((bc) => ({
-      id: bc.clips!.id,
-      image_url: bc.clips!.image_url,
-      title: bc.clips!.title,
-      source: bc.clips!.source,
-    })),
+    // Board order, not added_at: a rearranged board's cover follows it.
+    covers: resolveCover(live, b.cover_clip_ids).map((c) => c.cover),
+    cover_clip_ids: b.cover_clip_ids,
   };
 }
 
@@ -156,6 +169,7 @@ export async function getBoard(
     .from("boards")
     .select(
       `id, owner_name, slug, title, description, is_public, updated_at,
+       cover_clip_ids,
        board_clips ( added_at, position, clips ( id, url, image_url, title, source,
          creator, rights_holder, archived_at,
          clip_tags ( confidence, tags ( editorial_name, group, published_at ) ) ) )`
@@ -201,6 +215,7 @@ export async function getBoard(
     description: b.description,
     is_public: b.is_public,
     updated_at: b.updated_at,
+    cover_clip_ids: b.cover_clip_ids,
     clips,
   };
 }
@@ -321,7 +336,8 @@ export async function searchBoards(
     .from("boards")
     .select(
       `id, owner_name, slug, title, description, is_public, updated_at,
-       board_clips ( added_at, clips ( id, image_url, title, source, archived_at ) )`
+       cover_clip_ids,
+       board_clips ( added_at, position, clips ( id, image_url, title, source, archived_at ) )`
     )
     .in("id", ids);
   if (rowsError) throw new Error(`searchBoards: ${rowsError.message}`);

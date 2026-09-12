@@ -7,6 +7,7 @@ import { getSessionCurator } from "@/lib/clip-session";
 import { isUuid, parseBoardInput } from "@/lib/boards/input";
 import { uniqueSlug } from "@/lib/boards/slug";
 import { planMove, type OrderedClip } from "@/lib/boards/position";
+import { COVER_COUNT } from "@/lib/boards/cover";
 
 // Every board write. Server actions are reachable by direct POST, so each
 // one re-verifies the /clip session AND that the signed-in curator owns
@@ -266,6 +267,56 @@ export async function moveClipOnBoard(
     .from("boards")
     .update({ updated_at: new Date().toISOString() })
     .eq("id", board.id);
+
+  revalidatePath(profilePath(curator));
+  revalidatePath(boardPath(curator, board.slug));
+  return {};
+}
+
+/**
+ * Sets which clips make up a board's cover, in the order given. Pass null
+ * (or an empty list) to go back to the default — the first four in board
+ * order, which then follows the board whenever it's rearranged.
+ *
+ * Only ids actually on the board are stored, so a cover can't name a clip
+ * the viewer would never see. Storing fewer than four is allowed and is not
+ * a shrunken cover: lib/boards/cover.ts tops the rest up from board order.
+ */
+export async function setBoardCover(
+  boardId: string,
+  clipIds: string[] | null
+): Promise<BoardActionResult> {
+  const curator = await getSessionCurator();
+  if (!curator) return { error: NOT_SIGNED_IN };
+
+  const board = await ownedBoard(boardId, curator);
+  if (!board) return { error: "You can only set the cover on your own boards." };
+
+  let stored: string[] | null = null;
+  if (clipIds && clipIds.length > 0) {
+    if (!clipIds.every(isUuid)) return { error: "That clip link isn't valid." };
+
+    const { data, error: rowsError } = await supabaseAdmin
+      .from("board_clips")
+      .select("clip_id")
+      .eq("board_id", board.id);
+    if (rowsError) return { error: rowsError.message };
+
+    const onBoard = new Set((data ?? []).map((r) => r.clip_id as string));
+    const kept: string[] = [];
+    for (const id of clipIds) {
+      if (!onBoard.has(id) || kept.includes(id)) continue;
+      kept.push(id);
+      if (kept.length === COVER_COUNT) break;
+    }
+    stored = kept.length > 0 ? kept : null;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("boards")
+    .update({ cover_clip_ids: stored, updated_at: new Date().toISOString() })
+    .eq("id", board.id);
+  if (error) return { error: error.message };
 
   revalidatePath(profilePath(curator));
   revalidatePath(boardPath(curator, board.slug));
