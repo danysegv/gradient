@@ -30,6 +30,7 @@
 import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase/admin.ts";
 import { colorsFromPixels } from "../lib/color/extract.ts";
+import { withPrimary } from "../lib/color/primary.ts";
 
 const APPLY = process.argv.includes("--apply");
 const limitArg = process.argv.indexOf("--limit");
@@ -73,16 +74,24 @@ let failed = 0;
 for (const clip of clips) {
   const label = clip.title ?? clip.url;
   try {
-    const colors = colorsFromPixels(await pixelsFor(clip.image_url), 4);
+    const colors = withPrimary(colorsFromPixels(await pixelsFor(clip.image_url), 4));
     if (colors.length === 0) {
       console.warn(`  · ${label} — no readable colour, skipped`);
       failed += 1;
       continue;
     }
-    const summary = colors
+    // The primary is what the clip is FILED under and the only thing search
+    // matches, so it leads the line; the rest is the breakdown behind it.
+    const primary = colors.find((c) => c.is_primary);
+    const rest = colors
+      .filter((c) => !c.is_primary)
       .map((c) => `${c.bucket} ${(c.coverage * 100).toFixed(0)}%`)
       .join(", ");
-    console.log(`  ✓ ${label} — ${summary}`);
+    console.log(
+      `  ✓ ${primary ? primary.bucket.toUpperCase().padEnd(6) : "??????"} ` +
+        `${primary ? String(Math.round(primary.coverage * 100)).padStart(3) + "%" : "    "}` +
+        `  ${label}${rest ? `  ·  ${rest}` : ""}`
+    );
 
     if (APPLY) {
       const { error: clearError } = await supabaseAdmin
@@ -96,6 +105,7 @@ for (const clip of clips) {
           bucket: c.bucket,
           coverage: c.coverage,
           hex: c.hex,
+          is_primary: c.is_primary,
         }))
       );
       if (insertError) throw new Error(insertError.message);

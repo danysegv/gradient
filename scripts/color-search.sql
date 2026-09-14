@@ -55,3 +55,23 @@ as $$
 $$;
 revoke execute on function public.colors_ready() from public;
 grant execute on function public.colors_ready() to anon, authenticated;
+
+-- Added 2026-09-14. A clip is filed under ONE colour.
+--
+-- Search matches only is_primary, so every clip appears under exactly one
+-- swatch. Which one is decided by lib/color/primary.ts: the strongest hue
+-- above CHROMATIC_FLOOR, or the largest neutral when the image really is
+-- just black, white and grey.
+--
+-- The literal largest bucket would be wrong. Design references sit on white,
+-- grey and black — a red poster on a white wall is ~70% white — so taking
+-- the maximum by pixel count would file most of the library under White and
+-- leave Red empty.
+--
+-- Every other bucket is still stored. Retuning the rule is then an UPDATE
+-- over clip_colors, not a re-read of every image.
+alter table clip_colors add column if not exists is_primary boolean not null default false;
+create unique index if not exists clip_colors_one_primary_idx
+  on clip_colors (clip_id) where is_primary;
+-- search_clips matches `cc.is_primary` in both branches (definition applied
+-- 2026-09-14; same signature, so grants are preserved).

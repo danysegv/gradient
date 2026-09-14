@@ -5,6 +5,7 @@ import { anthropic } from "./admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normaliseDescription } from "@/lib/search/describe-normalise";
 import { normaliseColors, type ClipColor } from "@/lib/color/normalise";
+import { withPrimary } from "@/lib/color/primary";
 
 // Search descriptors for one clip: a literal description of what is in the
 // image, plus the words a designer would type to find it. Written once per
@@ -113,11 +114,12 @@ async function storeColors(clipId: string, colors: ClipColor[]): Promise<void> {
   if (colors.length === 0) return;
 
   const { error } = await supabaseAdmin.from("clip_colors").insert(
-    colors.map((c) => ({
+    withPrimary(colors).map((c) => ({
       clip_id: clipId,
       bucket: c.bucket,
       coverage: c.coverage,
       hex: c.hex,
+      is_primary: c.is_primary,
       described_at: new Date().toISOString(),
     }))
   );
