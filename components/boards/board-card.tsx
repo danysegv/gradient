@@ -1,21 +1,24 @@
 import Link from "next/link";
 import type { BoardSummary } from "@/lib/boards/queries";
 
-// A board on a profile: up to four clips, then its name. A cover is a
-// glimpse of a collection, not the work itself — but that glimpse is still
-// a real reference, so every image keeps its own shape exactly like every
-// other clip image in the app.
+// A board on a profile: up to four clips in a square, then its name.
 //
 // Which four, and in what order, is lib/boards/cover.ts: the owner's chosen
 // cover if there is one, otherwise the first four in the board's own order,
 // so rearranging a board rearranges its cover.
 //
-// Two columns, each image at full column width with its natural height, so
-// the two columns end at different heights and the card's bottom edge is
-// ragged. That is the only honest layout here: with a fixed card width and
-// four arbitrary aspect ratios, either the heights vary or the images get
-// cropped, and the images never get cropped. One clip fills the width alone,
-// exactly as before.
+// THIS IS THE ONE PLACE IN THE APP THAT CROPS AN IMAGE, and it is a
+// deliberate exception to the rule in lib/clip-images.test.ts. A cover is
+// not a reference — it is a board's identifier, sitting in a row beside
+// other boards, and at thumbnail size ragged tiles of different heights
+// read as broken rather than as respect for the work. Everywhere a clip is
+// shown AS a clip — the feed, profiles, /clip, the board page itself — it
+// still keeps its own shape and is never cropped. If this exception ever
+// spreads beyond this file the tripwire fires, which is the point.
+//
+// One clip fills the square, two split it, three give the first the full
+// height, four make a 2x2 — so every board card is the same shape whatever
+// it contains.
 export function BoardCard({
   href,
   board,
@@ -26,8 +29,14 @@ export function BoardCard({
   /** Shown in search results, where boards come from many profiles. */
   owner?: string;
 }) {
-  const covers = board.covers.filter((c) => c.image_url);
-  const single = covers.length === 1;
+  const covers = board.covers.filter((c) => c.image_url).slice(0, 4);
+  // Which grid cells each tile occupies, so the four layouts all square up.
+  const spanFor = (count: number, i: number) => {
+    if (count === 1) return "col-span-2 row-span-2";
+    if (count === 2) return "row-span-2";
+    if (count === 3 && i === 0) return "row-span-2";
+    return "";
+  };
   return (
     <Link
       href={href}
@@ -35,12 +44,8 @@ export function BoardCard({
     >
       <div className="overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90">
         {covers.length > 0 ? (
-          <div
-            className={
-              single ? "" : "grid grid-cols-2 items-start gap-[3px]"
-            }
-          >
-            {covers.map((c) => (
+          <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-[6px]">
+            {covers.map((c, i) => (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
               <img
                 key={c.id}
@@ -48,15 +53,14 @@ export function BoardCard({
                 alt=""
                 loading="lazy"
                 referrerPolicy="no-referrer"
-                className="block h-auto w-full"
+                className={`h-full w-full object-cover ${spanFor(covers.length, i)}`}
               />
             ))}
           </div>
         ) : (
-          // No clip to show yet — a card, not a photo, so an aspect ratio
-          // and a background are fine here same as ClipThumbnail's
-          // no-image fallback.
-          <div className="flex aspect-[4/3] w-full items-center justify-center bg-ink-2 text-center text-xs text-bone/60">
+          // No clip to show yet — a card, not a photo, so a background is
+          // fine here same as ClipThumbnail's no-image fallback.
+          <div className="flex aspect-square w-full items-center justify-center bg-ink-2 text-center text-xs text-bone/60">
             No clips yet
           </div>
         )}

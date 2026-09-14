@@ -16,12 +16,36 @@ function walk(dir: string): string[] {
 // designer a different composition than the one that was actually clipped,
 // which is a misrepresentation of the work, not a display choice. Every
 // clip image in the app sizes to its own aspect ratio instead (see
-// components/clip-thumbnail.tsx and components/boards/board-card.tsx).
-// This test is the tripwire that stops a future "just fill the box" fix
-// from quietly reintroducing a crop anywhere in the app.
+// components/clip-thumbnail.tsx). This test is the tripwire that stops a
+// future "just fill the box" fix from quietly reintroducing a crop.
+//
+// ONE deliberate exception, added 2026-09-14 by Daniela's decision: a board
+// card's cover grid. A cover is not a reference — it is a board's
+// identifier, sitting in a row beside other boards, and at thumbnail size
+// tiles of differing heights read as broken rather than as respect for the
+// work. Everywhere a clip is shown AS a clip, including the board page
+// itself, it is still never cropped.
+//
+// Adding to this list is a product decision, not a fix. Whatever goes here
+// needs a comment in the file saying why a crop is honest there.
+const CROP_ALLOWED = ["components/boards/board-card.tsx"];
+
 test("no .tsx file under app/ or components/ crops an image with object-cover", () => {
-  const offenders = [...walk("app"), ...walk("components")].filter((f) =>
-    readFileSync(f, "utf8").includes("object-cover")
-  );
+  const offenders = [...walk("app"), ...walk("components")]
+    .filter((f) => readFileSync(f, "utf8").includes("object-cover"))
+    .filter((f) => !CROP_ALLOWED.includes(f));
   assert.deepEqual(offenders, []);
+});
+
+test("the one allowed crop still says why it is allowed", () => {
+  // A bare object-cover with the reasoning deleted is how an exception
+  // becomes a precedent.
+  for (const f of CROP_ALLOWED) {
+    const src = readFileSync(f, "utf8");
+    assert.match(
+      src,
+      /ONE PLACE IN THE APP THAT CROPS|deliberate exception/,
+      `${f} crops without explaining why`
+    );
+  }
 });
