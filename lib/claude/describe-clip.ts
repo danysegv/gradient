@@ -120,6 +120,8 @@ async function storeColors(clipId: string, colors: ClipColor[]): Promise<void> {
       coverage: c.coverage,
       hex: c.hex,
       is_primary: c.is_primary,
+      // An estimate, so the watcher knows to come back and read the pixels.
+      source: "model",
       described_at: new Date().toISOString(),
     }))
   );

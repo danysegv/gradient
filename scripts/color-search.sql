@@ -100,3 +100,16 @@ update clip_colors cc
 set is_primary = (r.rn = 1)
 from ranked r
 where r.clip_id = cc.clip_id and r.bucket = cc.bucket;
+
+-- Added 2026-09-14. Where a clip's colours came from.
+--
+-- 'model' — the Haiku describer's estimate, written when a clip is first
+--           added so it is colour-searchable the moment it lands.
+-- 'pixels' — scripts/read-colors.ts, exact.
+--
+-- Existing rows default to 'pixels', which is correct: they were all written
+-- by the backfill. The watcher (scripts/install-colour-watcher.sh) re-reads
+-- only source = 'model', so a new clip costs one image fetch a few minutes
+-- later instead of re-reading the whole library.
+alter table clip_colors add column if not exists source text not null default 'pixels';
+create index if not exists clip_colors_source_idx on clip_colors (source) where source = 'model';
