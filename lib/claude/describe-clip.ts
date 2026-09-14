@@ -130,6 +130,31 @@ async function storeColors(clipId: string, colors: ClipColor[]): Promise<void> {
  * and keywords are what search has been ranking on, and replacing 147 of
  * them to add a colour column would quietly change every search result.
  */
+const ColorOnlySchema = z.object({
+  colors: z.array(z.object({ hex: z.string(), coverage: z.number() })),
+});
+
+// The backfill's own prompt, deliberately not the describer's.
+//
+// A clip described before colour existed needs ONLY its colours, and the
+// full describer answers with a summary and 15-30 keywords as well — about
+// 500 output tokens, of which this path kept roughly sixty and binned the
+// rest. Output is the expensive half of a Haiku call, so asking the smaller
+// question costs roughly a third as much for exactly the same rows. No
+// title or caption is sent either: neither tells you what colour something
+// is.
+const COLOR_SYSTEM = `Look at the image and return the three to six colours that actually carry it, each as a hex string with \`coverage\`, roughly the fraction of the frame it occupies (0 to 1).
+
+Read what is in front of you, including neutrals: a black-and-white photograph's colours are black, white and grey, and a warm paper scan is an off-white, not a yellow. Order most-present first, and leave out anything smaller than about a twentieth of the frame — a red button on a grey machine does not make the image red.
+
+Return nothing but the colours.`;
+
+/**
+ * Colours only, for the backfill over clips described before colour
+ * existed. Deliberately does NOT rewrite the description: those summaries
+ * and keywords are what search has been ranking on, and replacing them all
+ * to add a colour column would quietly change every search result.
+ */
 export async function colorAndStoreClip(clip: {
   id: string;
   url: string;
@@ -137,7 +162,38 @@ export async function colorAndStoreClip(clip: {
   title: string | null;
   caption: string | null;
 }): Promise<number> {
-  const { colors } = await describeClip(clip);
+  const response = await anthropic.messages.parse({
+    model: DESCRIBER_MODEL,
+    max_tokens: 400,
+    output_config: { format: zodOutputFormat(ColorOnlySchema) },
+    system: [
+      { type: "text", text: COLOR_SYSTEM, cache_control: { type: "ephemeral" } },
+    ],
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "url", url: clip.imageUrl } },
+        ],
+      },
+    ],
+  });
+
+  if (!response.parsed_output) {
+    throw new Error("Colour response did not match the expected schema");
+  }
+
+  const u = response.usage;
+  const cost =
+    (u.input_tokens / 1e6) * 1 +
+    (u.output_tokens / 1e6) * 5 +
+    ((u.cache_creation_input_tokens ?? 0) / 1e6) * 1.25 +
+    ((u.cache_read_input_tokens ?? 0) / 1e6) * 0.1;
+  console.log(
+    `[color] tokens: in=${u.input_tokens} out=${u.output_tokens} — est. cost $${cost.toFixed(5)}`
+  );
+
+  const colors = normaliseColors(response.parsed_output.colors ?? []);
   await storeColors(clip.id, colors);
   return colors.length;
 }

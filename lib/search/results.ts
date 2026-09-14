@@ -92,3 +92,15 @@ export async function fetchGridClips(
       })),
   }));
 }
+
+/**
+ * Whether ANY clip has had its colours read. Lets a colour search with no
+ * results say "colour search isn't ready yet" rather than "nothing is
+ * yellow" — a different and far more misleading claim, and the one the
+ * library makes for as long as the backfill hasn't run.
+ */
+export async function colorsReady(): Promise<boolean> {
+  const { data, error } = await supabasePublic.rpc("colors_ready");
+  if (error) throw new Error(`colors_ready: ${error.message}`);
+  return data === true;
+}

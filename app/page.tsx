@@ -15,7 +15,7 @@ import { BoardCard } from "@/components/boards/board-card";
 import { getSessionCurator } from "@/lib/clip-session";
 import { boardHref, searchBoards, type BoardHit } from "@/lib/boards/queries";
 import { normaliseQuery, normaliseColor } from "@/lib/search/query";
-import { fetchGridClips, searchClipIds } from "@/lib/search/results";
+import { fetchGridClips, searchClipIds, colorsReady } from "@/lib/search/results";
 
 // Always fetch fresh — this is a live feed, not a static marketing page.
 export const revalidate = 0;
@@ -91,11 +91,15 @@ export default async function Home({
         // Boards have no colour of their own, so a swatch alone matches no
         // board rather than every board.
         q ? searchBoards(q, { viewer }) : Promise.resolve([]),
+        // Only asked when a swatch is applied, and only to tell "nothing is
+        // yellow" apart from "no colours have been read yet".
+        color ? colorsReady() : Promise.resolve(true),
       ]).then(
-        async ([clipSearch, boards]) => ({
+        async ([clipSearch, boards, ready]) => ({
           clips: await fetchGridClips(clipSearch.ids),
           exact: clipSearch.exact,
           boards,
+          colorsReady: ready,
         })
       )
     : Promise.resolve(null);
@@ -387,6 +391,8 @@ export default async function Home({
         {search ? (
           <SearchSummary
             q={q}
+            color={color}
+            colorsReady={search.colorsReady}
             clipCount={search.clips.length}
             boardCount={search.boards.length}
             exact={search.exact}

@@ -40,3 +40,18 @@ $$;
 -- (the definition itself lives in the migration applied 2026-09-12; colour
 --  narrows the candidate set and never contributes to rank, and a colour
 --  with no words browses the bucket by coverage.)
+
+-- Added 2026-09-14. Whether ANY clip has had its colours read, so a colour
+-- search with no results can say "colour search isn't ready yet" instead of
+-- "nothing is yellow" — a different and much more misleading claim, and the
+-- one the library makes until the backfill has run. Returns one boolean and
+-- no colour data, same boundary as search_clips.
+create or replace function public.colors_ready()
+returns boolean
+language sql stable security definer
+set search_path to 'public'
+as $$
+  select exists (select 1 from clip_colors);
+$$;
+revoke execute on function public.colors_ready() from public;
+grant execute on function public.colors_ready() to anon, authenticated;
