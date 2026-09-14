@@ -16,6 +16,8 @@ import { SearchBar } from "@/components/search-bar";
 import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds } from "@/lib/search/results";
+import { Avatar } from "@/components/avatar";
+import { getProfile } from "@/lib/profiles/queries";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -160,7 +162,7 @@ export default async function CuratorPage({
       }))
     : Promise.resolve(null);
 
-  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes, boards, search] =
+  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes, boards, search, profile] =
     await Promise.all([
     // The only row-level query on this page, and deliberately capped —
     // CLIP_LIMIT is display pagination, not an accident.
@@ -192,6 +194,7 @@ export default async function CuratorPage({
     // Private boards are read only when the signed-in curator is this one.
     listBoards(curator, isOwner),
     searchPromise,
+    getProfile(curator)
   ]);
 
   const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
@@ -333,9 +336,27 @@ export default async function CuratorPage({
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
             Curator — live from the library
           </p>
-          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
-            {curator}
-          </h1>
+          <div className="mb-2.5 flex items-center gap-4">
+            <Avatar
+              name={curator}
+              displayName={profile?.display_name}
+              src={profile?.avatar_url ?? null}
+              size={64}
+            />
+            <div className="min-w-0">
+              <h1 className="text-[34px] font-bold leading-tight tracking-tight">
+                {profile?.display_name || curator}
+              </h1>
+              {profile?.display_name && (
+                <p className="text-[13px] text-bone/55">{curator}</p>
+              )}
+            </div>
+          </div>
+          {profile?.bio && (
+            <p className="mb-5 max-w-xl whitespace-pre-line text-[15px] leading-relaxed text-bone">
+              {profile.bio}
+            </p>
+          )}
           <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
             Every number on this page is scoped to {curator}. Velocity here
             compares their share of what they clipped in the last 30 days

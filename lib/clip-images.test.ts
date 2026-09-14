@@ -28,7 +28,13 @@ function walk(dir: string): string[] {
 //
 // Adding to this list is a product decision, not a fix. Whatever goes here
 // needs a comment in the file saying why a crop is honest there.
-const CROP_ALLOWED = ["components/boards/board-card.tsx"];
+const CROP_ALLOWED = [
+  "components/boards/board-card.tsx",
+  // A picture someone chose of themselves, squared off so a roster reads as
+  // a roster. Different reasoning from a board cover's, written out in the
+  // file — see the test below.
+  "components/avatar.tsx",
+];
 
 test("no .tsx file under app/ or components/ crops an image with object-cover", () => {
   const offenders = [...walk("app"), ...walk("components")]

@@ -112,4 +112,10 @@ where r.clip_id = cc.clip_id and r.bucket = cc.bucket;
 -- only source = 'model', so a new clip costs one image fetch a few minutes
 -- later instead of re-reading the whole library.
 alter table clip_colors add column if not exists source text not null default 'pixels';
+-- Backfill first (every existing row came from the script), THEN flip the
+-- default to 'model'. The default is the fail-safe: a write from code that
+-- doesn't declare its provenance — the deployed describer, or anything
+-- added later — is treated as an estimate and re-read, rather than
+-- inheriting a claim of exactness nobody checked.
+alter table clip_colors alter column source set default 'model';
 create index if not exists clip_colors_source_idx on clip_colors (source) where source = 'model';

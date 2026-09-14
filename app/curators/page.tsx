@@ -7,6 +7,8 @@ import {
 import { RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { Wordmark } from "@/components/wordmark";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
+import { Avatar } from "@/components/avatar";
+import { getProfiles } from "@/lib/profiles/queries";
 
 export const revalidate = 0;
 
@@ -125,11 +127,19 @@ export default async function CuratorsPage() {
     stripByName.set(c.clipped_by_name, list);
   }
 
+  // One query for every curator's profile, keyed by name. A curator with no
+  // profile row simply has no picture — the Avatar falls back to an initial.
+  const profiles = await getProfiles(composition.map((c) => c.curator));
+
   const roster = composition
     .map((c) => {
       const stats = statsByName.get(c.curator);
+      const profile = profiles.get(c.curator);
       return {
         name: c.curator,
+        displayName: profile?.display_name ?? null,
+        avatarUrl: profile?.avatar_url ?? null,
+        bio: profile?.bio ?? null,
         applications: c.base,
         clips: stats ? Number(stats.total_clips) : 0,
         since: formatSince(stats?.first_clipped_at ?? null),
@@ -286,12 +296,27 @@ export default async function CuratorsPage() {
               className="group grid gap-6 border-t border-white/10 py-7 transition-colors hover:bg-ink-2 lg:grid-cols-[260px_1fr]"
             >
               <div>
-                <p className="text-[21px] font-bold leading-tight tracking-tight">
-                  {c.name}
-                </p>
-                <p className="mt-1 text-xs text-bone/70">
-                  Clipping since {c.since}
-                </p>
+                <div className="flex items-start gap-3">
+                  <Avatar
+                    name={c.name}
+                    displayName={c.displayName}
+                    src={c.avatarUrl}
+                    size={44}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[21px] font-bold leading-tight tracking-tight">
+                      {c.displayName || c.name}
+                    </p>
+                    <p className="mt-1 text-xs text-bone/70">
+                      {c.displayName ? `${c.name} · ` : ""}Clipping since {c.since}
+                    </p>
+                  </div>
+                </div>
+                {c.bio && (
+                  <p className="mt-3 max-w-[38ch] text-[13px] leading-relaxed text-bone/75">
+                    {c.bio}
+                  </p>
+                )}
                 <dl className="mt-4 flex gap-7">
                   {[
                     { k: "Clips", v: String(c.clips) },

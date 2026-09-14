@@ -11,6 +11,8 @@ import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
 import { ProcessButton } from "./process-button";
+import { ProfileEditor } from "./profile-editor";
+import { getProfile } from "@/lib/profiles/queries";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 
 // Classification can process several clips sequentially in the
@@ -125,6 +127,7 @@ export default async function ClipPage() {
     parked,
     needsDescription,
     needsColors,
+    profile,
   ] = await Promise.all([
     supabaseAdmin
       .from("clips")
@@ -142,6 +145,7 @@ export default async function ClipPage() {
     getParkedClips(),
     getClipsMissingDescriptions(),
     getClipsMissingColors(),
+    getProfile(curatorName),
   ]);
 
   const gridClips: ClipperClip[] = (clips ?? []).map(toGridClip);
@@ -179,7 +183,20 @@ export default async function ClipPage() {
           )}
         </div>
         <ClipForm />
-        <div className="mt-8">
+
+        <div className="mt-10 border-t border-white/10 pt-8">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bone/70">
+            Your profile
+          </p>
+          <ProfileEditor
+            curator={curatorName}
+            displayName={profile?.display_name ?? null}
+            bio={profile?.bio ?? null}
+            avatarUrl={profile?.avatar_url ?? null}
+          />
+        </div>
+
+        <div className="mt-10 border-t border-white/10 pt-8">
           <ProcessButton
             totalCount={needsWork}
             classifyCount={needsClassification.length}
