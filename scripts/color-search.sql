@@ -75,3 +75,28 @@ create unique index if not exists clip_colors_one_primary_idx
   on clip_colors (clip_id) where is_primary;
 -- search_clips matches `cc.is_primary` in both branches (definition applied
 -- 2026-09-14; same signature, so grants are preserved).
+
+-- Backfill applied 2026-09-14, after the first run of scripts/read-colors.ts
+-- predated is_primary and left every row false (the column default), so every
+-- swatch matched nothing while 156 clips had perfectly good colours.
+--
+-- No image is re-read. This is the reason the full breakdown is stored rather
+-- than collapsing to one colour at write time: the rule is a constant over
+-- data already on disk, so changing or repairing it is an UPDATE. Re-run this
+-- verbatim after changing CHROMATIC_FLOOR in lib/color/primary.ts.
+with ranked as (
+  select clip_id, bucket,
+         row_number() over (
+           partition by clip_id
+           order by
+             (case when bucket not in ('black','grey','white')
+                    and coverage >= 0.15 then 0 else 1 end),
+             coverage desc,
+             bucket asc
+         ) as rn
+  from clip_colors
+)
+update clip_colors cc
+set is_primary = (r.rn = 1)
+from ranked r
+where r.clip_id = cc.clip_id and r.bucket = cc.bucket;
