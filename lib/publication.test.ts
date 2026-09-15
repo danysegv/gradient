@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   publishedVelocities,
   BOARD_PUBLISHES_AT,
@@ -55,4 +56,41 @@ test("every withheld id is dropped, not just the first", () => {
     assert.equal(result.has(id), false);
   }
   assert.equal(result.get("safe"), 7);
+});
+
+test("the hold list lives in exactly one place", () => {
+  // The board is written from scripts/panel-report.ts and the feed is ranked
+  // by app/page.tsx. If either one names a tag id or re-implements the gate
+  // instead of importing it, the two surfaces can disagree about what 04AM
+  // has published — and the disagreement is invisible until launch morning,
+  // when the board describes a tag the feed refuses to rank by.
+  const sources = ["scripts/panel-report.ts", "app/page.tsx"];
+  for (const f of sources) {
+    const src = readFileSync(f, "utf8");
+    assert.match(
+      src,
+      /from "(\.\.\/lib|@\/lib)\/publication(\.ts)?"/,
+      `${f} must import the gate from lib/publication`
+    );
+    for (const id of WITHHELD_TAG_IDS) {
+      assert.equal(
+        src.includes(id),
+        false,
+        `${f} hardcodes the withheld id ${id} instead of importing the list`
+      );
+    }
+  }
+});
+
+test("panel-report reproduces the feed's set by calling the feed's gates", () => {
+  // Not by describing them. getConfidence decides eligibility and
+  // publishedVelocities decides publishability; the script must call both,
+  // in that order, or its "THE FEED RANKS BY" block is a guess.
+  const src = readFileSync("scripts/panel-report.ts", "utf8");
+  assert.match(src, /getConfidence\(/);
+  assert.match(src, /publishedVelocities\(confident, NOW\.getTime\(\)\)/);
+  assert.ok(
+    src.indexOf("getConfidence(") < src.indexOf("publishedVelocities("),
+    "confidence must be applied before publishability, as in app/page.tsx"
+  );
 });

@@ -8,6 +8,7 @@ import { RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { Wordmark } from "@/components/wordmark";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { getProfiles } from "@/lib/profiles/queries";
+import { loaded } from "@/lib/query-result";
 
 export const revalidate = 0;
 
@@ -64,7 +65,7 @@ function formatSince(iso: string | null): string {
 }
 
 export default async function CuratorsPage() {
-  const [{ data: compRaw }, { data: panelRaw }] = await Promise.all([
+  const [compRes, panelRes] = await Promise.all([
     supabasePublic.rpc("curator_composition", {
       window_days: RECENT_WINDOW_DAYS,
     }),
@@ -72,24 +73,29 @@ export default async function CuratorsPage() {
       window_days: RECENT_WINDOW_DAYS,
     }),
   ]);
+  const compLoad = loaded<CompositionRow>("curator_composition", compRes);
+  const panelLoad = loaded<PanelRow>("panel_composition", panelRes);
 
   // PostgREST serialises bigint as a JSON string — coerce once, here.
-  const composition = ((compRaw ?? []) as unknown as CompositionRow[]).map(
-    (c) => ({
-      curator: c.curator,
-      base: Number(c.base_count),
-      recent: Number(c.recent_count),
-    })
-  );
+  const composition = compLoad.rows.map((c) => ({
+    curator: c.curator,
+    base: Number(c.base_count),
+    recent: Number(c.recent_count),
+  }));
 
   // The gate reads people, not names.
   const panel = panelCompositionFromCounts(
-    ((panelRaw ?? []) as unknown as PanelRow[]).map((c) => ({
+    panelLoad.rows.map((c) => ({
       person: c.person,
       base: Number(c.base_count),
       recent: Number(c.recent_count),
     }))
   );
+  // This page's whole job is to disclose the instrument, so it must not
+  // describe a broken read as a state of the panel. A failed query leaves
+  // every total at zero, which reads as "Not yet readable" — a claim about
+  // the library, made when the truth is a claim about the database.
+  const panelKnown = !panelLoad.failed;
   const names = composition.map((c) => c.curator);
 
   const [statsResults, stripRes] = await Promise.all([
@@ -155,7 +161,7 @@ export default async function CuratorsPage() {
   // construction and says nothing. Reporting it as "the panel is
   // balanced" was logged as a mistake on 2026-09-01 — so the page checks
   // for the degenerate case and says what is actually true instead.
-  const driftIsMeaningful = panel.recentTotal < panel.baseTotal;
+  const driftIsMeaningful = panelKnown && panel.recentTotal < panel.baseTotal;
 
   return (
     <>
@@ -214,7 +220,7 @@ export default async function CuratorsPage() {
               Curators
             </dt>
             <dd className="text-[26px] font-normal leading-none">
-              {roster.length}
+              {compLoad.failed ? "—" : roster.length}
             </dd>
           </div>
           <div>
@@ -222,7 +228,7 @@ export default async function CuratorsPage() {
               Tag applications
             </dt>
             <dd className="text-[26px] font-normal leading-none">
-              {panel.baseTotal}
+              {panelKnown ? panel.baseTotal : "—"}
             </dd>
           </div>
           <div>
@@ -250,11 +256,13 @@ export default async function CuratorsPage() {
                       : "bg-oxide"
                 }`}
               />
-              {!driftIsMeaningful
-                ? "Not yet readable"
-                : panel.safeForGlobalVelocity
-                  ? "Global number publishable"
-                  : "Global number withheld"}
+              {!panelKnown
+                ? "Couldn't be read just now"
+                : !driftIsMeaningful
+                  ? "Not yet readable"
+                  : panel.safeForGlobalVelocity
+                    ? "Global number publishable"
+                    : "Global number withheld"}
             </dd>
           </div>
         </dl>

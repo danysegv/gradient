@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 
 // Some clips still have image_url issues (page links instead of direct
 // image files — see the image_url investigation). Falls back to a
@@ -68,7 +69,7 @@ export function ClipThumbnail({
       src={imageUrl}
       alt=""
       loading="lazy"
-      referrerPolicy="no-referrer"
+      referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
       onError={() => setBroken(true)}
       onLoad={() => setLoaded(true)}
       // The clip's own aspect ratio, always: no object-fit crop, no

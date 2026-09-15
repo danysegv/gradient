@@ -51,3 +51,23 @@ test("the one allowed crop still says why it is allowed", () => {
     );
   }
 });
+
+test("no remote clip image sets its own referrer policy", () => {
+  // The referrer policy is a rights decision, not a per-component style
+  // choice — it controls whether a rights holder can see, attribute or
+  // refuse the traffic 04AM sends them. One constant, one decision, in
+  // lib/clip-images.ts. A literal here means the grid and a board cover
+  // could ask for the same image on different terms.
+  const offenders = [...walk("app"), ...walk("components")]
+    .filter((f) => /referrerPolicy\s*=\s*"/.test(readFileSync(f, "utf8")));
+  assert.deepEqual(offenders, []);
+});
+
+test("every remote clip image sets one", () => {
+  // Omitting it isn't the same decision made quietly — it takes whatever
+  // the browser defaults to that year.
+  const offenders = [...walk("app"), ...walk("components")]
+    .filter((f) => readFileSync(f, "utf8").includes("<img"))
+    .filter((f) => !readFileSync(f, "utf8").includes("CLIP_IMAGE_REFERRER_POLICY"));
+  assert.deepEqual(offenders, []);
+});

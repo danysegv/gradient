@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { BoardSummary } from "@/lib/boards/queries";
+import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 
 // A board on a profile: up to four clips in a square, then its name.
 //
@@ -52,7 +53,7 @@ export function BoardCard({
                 src={c.image_url!}
                 alt=""
                 loading="lazy"
-                referrerPolicy="no-referrer"
+                referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
                 className={`h-full w-full object-cover ${spanFor(covers.length, i)}`}
               />
             ))}

@@ -22,6 +22,13 @@ import {
   type CuratorRow,
   type CuratorIdentities,
 } from "../lib/curator-velocity.ts";
+import { getConfidence } from "../lib/confidence.ts";
+import { fetchFrozenAxes } from "../lib/taxonomy-freeze.ts";
+import {
+  BOARD_PUBLISHES_AT,
+  WITHHELD_TAG_IDS,
+  publishedVelocities,
+} from "../lib/publication.ts";
 
 const atArg = process.argv.indexOf("--at");
 const NOW = atArg > -1 ? new Date(process.argv[atArg + 1]) : new Date();
@@ -93,16 +100,27 @@ for (let from = 0; ; from += PAGE) {
   if (data.length < PAGE) break;
 }
 
+// group and published_at come along because the feed's own gate needs them:
+// getConfidence takes isPublished and whether the tag's axis is frozen.
+// Reproducing the feed's set by hand instead would be a second definition.
+type TagRow = {
+  id: string;
+  editorial_name: string;
+  group: string;
+  published_at: string | null;
+};
 const { data: tagRows, error: tagErr } = await db
   .from("tags")
-  .select("id, editorial_name");
+  .select("id, editorial_name, group, published_at");
 if (tagErr) throw tagErr;
+const tagMeta = new Map((tagRows as TagRow[]).map((t) => [t.id, t]));
 const tagName = new Map(
-  (tagRows as { id: string; editorial_name: string }[]).map((t) => [
-    t.id,
-    t.editorial_name,
-  ])
+  (tagRows as TagRow[]).map((t) => [t.id, t.editorial_name])
 );
+
+// Cooling is suspended on any axis still carrying incubating tags — the same
+// RPC app/page.tsx reads, not a local guess at which axes those are.
+const frozenAxes = await fetchFrozenAxes(db);
 
 const rows: CuratorRow[] = clips.flatMap((c) =>
   (c.clip_tags ?? []).map((ct) => ({
@@ -126,6 +144,47 @@ const people = [...panel.baseShares.keys()].sort();
 const perCurator = new Map(
   people.map((c) => [c, computeVelocitiesForCurator(rows, c, NOW)])
 );
+
+// ── What the feed will actually rank by ──────────────────────────────
+// Reproduced by CALLING the feed's own two gates in the feed's own order,
+// not by describing them: getConfidence (count band, age band, Cooling,
+// panel safety) and then publishedVelocities (the publish date and the
+// hold list). The hold list used to live here as a comment and in
+// lib/publication.ts as code, which meant the board could be written
+// around one list while the feed ranked by another — the exact bug
+// lib/publication.ts exists to prevent, reintroduced one surface over.
+//
+// Mirrors app/page.tsx: published tags only, same inputs, same order.
+// CuratorRow.createdAt is Date | string, so normalise to epoch ms once
+// rather than sorting a mixed array — a lexical sort over mixed types is
+// the kind of thing that looks right on this data and breaks on the next.
+const refsByTag = new Map<string, number[]>();
+for (const r of rows) {
+  const at = new Date(r.createdAt).getTime();
+  if (Number.isNaN(at)) continue;
+  const list = refsByTag.get(r.tagId) ?? [];
+  list.push(at);
+  refsByTag.set(r.tagId, list);
+}
+const confident = new Map<string, number>();
+for (const [tagId, meta] of tagMeta) {
+  if (meta.published_at === null) continue;
+  const refs = refsByTag.get(tagId);
+  if (!refs || refs.length === 0) continue;
+  const { velocity } = getConfidence({
+    referenceCount: refs.length,
+    // Reduce rather than Math.min(...refs): the spread throws RangeError
+    // once a tag carries enough references, and this list only grows.
+    earliestReferenceAt: new Date(refs.reduce((a, b) => (b < a ? b : a))),
+    latestReferenceAt: new Date(refs.reduce((a, b) => (b > a ? b : a))),
+    velocity: pooled.get(tagId) ?? null,
+    panelSafeForGlobalVelocity: panel.safeForGlobalVelocity,
+    coolingSuspended: frozenAxes.has(meta.group),
+    isPublished: true,
+  });
+  if (velocity !== null) confident.set(tagId, velocity);
+}
+const feedRanks = publishedVelocities(confident, NOW.getTime());
 
 const pct = (v: number) => (v * 100).toFixed(1) + "%";
 const pts = (v: number | null | undefined) =>
@@ -187,7 +246,8 @@ let flips = 0;
         pts(p).padStart(8) +
         pts(b).padStart(10) +
         people.map((c) => pts(perCurator.get(c)!.get(tagId)).padStart(10)).join("") +
-        (flip ? "   <- SIGN FLIP" : "")
+        (flip ? "   <- SIGN FLIP" : "") +
+        (WITHHELD_TAG_IDS.has(tagId) ? "   [HELD]" : "")
     );
   });
 
@@ -199,5 +259,40 @@ if (!panel.safeForGlobalVelocity) {
   console.log(
     "Panel drift is above the gate. Per-curator columns are the honest read today."
   );
+}
+
+// The board is written from this list and nothing else. A tag above the line
+// but missing here is one the feed will not rank by, so the board claiming it
+// moved is a claim no surface supports.
+console.log("\n" + "=".repeat(64));
+console.log("THE FEED RANKS BY, as of " + NOW.toISOString());
+console.log("=".repeat(64));
+if (NOW.getTime() < BOARD_PUBLISHES_AT) {
+  console.log(
+    "NOTHING - the board publishes at " +
+      new Date(BOARD_PUBLISHES_AT).toISOString() +
+      ",\n          and the feed ranks by no figure before that moment."
+  );
+  console.log(
+    "\n" + confident.size + " tag(s) would qualify on confidence alone; " +
+    [...confident.keys()].filter((id) => !WITHHELD_TAG_IDS.has(id)).length +
+    " of those are not held back."
+  );
+} else if (feedRanks.size === 0) {
+  console.log("NOTHING - every confident tag is on the hold list.");
+} else {
+  for (const [tagId, v] of [...feedRanks].sort((a, b) => b[1] - a[1])) {
+    console.log("  " + (tagName.get(tagId) ?? tagId).padEnd(18) + pts(v).padStart(8));
+  }
+}
+const heldAndConfident = [...confident.keys()].filter((id) =>
+  WITHHELD_TAG_IDS.has(id)
+);
+if (heldAndConfident.length > 0) {
+  console.log(
+    "\nHELD BACK (" + heldAndConfident.length + "): " +
+      heldAndConfident.map((id) => tagName.get(id) ?? id).join(", ")
+  );
+  console.log("  Confident, but withheld by lib/publication.ts. Keep them out of the copy.");
 }
 console.log();

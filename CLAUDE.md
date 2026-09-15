@@ -120,7 +120,35 @@ MotionLoop and StoryScroll stay in the `tags` table, but the **AI classifier ski
 
 ## Legal note (practical starting point, not legal advice)
 
-Personal clipping library stays private/internal while seeding (Phase 1–2) — low risk. For anything shown publicly later, use cropped/low-res thumbnails with visible source attribution and a link back; this is closer to fair-use commentary than to Pinterest/Cosmos-style DMCA-protected UGC, since the library isn't independently user-uploaded. Get a paid legal consult before charging money for the product (Phase 5), not before.
+_Rewritten 2026-09-15. The previous version recommended "cropped/low-res thumbnails" — a mitigation
+that presumes you host derivative copies and should keep them small. 04AM hosts none, so following it
+literally would mean **creating** copies where zero exist. Full reasoning in
+`04am-rights-posture-2026-09-12.md`._
+
+**04AM links, it does not host.** Every clip is a plain `<img src={remote}>` — no `next/image`, empty
+`next.config.ts`, no optimiser. The visitor's browser fetches each image from the rights holder's own
+server, so nothing is reproduced or stored here, and a work removed at the source disappears from 04AM
+by itself. Clips are shown **whole**, credited and linked back; `lib/clip-images.test.ts` enforces the
+no-crop rule in CI, with board covers as the single documented exception.
+
+The intended safe harbour is therefore **§512(d)** (information location tools), not §512(c)
+(storage). Three consequences, in order of how much they constrain the roadmap:
+
+- **Keep intake link-only.** Accepting uploaded files makes 04AM a §512(c) host with every storage
+  obligation it currently doesn't have.
+- **Never build an approve-before-publish queue on clipping.** The safe harbours reward passivity, and
+  manual discretionary moderation has been held to move content out of "at the direction of a user."
+  04AM's editorial layer is entirely computed — classifier, `rankClips`, share arithmetic — which is
+  the right shape. **Curate the output, never the input.**
+- **Real user accounts are a prerequisite for opening clipping to the public**, not a nicety. §512(i)
+  requires a repeat-infringer termination policy that is actually implemented, and you cannot
+  terminate a shared secret. This is the third attempt at auth and the first load-bearing one.
+
+Takedown mechanism already exists: `clips.archived_at` removes a clip from the library and from every
+count, share and velocity derived from it, reversibly.
+
+**Get the paid legal consult before clipping opens to the public — not before pricing.** The four
+questions for that consult are listed at the bottom of `04am-rights-posture-2026-09-12.md`.
 
 ## Working conventions
 

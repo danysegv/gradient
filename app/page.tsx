@@ -7,6 +7,7 @@ import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { rankClips } from "@/lib/feed-order";
 import { publishedVelocities } from "@/lib/publication";
+import { loaded, LIBRARY_UNAVAILABLE } from "@/lib/query-result";
 import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { SearchBar } from "@/components/search-bar";
@@ -151,7 +152,8 @@ export default async function Home({
   // yet (MotionLoop, StoryScroll). Zero-count tags contribute nothing to
   // the denominators, so filtering them here is display-only and cannot
   // move a velocity figure.
-  const allTags = ((tagCountsRes.data ?? []) as unknown as RawTagRow[])
+  const tagCounts = loaded<RawTagRow>("tag_velocity_counts", tagCountsRes);
+  const allTags = tagCounts.rows
     .map((t) => ({
       ...t,
       clip_count: Number(t.clip_count),
@@ -196,18 +198,25 @@ export default async function Home({
   );
 
   // Reduced to one boolean before it is used anywhere in the tree.
+  const panelLoad = loaded<{
+    person: string;
+    base_count: number | string;
+    recent_count: number | string;
+  }>("panel_composition", panelRes);
   const panel = panelCompositionFromCounts(
-    ((panelRes.data ?? []) as unknown as {
-      person: string;
-      base_count: number | string;
-      recent_count: number | string;
-    }[]).map((c) => ({
+    panelLoad.rows.map((c) => ({
       person: c.person,
       base: Number(c.base_count),
       recent: Number(c.recent_count),
     }))
   );
-  const panelSafe = panel.safeForGlobalVelocity;
+  // FAILS CLOSED. An empty count list drifts by zero and therefore passes
+  // the 20% gate, so reading a failed panel_composition as "no drift" would
+  // publish global velocity with the concentration gate silently disabled —
+  // the one circumstance in which the board would describe who clipped
+  // rather than what moved, arriving precisely when the database is already
+  // unwell. Unknown drift is not safe drift.
+  const panelSafe = !panelLoad.failed && panel.safeForGlobalVelocity;
 
   // The feed order's only inputs: a tag's velocity, but ONLY once
   // getConfidence has actually cleared it for display. An incubating tag,
@@ -231,7 +240,8 @@ export default async function Home({
     }
   }
 
-  const clipRows = (clipsRes.data ?? []) as unknown as ClipRow[];
+  const clipLoad = loaded<ClipRow>("clips", clipsRes);
+  const clipRows = clipLoad.rows;
   const rankInput = clipRows.map((c) => ({
     id: c.id,
     clipped_at: c.clipped_at,
@@ -277,12 +287,23 @@ export default async function Home({
     ];
   });
 
+  // .single(), so this is one object rather than rows — loaded() doesn't
+  // apply, but the same rule does: a failed stats read must not print as
+  // "0 of 0 clips read so far", which is what the 2026-09-12 outage showed
+  // above an empty grid. The sentence drops the clause instead.
+  const statsFailed = statsRes.error !== null;
+  if (statsFailed) {
+    console.error(
+      `[04am] query "library_clip_stats" failed: ${statsRes.error!.message}`
+    );
+  }
   const stats = (statsRes.data ?? {
     total_clips: 0,
     classified_clips: 0,
   }) as unknown as StatsRow;
   const totalClips = Number(stats.total_clips);
   const classifiedClips = Number(stats.classified_clips);
+  const countsKnown = !statsFailed && !tagCounts.failed;
 
   return (
     <>
@@ -329,8 +350,16 @@ export default async function Home({
           </h1>
           <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
             Not scraped, not user-generated. Every reference here was clipped by
-            hand, then classified against a locked taxonomy — {classifiedClips}{" "}
-            of {totalClips} clips read so far, across {tagsInPlay} tags.
+            hand, then classified against a locked taxonomy
+            {countsKnown ? (
+              <>
+                {" "}
+                — {classifiedClips} of {totalClips} clips read so far, across{" "}
+                {tagsInPlay} tags.
+              </>
+            ) : (
+              "."
+            )}
           </p>
         </div>
 
@@ -405,7 +434,13 @@ export default async function Home({
 
       <HomeGrid
         clips={search ? search.clips : gridClips}
-        emptyText={search ? null : "No clips yet."}
+        emptyText={
+          search
+            ? null
+            : clipLoad.failed
+              ? LIBRARY_UNAVAILABLE
+              : "No clips yet."
+        }
       />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">

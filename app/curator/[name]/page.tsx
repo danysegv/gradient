@@ -121,10 +121,22 @@ export default async function CuratorPage({
   // LIKE/ilike: the segment comes from a URL and % / _ are wildcards
   // there, so an ilike would let /curator/%25 match every curator at once.
   // An unknown name comes back with a null curator, which is the 404.
-  const { data: statsRow } = await supabasePublic
+  const statsRes = await supabasePublic
     .rpc("curator_clip_stats", { curator_name: requested })
     .single();
-  const stats = statsRow as unknown as CuratorStatsRow | null;
+  // .single() reports "no rows" as an error (PGRST116). THAT one is data —
+  // it means this name has clipped nothing yet, and the branch below is
+  // built for it. Every other error is the database failing, and it must
+  // not be allowed to fall through to notFound(): a 404 asserts that this
+  // curator does not exist. That is a claim about a person, it is the claim
+  // a search engine remembers, and during the 2026-09-12 outage every
+  // curator page would have made it.
+  if (statsRes.error && statsRes.error.code !== "PGRST116") {
+    throw new Error(
+      `curator_clip_stats(${requested}) failed: ${statsRes.error.message}`
+    );
+  }
+  const stats = statsRes.data as unknown as CuratorStatsRow | null;
   const viewer = await getSessionCurator();
 
   let curator: string;
@@ -135,12 +147,19 @@ export default async function CuratorPage({
     // make boards before their first clip, and for visitors once the
     // profile has a public board. Otherwise it 404s as before — a name
     // with nothing to show leaves no ghost page.
-    const { data: profile } = await supabasePublic
+    const profileRes = await supabasePublic
       .from("profiles")
       .select("name")
       .eq("name", requested.toLowerCase())
       .maybeSingle();
-    const profileName = (profile as { name: string } | null)?.name;
+    // Same rule: maybeSingle() returns null data for "no such row", and an
+    // error only when the read itself failed. Only the first is a 404.
+    if (profileRes.error) {
+      throw new Error(
+        `profiles(${requested}) failed: ${profileRes.error.message}`
+      );
+    }
+    const profileName = (profileRes.data as { name: string } | null)?.name;
     if (!profileName) notFound();
     curator = profileName;
     if (viewer !== curator && (await listBoards(curator, false)).length === 0) {
