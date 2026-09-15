@@ -1,30 +1,43 @@
--- Applied 2026-09-14. Curator profile pictures, display names and bios.
+-- Applied 2026-09-14, REVERSED 2026-09-15. Curator profile pictures.
 --
--- The profiles table and its columns already existed (scripts/profiles-and-boards.sql,
--- 2026-09-11); nothing used them. This adds the storage side.
+-- What this file did: created a public `avatars` storage bucket so curators
+-- could upload a picture of themselves, alongside a display_name distinct
+-- from their username.
 --
--- Public bucket: curator identity was decided public on 2026-09-11, and an
--- avatar is shown on pages anyone can read, so there is nothing to gate.
--- Writes do NOT go through storage RLS — curators are shared-secret sessions,
--- not Supabase Auth users, so there is no auth.uid() for a policy to check.
--- app/clip/profile-actions.ts uploads with the service role and takes the
--- curator from the session cookie, never from the form, so a submitted name
--- cannot be used to overwrite someone else's picture.
+-- What happened: pictures and display names were built, looked at, and taken
+-- back out the next day. Two reasons, and the second is the durable one:
 --
--- One avatar per curator: the object key is the curator's name plus an
--- extension derived from the MIME type (never from the uploaded filename),
--- so re-uploading replaces rather than accumulating. Changing format leaves
--- the old extension behind, which profile-actions removes explicitly.
+--   1. Nothing generated — marks derived from a curator's own signature —
+--      looked like it belonged next to the work. An uploaded picture of
+--      anyone's choosing was the other option, and it reads as a social
+--      network rather than as a library.
+--   2. display_name gave a curator two names. The username is the name in
+--      clips.clipped_by_name, in every credit, in every URL, and in the
+--      §512 attribution chain (see 04am-rights-posture-2026-09-12.md, item
+--      5: per-clip attribution of who clipped it must survive the move to
+--      accounts). A second, freely-editable name floating over that is a
+--      liability dressed as a feature.
 --
--- The public URL is therefore stable, which would let a CDN keep serving a
--- replaced image — lib/profiles/queries.ts hangs profiles.updated_at off it
--- as a cache-buster.
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'avatars', 'avatars', true, 2097152,
-  array['image/jpeg','image/png','image/webp','image/avif']
-)
-on conflict (id) do update
-  set public = excluded.public,
-      file_size_limit = excluded.file_size_limit,
-      allowed_mime_types = excluded.allowed_mime_types;
+-- So a curator writes one thing about themselves — profiles.bio — and is
+-- called by their username everywhere. The reversal, applied 2026-09-15:
+
+update storage.buckets
+   set public = false,
+       allowed_mime_types = null,
+       file_size_limit = 0
+ where id = 'avatars';
+
+-- The bucket row itself could NOT be removed from here: storage.protect_delete()
+-- raises 42501 on any direct delete from storage.buckets or storage.objects,
+-- by design — the Storage API is the only way. The bucket holds zero objects
+-- (verified before the update above), nothing in the app writes to it, and it
+-- is now private with a zero byte limit and no permitted MIME types, so it is
+-- inert either way. Remove it properly in the Supabase dashboard:
+-- Storage → avatars → Delete bucket.
+
+-- profiles.display_name and profiles.avatar_path are LEFT IN PLACE, nullable
+-- and unread. Dropping columns is the one schema change that cannot be undone
+-- without the data, and pictures are a Phase-2 decision, not a closed one.
+-- Nothing in the app selects them: lib/profiles/queries.ts selects exactly
+-- "name, bio". If they are still unread by the time accounts land, drop them
+-- then, in the same migration that reshapes profiles around real identity.

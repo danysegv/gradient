@@ -188,12 +188,7 @@ export default async function ClipPage() {
           <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bone/70">
             Your profile
           </p>
-          <ProfileEditor
-            curator={curatorName}
-            displayName={profile?.display_name ?? null}
-            bio={profile?.bio ?? null}
-            avatarUrl={profile?.avatar_url ?? null}
-          />
+          <ProfileEditor curator={curatorName} bio={profile?.bio ?? null} />
         </div>
 
         <div className="mt-10 border-t border-white/10 pt-8">

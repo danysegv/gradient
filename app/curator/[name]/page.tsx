@@ -16,7 +16,6 @@ import { SearchBar } from "@/components/search-bar";
 import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds } from "@/lib/search/results";
-import { Avatar } from "@/components/avatar";
 import { getProfile } from "@/lib/profiles/queries";
 
 // Live, like the Signals Feed. Not a static profile page.
@@ -336,22 +335,9 @@ export default async function CuratorPage({
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
             Curator — live from the library
           </p>
-          <div className="mb-2.5 flex items-center gap-4">
-            <Avatar
-              name={curator}
-              displayName={profile?.display_name}
-              src={profile?.avatar_url ?? null}
-              size={64}
-            />
-            <div className="min-w-0">
-              <h1 className="text-[34px] font-bold leading-tight tracking-tight">
-                {profile?.display_name || curator}
-              </h1>
-              {profile?.display_name && (
-                <p className="text-[13px] text-bone/55">{curator}</p>
-              )}
-            </div>
-          </div>
+          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
+            {curator}
+          </h1>
           {profile?.bio && (
             <p className="mb-5 max-w-xl whitespace-pre-line text-[15px] leading-relaxed text-bone">
               {profile.bio}
