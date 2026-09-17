@@ -79,6 +79,29 @@ export async function getClipsNeedingClassification(
 }
 
 
+/**
+ * Records that a clip was classified successfully against the vocabulary
+ * as it stands now. clips_needing_classification skips it until a tag is
+ * added or published — see scripts/classification-attempts.sql. Without
+ * this, a clip whose honest answer is "no medium fits" was re-queued and
+ * paid for on every run.
+ *
+ * Call ONLY after a successful classification. Never throws: the worst
+ * case is one more paid retry, which is what happened before this existed.
+ */
+export async function recordClassificationAttempt(
+  clipId: string,
+  mode: "full" | "incubating"
+): Promise<void> {
+  const { error } = await supabaseAdmin.rpc("record_classification_attempt", {
+    p_clip_id: clipId,
+    p_mode: mode,
+  });
+  if (error) {
+    console.error(`[attempt] could not record ${clipId}: ${error.message}`);
+  }
+}
+
 // ---------------------------------------------------------------------
 // Clips the classifier cannot read.
 // ---------------------------------------------------------------------

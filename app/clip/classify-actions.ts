@@ -7,6 +7,7 @@ import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
 import {
   getClipsNeedingClassification,
   parkClip,
+  recordClassificationAttempt,
   type ClassificationQueueClip,
 } from "@/lib/clips/unclassified";
 
@@ -112,6 +113,7 @@ export async function classifyClips(): Promise<ClassifyState> {
     const clip = targets[index];
     try {
       firstTags = await classify(clip);
+      await recordClassificationAttempt(clip.id, clip.mode);
       index += 1;
       break;
     } catch (err) {
@@ -136,6 +138,7 @@ export async function classifyClips(): Promise<ClassifyState> {
       for (const clip of rest) {
         try {
           const count = await classify(clip);
+          await recordClassificationAttempt(clip.id, clip.mode);
           console.log(`[classify] ${clip.id}: ${count} tags (${clip.mode})`);
         } catch (err) {
           const detail = err instanceof Error ? err.message : String(err);
