@@ -12,24 +12,39 @@ export function ProcessButton({
   totalCount,
   classifyCount,
   describeCount,
-  colorCount,
+  awaitingColourReader,
 }: {
   totalCount: number;
   classifyCount: number;
   describeCount: number;
-  colorCount: number;
+  awaitingColourReader: number;
 }) {
   const [state, action, pending] = useActionState(processClips, undefined);
 
+  // Colours are deliberately not part of "fully processed" — they cost
+  // nothing and arrive on their own. Surfaced separately so a stalled
+  // watcher is visible without ever reading as work this button can do.
+  const colourNote =
+    awaitingColourReader > 0 ? (
+      <p className="text-xs text-bone/55">
+        {awaitingColourReader} clip{awaitingColourReader === 1 ? "" : "s"} waiting
+        on the colour reader — free, and usually done within fifteen minutes.
+      </p>
+    ) : null;
+
   if (totalCount === 0 && !state) {
-    return <p className="text-sm opacity-70">Every clip is fully processed.</p>;
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-sm opacity-70">Every clip is fully processed.</p>
+        {colourNote}
+      </div>
+    );
   }
 
   const batchSize = Math.min(totalCount, 20);
   const parts = [
     classifyCount > 0 ? `${classifyCount} to tag` : null,
     describeCount > 0 ? `${describeCount} to describe` : null,
-    colorCount > 0 ? `${colorCount} to colour` : null,
   ].filter(Boolean);
 
   return (
@@ -68,6 +83,7 @@ export function ProcessButton({
           couldn&rsquo;t be fetched. They&rsquo;re listed below to fix.
         </p>
       )}
+      {colourNote}
     </form>
   );
 }

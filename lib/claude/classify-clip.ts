@@ -12,7 +12,16 @@ import {
 import { fillEmptyAttribution } from "@/lib/clips/write-attribution";
 
 
-const CLASSIFIER_MODEL = "claude-opus-5";
+// Moved to lib/claude/classifier-config.ts on 2026-09-17, unchanged in
+// behaviour: with no environment variables set this is still
+// "claude-opus-5", a full-resolution image, and the same prompt. The
+// config module's tests fail if any default drifts from what the launch
+// board was measured with. Nothing here is switched on before 09-26.
+import {
+  CLASSIFIER_MODEL,
+  CLASSIFIER_IMAGE_EDGE,
+  CACHE_CONTROL,
+} from "./classifier-config";
 
 // claude-opus-5 pricing: $5/$25 per MTok in/out; cache write (5-min,
 // default ephemeral TTL) 1.25x input; cache read 0.1x input.
@@ -96,6 +105,55 @@ export type Classification = {
 // product from day one; what it never gets is a velocity, because it is
 // excluded from the library-wide denominator those figures are shares
 // of. That exclusion lives in the read path — see lib/taxonomy-freeze.ts.
+/**
+ * The image, as the model receives it.
+ *
+ * Default (CLASSIFIER_IMAGE_EDGE unset): the source URL, untouched —
+ * Anthropic fetches it and 04AM never handles the bytes. This is what the
+ * launch library was read at.
+ *
+ * With an edge configured: fetched here, downscaled, and sent inline. The
+ * bytes exist for the duration of one request and are never written
+ * anywhere — 04AM still hosts nothing, which is the assumption its
+ * safe-harbour position rests on (see the legal note in CLAUDE.md).
+ *
+ * A fetch or resize failure falls back to the URL rather than throwing.
+ * Being unable to shrink a picture is a reason to pay more for one call,
+ * never a reason to lose the classification.
+ */
+async function imageBlock(imageUrl: string) {
+  if (CLASSIFIER_IMAGE_EDGE === null) {
+    return { type: "image" as const, source: { type: "url" as const, url: imageUrl } };
+  }
+  try {
+    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(String(res.status));
+    const sharp = (await import("sharp")).default;
+    const buf = await sharp(Buffer.from(await res.arrayBuffer()))
+      .resize(CLASSIFIER_IMAGE_EDGE, CLASSIFIER_IMAGE_EDGE, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    return {
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: "image/jpeg" as const,
+        data: buf.toString("base64"),
+      },
+    };
+  } catch (err) {
+    console.error(
+      `[classify-clip] could not downscale ${imageUrl}, sending the URL: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+    return { type: "image" as const, source: { type: "url" as const, url: imageUrl } };
+  }
+}
+
 export async function classifyClip(input: {
   url: string;
   imageUrl: string;
@@ -188,14 +246,14 @@ export async function classifyClip(input: {
       {
         type: "text",
         text: `You are classifying a design reference image against 04AM's taxonomy — a faceted system across ${axisCount} axes (${axes.join(", ")}). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}\n\nSECOND TASK — ${attributionInstructions()}`,
-        cache_control: { type: "ephemeral" },
+        cache_control: CACHE_CONTROL,
       },
     ],
     messages: [
       {
         role: "user",
         content: [
-          { type: "image", source: { type: "url", url: input.imageUrl } },
+          await imageBlock(input.imageUrl),
           { type: "text", text: contextLines },
         ],
       },

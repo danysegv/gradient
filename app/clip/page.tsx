@@ -156,10 +156,11 @@ export default async function ClipPage() {
   const needsWork = new Set([
     ...needsClassification.map((c) => c.id),
     ...needsDescription.map((c) => c.id),
-    ...needsColors.map((c) => c.id),
   ]).size;
   const describedIds = new Set(needsDescription.map((c) => c.id));
-  const colourOnlyCount = needsColors.filter((c) => !describedIds.has(c.id)).length;
+  // Not work, and not billable: the pixel watcher reads these for free
+  // within about fifteen minutes. Shown so a stalled watcher is visible.
+  const awaitingColourReader = needsColors.filter((c) => !describedIds.has(c.id)).length;
 
   return (
     <>
@@ -196,7 +197,7 @@ export default async function ClipPage() {
             totalCount={needsWork}
             classifyCount={needsClassification.length}
             describeCount={needsDescription.length}
-            colorCount={colourOnlyCount}
+            awaitingColourReader={awaitingColourReader}
           />
         </div>
 

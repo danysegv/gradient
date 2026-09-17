@@ -6,7 +6,6 @@ import { getSessionCurator } from "@/lib/clip-session";
 import {
   getClipsNeedingClassification,
   getClipsMissingDescriptions,
-  getClipsMissingColors,
   parkClip,
   type UnclassifiedClip,
 } from "@/lib/clips/unclassified";
@@ -39,7 +38,7 @@ import {
 const BATCH_LIMIT = 20;
 const MAX_PROBE_ATTEMPTS = 4;
 
-type Step = "classify-full" | "classify-incubating" | "describe" | "color";
+type Step = "classify-full" | "classify-incubating" | "describe";
 type Work = { clip: UnclassifiedClip; steps: Step[] };
 
 export type ProcessState =
@@ -53,6 +52,7 @@ export type ProcessState =
   | {
       error?: never;
       startedCount: number;
+      /** color is always 0 — kept so the button's shape doesn't churn. */
       steps: { classify: number; describe: number; color: number };
       parked: number;
       remaining: number;
@@ -60,10 +60,9 @@ export type ProcessState =
   | undefined;
 
 async function buildQueue(): Promise<{ work: Work[]; total: number }> {
-  const [needsClassification, needsDescription, needsColors] = await Promise.all([
+  const [needsClassification, needsDescription] = await Promise.all([
     getClipsNeedingClassification(),
     getClipsMissingDescriptions(),
-    getClipsMissingColors(),
   ]);
 
   const byId = new Map<string, Work>();
@@ -82,12 +81,18 @@ async function buildQueue(): Promise<{ work: Work[]; total: number }> {
     add(c, c.mode === "full" ? "classify-full" : "classify-incubating");
   }
   for (const c of needsDescription) add(c, "describe");
-  // describe already writes colours, so asking for both would pay twice.
-  for (const c of needsColors) {
-    const found = byId.get(c.id);
-    if (found?.steps.includes("describe")) continue;
-    add(c, "color");
-  }
+  // COLOURS ARE NOT BOUGHT ANY MORE. scripts/read-colors.ts reads them from
+  // the pixels for nothing, and the launchd watcher runs it every 15
+  // minutes, so a model's estimate is overwritten before anyone sees it —
+  // we were paying a Haiku call with a full-size image for an answer with
+  // a fifteen-minute shelf life. 5% of the cost of every clip, spent on
+  // something thrown away.
+  //
+  // The count still appears on /clip, but as a status rather than as
+  // work: a clip with no colours is waiting on the watcher, not on money.
+  // If that number stops falling the watcher is dead — see
+  // scripts/install-colour-watcher.sh — which is an operational problem,
+  // not a reason to start paying again.
 
   const work = [...byId.values()];
   return { work, total: work.length };
@@ -120,10 +125,6 @@ async function runSteps(
       const { describeAndStoreClip } = await import("@/lib/claude/describe-clip");
       await describeAndStoreClip(input);
       tally.describe += 1;
-    } else {
-      const { colorAndStoreClip } = await import("@/lib/claude/describe-clip");
-      await colorAndStoreClip(input);
-      tally.color += 1;
     }
   }
 }
