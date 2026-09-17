@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { costOfUsage, PRICES, formatUsd } from "./pricing.ts";
+import {
+  costOfUsage,
+  PRICES,
+  formatUsd,
+  parseMonthlyBudget,
+  DEFAULT_MONTHLY_BUDGET_USD,
+} from "./pricing.ts";
 
 const base = { input_tokens: 0, output_tokens: 0 };
 
@@ -96,4 +102,37 @@ test("sub-cent costs keep their digits", () => {
   assert.equal(formatUsd(0.0006), "$0.00060");
   assert.equal(formatUsd(12.5), "$12.50");
   assert.equal(formatUsd(0), "$0");
+});
+
+test("an unreadable budget falls back, and never to NaN", () => {
+  // The hole this closes: Number("five") is NaN, and `spent >= NaN` is
+  // false, so a typo in the Vercel dashboard would disable the ceiling
+  // silently — in the direction that costs money.
+  for (const bad of ["five", "5 USD", "abc", "-3", "NaN", "Infinity"]) {
+    const { usd, warning } = parseMonthlyBudget(bad);
+    assert.ok(Number.isFinite(usd), `${bad} produced a non-finite budget`);
+    assert.equal(usd, DEFAULT_MONTHLY_BUDGET_USD);
+    assert.ok(warning, `${bad} should warn`);
+  }
+});
+
+test("a budget typed the way a person types it is accepted", () => {
+  // "$5" plainly means five dollars. Refusing it into a no-ceiling
+  // fallback would be the pedantic reading of an obvious intention.
+  assert.equal(parseMonthlyBudget("$5").usd, 5);
+  assert.equal(parseMonthlyBudget("  5  ").usd, 5);
+  assert.equal(parseMonthlyBudget("1,000").usd, 1000);
+  assert.equal(parseMonthlyBudget("5").warning, null);
+});
+
+test("unset means the default, not unlimited", () => {
+  assert.equal(parseMonthlyBudget(undefined).usd, DEFAULT_MONTHLY_BUDGET_USD);
+  assert.equal(parseMonthlyBudget("").usd, DEFAULT_MONTHLY_BUDGET_USD);
+});
+
+test("zero is a real budget, not a missing one", () => {
+  // Setting it to 0 is how you stop all spending deliberately. It must not
+  // be mistaken for unset.
+  assert.equal(parseMonthlyBudget("0").usd, 0);
+  assert.equal(parseMonthlyBudget("0").warning, null);
 });

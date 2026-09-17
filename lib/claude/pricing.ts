@@ -81,3 +81,42 @@ export function formatUsd(usd: number): string {
   if (usd < 0.01) return `$${usd.toFixed(5)}`;
   return `$${usd.toFixed(2)}`;
 }
+
+/** Fallback ceiling in dollars per UTC month when none is configured. */
+export const DEFAULT_MONTHLY_BUDGET_USD = 20;
+
+/**
+ * Read the monthly ceiling from an environment variable.
+ *
+ * Exists because `Number(process.env.X ?? "20")` has a hole that fails in
+ * the expensive direction: a typo — "five", "5 USD", "$5 ", an empty
+ * string set in the dashboard — yields NaN, and `spent >= NaN` is FALSE,
+ * so the ceiling is silently disabled and nothing ever says so. The one
+ * setting whose whole job is to stop spending would stop working, quietly,
+ * the moment someone fat-fingered it.
+ *
+ * So: a leading "$" and surrounding space are tolerated, because someone
+ * typing "$5" plainly means five dollars and refusing it into no-ceiling
+ * is the worse reading. Anything genuinely unreadable falls back to the
+ * default and returns a warning for the caller to log — never to NaN, and
+ * never to unlimited.
+ */
+export function parseMonthlyBudget(raw: string | undefined): {
+  usd: number;
+  warning: string | null;
+} {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed === "") return { usd: DEFAULT_MONTHLY_BUDGET_USD, warning: null };
+
+  const n = Number(trimmed.replace(/^\$/, "").replace(/,/g, ""));
+  if (!Number.isFinite(n) || n < 0) {
+    return {
+      usd: DEFAULT_MONTHLY_BUDGET_USD,
+      warning:
+        `ANTHROPIC_MONTHLY_BUDGET_USD is "${raw}", which is not a number. ` +
+        `Falling back to $${DEFAULT_MONTHLY_BUDGET_USD}/month. Fix it in ` +
+        `Vercel — a budget that cannot be read is a budget that is not enforced.`,
+    };
+  }
+  return { usd: n, warning: null };
+}

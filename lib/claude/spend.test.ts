@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { DEFAULT_MONTHLY_BUDGET_USD } from "./pricing.ts";
 
 // lib/claude/spend.ts and admin.ts both import "server-only", which throws
 // under `node --test`, so these are structural assertions on the source —
@@ -51,12 +52,23 @@ test("the ceiling is configurable and does not default to the target", () => {
   // classification mid-month. The env var is the knob; the default is
   // headroom, not the goal.
   assert.match(SPEND, /process\.env\.ANTHROPIC_MONTHLY_BUDGET_USD/);
-  const m = SPEND.match(/ANTHROPIC_MONTHLY_BUDGET_USD \?\? "(\d+)"/);
-  assert.ok(m, "the default budget should be a plain literal, readable here");
   assert.ok(
-    Number(m![1]) > 11,
+    DEFAULT_MONTHLY_BUDGET_USD > 11,
     "the default must sit above current monthly spend (~$11) or it throttles on day one"
   );
+});
+
+test("the budget is parsed, not coerced", () => {
+  // Number(env) yields NaN on a typo, and `spent >= NaN` is false — the
+  // ceiling disabled silently, in the expensive direction. spend.ts must
+  // go through the validating parser.
+  assert.match(SPEND, /parseMonthlyBudget\(process\.env\.ANTHROPIC_MONTHLY_BUDGET_USD\)/);
+  assert.equal(
+    /Number\(\s*process\.env\.ANTHROPIC_MONTHLY_BUDGET_USD/.test(SPEND),
+    false,
+    "spend.ts coerces the env var directly instead of parsing it"
+  );
+  assert.match(SPEND, /if \(budget\.warning\) console\.error/);
 });
 
 test("every call site goes through the metered client", () => {

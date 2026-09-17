@@ -1,6 +1,11 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { costOfUsage, formatUsd, type Usage } from "./pricing";
+import {
+  costOfUsage,
+  formatUsd,
+  parseMonthlyBudget,
+  type Usage,
+} from "./pricing";
 
 // The ledger and the ceiling.
 //
@@ -26,9 +31,9 @@ import { costOfUsage, formatUsd, type Usage } from "./pricing";
  * mid-month, nine days before launch. Bring it down to 5 once the cheap
  * path is in — see the plan in the project docs.
  */
-export const MONTHLY_BUDGET_USD = Number(
-  process.env.ANTHROPIC_MONTHLY_BUDGET_USD ?? "20"
-);
+const budget = parseMonthlyBudget(process.env.ANTHROPIC_MONTHLY_BUDGET_USD);
+if (budget.warning) console.error(`[spend] ${budget.warning}`);
+export const MONTHLY_BUDGET_USD = budget.usd;
 
 /** Thrown before a call is made, never after. No tokens are spent. */
 export class BudgetExceededError extends Error {
