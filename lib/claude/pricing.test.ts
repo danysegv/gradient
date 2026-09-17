@@ -5,8 +5,9 @@ import {
   costOfUsage,
   PRICES,
   formatUsd,
-  parseMonthlyBudget,
-  DEFAULT_MONTHLY_BUDGET_USD,
+  parseBudgetUsd,
+  parseBudgetStart,
+  DEFAULT_BUDGET_USD,
 } from "./pricing.ts";
 
 const base = { input_tokens: 0, output_tokens: 0 };
@@ -109,9 +110,9 @@ test("an unreadable budget falls back, and never to NaN", () => {
   // false, so a typo in the Vercel dashboard would disable the ceiling
   // silently — in the direction that costs money.
   for (const bad of ["five", "5 USD", "abc", "-3", "NaN", "Infinity"]) {
-    const { usd, warning } = parseMonthlyBudget(bad);
+    const { usd, warning } = parseBudgetUsd(bad);
     assert.ok(Number.isFinite(usd), `${bad} produced a non-finite budget`);
-    assert.equal(usd, DEFAULT_MONTHLY_BUDGET_USD);
+    assert.equal(usd, DEFAULT_BUDGET_USD);
     assert.ok(warning, `${bad} should warn`);
   }
 });
@@ -119,20 +120,43 @@ test("an unreadable budget falls back, and never to NaN", () => {
 test("a budget typed the way a person types it is accepted", () => {
   // "$5" plainly means five dollars. Refusing it into a no-ceiling
   // fallback would be the pedantic reading of an obvious intention.
-  assert.equal(parseMonthlyBudget("$5").usd, 5);
-  assert.equal(parseMonthlyBudget("  5  ").usd, 5);
-  assert.equal(parseMonthlyBudget("1,000").usd, 1000);
-  assert.equal(parseMonthlyBudget("5").warning, null);
+  assert.equal(parseBudgetUsd("$5").usd, 5);
+  assert.equal(parseBudgetUsd("  5  ").usd, 5);
+  assert.equal(parseBudgetUsd("1,000").usd, 1000);
+  assert.equal(parseBudgetUsd("5").warning, null);
 });
 
 test("unset means the default, not unlimited", () => {
-  assert.equal(parseMonthlyBudget(undefined).usd, DEFAULT_MONTHLY_BUDGET_USD);
-  assert.equal(parseMonthlyBudget("").usd, DEFAULT_MONTHLY_BUDGET_USD);
+  assert.equal(parseBudgetUsd(undefined).usd, DEFAULT_BUDGET_USD);
+  assert.equal(parseBudgetUsd("").usd, DEFAULT_BUDGET_USD);
 });
 
 test("zero is a real budget, not a missing one", () => {
   // Setting it to 0 is how you stop all spending deliberately. It must not
   // be mistaken for unset.
-  assert.equal(parseMonthlyBudget("0").usd, 0);
-  assert.equal(parseMonthlyBudget("0").warning, null);
+  assert.equal(parseBudgetUsd("0").usd, 0);
+  assert.equal(parseBudgetUsd("0").warning, null);
+});
+
+test("a budget start date is parsed, and a bad one fails conservatively", () => {
+  // A prepaid balance spans month boundaries; the start date is what makes
+  // that measurable. When it can't be read the fallback is the start of
+  // the current UTC month — a NARROWER window, which counts less spend and
+  // therefore stops sooner. Wrong, but wrong in the cheap direction.
+  const good = parseBudgetStart("2026-09-17");
+  assert.equal(good.at.toISOString().slice(0, 10), "2026-09-17");
+  assert.equal(good.warning, null);
+
+  const bad = parseBudgetStart("last tuesday");
+  assert.ok(bad.warning);
+  assert.equal(bad.at.getUTCDate(), 1, "fallback should be the 1st of this UTC month");
+  assert.ok(bad.at.getTime() <= Date.now());
+});
+
+test("an unset start date means this month, not the epoch", () => {
+  // Defaulting to the epoch would count every row ever written against
+  // today's balance and refuse the very first call after a top-up.
+  const { at, warning } = parseBudgetStart(undefined);
+  assert.equal(warning, null);
+  assert.equal(at.getUTCDate(), 1);
 });

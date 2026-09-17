@@ -82,11 +82,11 @@ export function formatUsd(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
-/** Fallback ceiling in dollars per UTC month when none is configured. */
-export const DEFAULT_MONTHLY_BUDGET_USD = 20;
+/** Fallback balance in dollars when none is configured. */
+export const DEFAULT_BUDGET_USD = 20;
 
 /**
- * Read the monthly ceiling from an environment variable.
+ * Read the budget from an environment variable.
  *
  * Exists because `Number(process.env.X ?? "20")` has a hole that fails in
  * the expensive direction: a typo — "five", "5 USD", "$5 ", an empty
@@ -95,28 +95,65 @@ export const DEFAULT_MONTHLY_BUDGET_USD = 20;
  * setting whose whole job is to stop spending would stop working, quietly,
  * the moment someone fat-fingered it.
  *
- * So: a leading "$" and surrounding space are tolerated, because someone
- * typing "$5" plainly means five dollars and refusing it into no-ceiling
- * is the worse reading. Anything genuinely unreadable falls back to the
- * default and returns a warning for the caller to log — never to NaN, and
- * never to unlimited.
+ * So: a leading "$" and thousands separators are tolerated, because
+ * someone typing "$5" plainly means five dollars and refusing it into
+ * no-ceiling is the worse reading. Anything genuinely unreadable falls
+ * back to the default and returns a warning for the caller to log — never
+ * to NaN, and never to unlimited.
  */
-export function parseMonthlyBudget(raw: string | undefined): {
+export function parseBudgetUsd(raw: string | undefined): {
   usd: number;
   warning: string | null;
 } {
   const trimmed = (raw ?? "").trim();
-  if (trimmed === "") return { usd: DEFAULT_MONTHLY_BUDGET_USD, warning: null };
+  if (trimmed === "") return { usd: DEFAULT_BUDGET_USD, warning: null };
 
   const n = Number(trimmed.replace(/^\$/, "").replace(/,/g, ""));
   if (!Number.isFinite(n) || n < 0) {
     return {
-      usd: DEFAULT_MONTHLY_BUDGET_USD,
+      usd: DEFAULT_BUDGET_USD,
       warning:
-        `ANTHROPIC_MONTHLY_BUDGET_USD is "${raw}", which is not a number. ` +
-        `Falling back to $${DEFAULT_MONTHLY_BUDGET_USD}/month. Fix it in ` +
-        `Vercel — a budget that cannot be read is a budget that is not enforced.`,
+        `ANTHROPIC_BUDGET_USD is "${raw}", which is not a number. Falling ` +
+        `back to $${DEFAULT_BUDGET_USD}. Fix it in Vercel — a budget that ` +
+        `cannot be read is a budget that is not enforced.`,
     };
   }
   return { usd: n, warning: null };
+}
+
+/**
+ * When the current balance started.
+ *
+ * A prepaid balance is not a calendar month, and conflating the two is how
+ * you spend it twice: a monthly ceiling resets on the 1st while the money
+ * does not. $6 added on 17 September to last until 16 October has to be
+ * measured from the 17th, straight through the month boundary.
+ *
+ * Unparseable falls back to the start of the current UTC month and warns —
+ * a narrower window than the truth, so the failure under-spends rather
+ * than over-spends. That is the right direction for this particular
+ * mistake to fail in.
+ */
+export function parseBudgetStart(raw: string | undefined): {
+  at: Date;
+  warning: string | null;
+} {
+  const fallback = () => {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  };
+  const trimmed = (raw ?? "").trim();
+  if (trimmed === "") return { at: fallback(), warning: null };
+
+  const at = new Date(trimmed);
+  if (Number.isNaN(at.getTime())) {
+    return {
+      at: fallback(),
+      warning:
+        `ANTHROPIC_BUDGET_FROM is "${raw}", which is not a date. Falling ` +
+        `back to the start of this UTC month, so the balance will read as ` +
+        `less spent than it is.`,
+    };
+  }
+  return { at, warning: null };
 }

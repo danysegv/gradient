@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { DEFAULT_MONTHLY_BUDGET_USD } from "./pricing.ts";
+import { DEFAULT_BUDGET_USD } from "./pricing.ts";
 
 // lib/claude/spend.ts and admin.ts both import "server-only", which throws
 // under `node --test`, so these are structural assertions on the source —
@@ -51,10 +51,23 @@ test("the ceiling is configurable and does not default to the target", () => {
   // Shipping a $5 default before per-clip cost comes down would stop
   // classification mid-month. The env var is the knob; the default is
   // headroom, not the goal.
-  assert.match(SPEND, /process\.env\.ANTHROPIC_MONTHLY_BUDGET_USD/);
+  assert.match(SPEND, /process\.env\.ANTHROPIC_BUDGET_USD/);
   assert.ok(
-    DEFAULT_MONTHLY_BUDGET_USD > 11,
+    DEFAULT_BUDGET_USD > 11,
     "the default must sit above current monthly spend (~$11) or it throttles on day one"
+  );
+});
+
+test("the gate measures a BALANCE, not a calendar month", () => {
+  // The bug this replaces: a month-to-date ceiling resets on the 1st while
+  // a prepaid balance does not, so $6 topped up on 17 September to last
+  // until 16 October would be handed out twice.
+  assert.match(SPEND, /spend_since/);
+  assert.match(SPEND, /ANTHROPIC_BUDGET_FROM/);
+  assert.equal(
+    /month_to_date_spend/.test(SPEND),
+    false,
+    "the gate still reads a calendar month — it resets while the money doesn't"
   );
 });
 
@@ -62,9 +75,9 @@ test("the budget is parsed, not coerced", () => {
   // Number(env) yields NaN on a typo, and `spent >= NaN` is false — the
   // ceiling disabled silently, in the expensive direction. spend.ts must
   // go through the validating parser.
-  assert.match(SPEND, /parseMonthlyBudget\(process\.env\.ANTHROPIC_MONTHLY_BUDGET_USD\)/);
+  assert.match(SPEND, /parseBudgetUsd\(process\.env\.ANTHROPIC_BUDGET_USD\)/);
   assert.equal(
-    /Number\(\s*process\.env\.ANTHROPIC_MONTHLY_BUDGET_USD/.test(SPEND),
+    /Number\(\s*process\.env\.ANTHROPIC_BUDGET_USD/.test(SPEND),
     false,
     "spend.ts coerces the env var directly instead of parsing it"
   );

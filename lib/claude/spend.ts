@@ -3,7 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   costOfUsage,
   formatUsd,
-  parseMonthlyBudget,
+  parseBudgetUsd,
+  parseBudgetStart,
   type Usage,
 } from "./pricing";
 
@@ -23,17 +24,27 @@ import {
 // person with a fixed budget actually needs.
 
 /**
- * Dollars per UTC month. Set ANTHROPIC_MONTHLY_BUDGET_USD in Vercel.
+ * The balance, in dollars, and the moment it started.
  *
- * The default is deliberately generous rather than the target: at ~45
- * clips a week the app spends about $11/month today, and shipping a $5
- * ceiling before the per-clip cost comes down would stop classification
- * mid-month, nine days before launch. Bring it down to 5 once the cheap
- * path is in — see the plan in the project docs.
+ *   ANTHROPIC_BUDGET_USD   e.g. "6"
+ *   ANTHROPIC_BUDGET_FROM  e.g. "2026-09-17"   (ISO, UTC)
+ *
+ * A BALANCE, not a monthly allowance. That distinction is the whole point:
+ * $6 topped up on 17 September and needing to last until 16 October spans
+ * a month boundary, and a calendar ceiling would reset on 1 October and
+ * hand out the same $6 a second time. Money is not a calendar.
+ *
+ * FROM defaults to the start of the current UTC month when unset — the
+ * conservative direction, since a shorter window counts less spend and so
+ * stops sooner rather than later.
  */
-const budget = parseMonthlyBudget(process.env.ANTHROPIC_MONTHLY_BUDGET_USD);
+const budget = parseBudgetUsd(process.env.ANTHROPIC_BUDGET_USD);
+const start = parseBudgetStart(process.env.ANTHROPIC_BUDGET_FROM);
 if (budget.warning) console.error(`[spend] ${budget.warning}`);
-export const MONTHLY_BUDGET_USD = budget.usd;
+if (start.warning) console.error(`[spend] ${start.warning}`);
+
+export const BUDGET_USD = budget.usd;
+export const BUDGET_FROM = start.at;
 
 /** Thrown before a call is made, never after. No tokens are spent. */
 export class BudgetExceededError extends Error {
@@ -41,10 +52,11 @@ export class BudgetExceededError extends Error {
   readonly budgetUsd: number;
   constructor(spentUsd: number, budgetUsd: number) {
     super(
-      `Monthly API budget reached: ${formatUsd(spentUsd)} of ` +
-        `${formatUsd(budgetUsd)} spent this month. No call was made. ` +
-        `Clips stay queued and will be processed when the budget resets, ` +
-        `or raise ANTHROPIC_MONTHLY_BUDGET_USD.`
+      `API budget spent: ${formatUsd(spentUsd)} of ${formatUsd(budgetUsd)} ` +
+        `since ${BUDGET_FROM.toISOString().slice(0, 10)}. No call was made, ` +
+        `so no tokens were used. Clips are saved and stay queued. Raise ` +
+        `ANTHROPIC_BUDGET_USD, or top up and move ANTHROPIC_BUDGET_FROM to ` +
+        `today.`
     );
     this.name = "BudgetExceededError";
     this.spentUsd = spentUsd;
@@ -62,11 +74,13 @@ export class BudgetExceededError extends Error {
 const CACHE_MS = 30_000;
 let cached: { usd: number; at: number } | null = null;
 
-export async function monthToDateUsd(): Promise<number | null> {
+export async function spentSinceBudgetStart(): Promise<number | null> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.usd;
-  const { data, error } = await supabaseAdmin.rpc("month_to_date_spend");
+  const { data, error } = await supabaseAdmin.rpc("spend_since", {
+    from_at: BUDGET_FROM.toISOString(),
+  });
   if (error) {
-    console.error(`[spend] could not read month-to-date: ${error.message}`);
+    console.error(`[spend] could not read the balance: ${error.message}`);
     return null;
   }
   const usd = Number(data ?? 0);
@@ -85,13 +99,13 @@ export async function monthToDateUsd(): Promise<number | null> {
  * overspend, and the worst case the other way is a dead product.
  */
 export async function assertWithinBudget(): Promise<void> {
-  const spent = await monthToDateUsd();
+  const spent = await spentSinceBudgetStart();
   if (spent === null) {
     console.error("[spend] budget NOT enforced for this call — ledger unreadable");
     return;
   }
-  if (spent >= MONTHLY_BUDGET_USD) {
-    throw new BudgetExceededError(spent, MONTHLY_BUDGET_USD);
+  if (spent >= BUDGET_USD) {
+    throw new BudgetExceededError(spent, BUDGET_USD);
   }
 }
 

@@ -11,7 +11,7 @@
 // empty report means "not measured yet", not "nothing was spent".
 
 import { supabaseAdmin } from "../lib/supabase/admin.ts";
-import { MONTHLY_BUDGET_USD } from "../lib/claude/spend.ts";
+import { BUDGET_USD, BUDGET_FROM } from "../lib/claude/spend.ts";
 import { formatUsd } from "../lib/claude/pricing.ts";
 
 const i = process.argv.indexOf("--days");
@@ -54,41 +54,75 @@ if (rows.length === 0) {
   process.exit(0);
 }
 
-const monthStart = new Date();
-monthStart.setUTCDate(1);
-monthStart.setUTCHours(0, 0, 0, 0);
-const mtd = rows
-  .filter((r) => new Date(r.at) >= monthStart)
+// The balance, not the calendar month. $6 topped up mid-September to last
+// until mid-October crosses a month boundary; a month-to-date figure would
+// reset on the 1st and say everything was fine while the money ran out.
+const spent = rows
+  .filter((r) => new Date(r.at) >= BUDGET_FROM)
   .reduce((n, r) => n + r.usd, 0);
+const left = BUDGET_USD - spent;
 
-const daysIntoMonth = Math.max(
-  1,
-  (Date.now() - monthStart.getTime()) / 86400_000
+const daysElapsed = Math.max(
+  0.25,
+  (Date.now() - BUDGET_FROM.getTime()) / 86400_000
 );
-const daysInMonth = new Date(
-  monthStart.getUTCFullYear(),
-  monthStart.getUTCMonth() + 1,
-  0
-).getUTCDate();
-const projected = (mtd / daysIntoMonth) * daysInMonth;
+const perDay = spent / daysElapsed;
 
 const bar = (frac: number) => {
-  const n = Math.min(40, Math.round(frac * 40));
-  return "█".repeat(n) + "·".repeat(40 - n);
+  const n = Math.max(0, Math.min(40, Math.round(frac * 40)));
+  return "\u2588".repeat(n) + "\u00b7".repeat(40 - n);
 };
 
-console.log(`month to date   ${formatUsd(mtd).padStart(10)}  of ${formatUsd(MONTHLY_BUDGET_USD)} budget`);
-console.log(`                ${bar(mtd / MONTHLY_BUDGET_USD)}  ${((mtd / MONTHLY_BUDGET_USD) * 100).toFixed(0)}%`);
-console.log(`on track for    ${formatUsd(projected).padStart(10)}  by month end`);
-if (projected > MONTHLY_BUDGET_USD) {
-  const day = Math.ceil((MONTHLY_BUDGET_USD / (mtd / daysIntoMonth)));
-  console.log(
-    `\n⚠ AT THIS RATE THE CEILING IS REACHED AROUND DAY ${day} OF THE MONTH.\n` +
-    `  Classification stops there and clips queue until it resets. That is\n` +
-    `  the ceiling working, not breaking — but it means the cheap path is\n` +
-    `  overdue, not optional.`
-  );
+console.log(
+  `balance         ${formatUsd(spent).padStart(10)} spent of ${formatUsd(BUDGET_USD)}` +
+  `   (since ${BUDGET_FROM.toISOString().slice(0, 10)})`
+);
+console.log(`                ${bar(spent / BUDGET_USD)}  ${((spent / BUDGET_USD) * 100).toFixed(0)}%`);
+console.log(`remaining       ${formatUsd(Math.max(0, left)).padStart(10)}`);
+console.log(`burn rate       ${formatUsd(perDay).padStart(10)} / day over ${daysElapsed.toFixed(1)} days`);
+
+// ANTHROPIC_BUDGET_UNTIL is read here and nowhere else: it is a question
+// about the future, not a gate. The gate stops at the balance whether or
+// not a target date was ever set.
+const untilRaw = process.env.ANTHROPIC_BUDGET_UNTIL;
+const until = untilRaw ? new Date(untilRaw) : null;
+
+if (perDay > 0) {
+  const daysLeft = left / perDay;
+  const dry = new Date(Date.now() + daysLeft * 86400_000);
+  console.log(`runs dry        ${dry.toISOString().slice(0, 10).padStart(10)}  at this rate`);
+
+  if (until && !Number.isNaN(until.getTime())) {
+    const shortBy = (until.getTime() - dry.getTime()) / 86400_000;
+    const needPerDay =
+      left / Math.max(0.25, (until.getTime() - Date.now()) / 86400_000);
+    console.log(`must reach      ${until.toISOString().slice(0, 10).padStart(10)}`);
+    if (shortBy > 0.5) {
+      console.log(
+        `\n\u26a0 SHORT BY ${shortBy.toFixed(0)} DAYS.\n` +
+        `  Sustainable rate is ${formatUsd(needPerDay)}/day; you are spending ` +
+        `${formatUsd(perDay)}/day.\n` +
+        `  That is ${(perDay / needPerDay).toFixed(1)}x too fast. Cutting per-clip cost is the\n` +
+        `  lever — clipping less is the other one, and it is the wrong one.`
+      );
+    } else {
+      console.log(`\n\u2713 On pace. Sustainable rate is ${formatUsd(needPerDay)}/day.`);
+    }
+  }
+} else {
+  console.log(`runs dry        ${"never".padStart(10)}  nothing spent yet`);
 }
+
+const mtd = rows
+  .filter((r) => {
+    const d = new Date(r.at);
+    const m = new Date();
+    return (
+      d.getUTCFullYear() === m.getUTCFullYear() && d.getUTCMonth() === m.getUTCMonth()
+    );
+  })
+  .reduce((n, r) => n + r.usd, 0);
+console.log(`\ncalendar month  ${formatUsd(mtd).padStart(10)}  (what the console bills on)`);
 
 const group = (key: (r: (typeof rows)[number]) => string) => {
   const m = new Map<string, { usd: number; calls: number }>();
