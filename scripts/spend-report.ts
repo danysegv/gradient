@@ -11,8 +11,27 @@
 // empty report means "not measured yet", not "nothing was spent".
 
 import { supabaseAdmin } from "../lib/supabase/admin.ts";
-import { BUDGET_USD, BUDGET_FROM } from "../lib/claude/spend.ts";
-import { formatUsd } from "../lib/claude/pricing.ts";
+// Deliberately NOT from lib/claude/spend.ts, even though that is where the
+// gate reads the same two values. spend.ts imports supabaseAdmin through
+// the "@/" path alias, which Next resolves from tsconfig and plain node
+// cannot resolve at all — so importing it here made this script fail on
+// its first line, every time, with ERR_MODULE_NOT_FOUND.
+//
+// pricing.ts is pure and imports nothing, which is exactly why the budget
+// PARSERS live there and not beside the gate. Same functions, same env
+// vars, same answer, reachable from both worlds.
+import {
+  formatUsd,
+  parseBudgetUsd,
+  parseBudgetStart,
+} from "../lib/claude/pricing.ts";
+
+const parsedBudget = parseBudgetUsd(process.env.ANTHROPIC_BUDGET_USD);
+const parsedStart = parseBudgetStart(process.env.ANTHROPIC_BUDGET_FROM);
+if (parsedBudget.warning) console.error(`[spend-report] ${parsedBudget.warning}`);
+if (parsedStart.warning) console.error(`[spend-report] ${parsedStart.warning}`);
+const BUDGET_USD = parsedBudget.usd;
+const BUDGET_FROM = parsedStart.at;
 
 const i = process.argv.indexOf("--days");
 const DAYS = i > -1 ? Number(process.argv[i + 1]) : 30;

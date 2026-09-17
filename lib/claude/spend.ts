@@ -1,12 +1,16 @@
 import "server-only";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+// Relative, with the extension, NOT "@/lib/...". This module is reached
+// by scripts/backfill-attribution.ts through admin.ts, and plain node
+// cannot resolve the path alias — an alias here makes that script fail
+// before its first line. lib/scripts-runnable.test.ts enforces it.
+import { supabaseAdmin } from "../supabase/admin.ts";
 import {
   costOfUsage,
   formatUsd,
   parseBudgetUsd,
   parseBudgetStart,
   type Usage,
-} from "./pricing";
+} from "./pricing.ts";
 
 // The ledger and the ceiling.
 //

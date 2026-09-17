@@ -1,6 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { assertWithinBudget, recordSpend } from "./spend";
+import { assertWithinBudget, recordSpend } from "./spend.ts";
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
