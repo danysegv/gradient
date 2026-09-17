@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { withSpendContext } from "@/lib/claude/spend-context";
 import { getSessionCurator } from "@/lib/clip-session";
 import {
   getClipsNeedingClassification,
@@ -114,14 +115,18 @@ async function runSteps(
   for (const step of work.steps) {
     if (step === "classify-full") {
       const { classifyAndTagClip } = await import("@/lib/claude/classify-clip");
-      await classifyAndTagClip(input);
+      await withSpendContext({ clipId: input.id, kind: "classify-full" }, () =>
+        classifyAndTagClip(input)
+      );
       await recordClassificationAttempt(input.id, "full");
       tally.classify += 1;
     } else if (step === "classify-incubating") {
       const { classifyAndTagClipIncubatingOnly } = await import(
         "@/lib/claude/classify-clip"
       );
-      await classifyAndTagClipIncubatingOnly(input);
+      await withSpendContext({ clipId: input.id, kind: "classify-incubating" }, () =>
+        classifyAndTagClipIncubatingOnly(input)
+      );
       await recordClassificationAttempt(input.id, "incubating");
       tally.classify += 1;
     } else if (step === "describe") {

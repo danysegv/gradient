@@ -30,8 +30,11 @@ test("every file that runs the classifier over the queue records attempts", () =
   assert.ok(callers.length >= 2, `expected classify-actions and process-actions, found ${callers}`);
   for (const f of callers) {
     const src = readFileSync(f, "utf8");
-    const calls = (src.match(/await classifyAndTagClip(IncubatingOnly)?\(input\);/g) ?? []).length
-      + (src.match(/await classify\(clip\);/g) ?? []).length;
+    // classify-actions.ts funnels both classifiers through a local
+    // classify(clip); process-actions.ts calls them directly.
+    const viaHelper = (src.match(/await classify\(clip\);/g) ?? []).length;
+    const direct = (src.match(/classifyAndTagClip(IncubatingOnly)?\(input\)/g) ?? []).length;
+    const calls = viaHelper > 0 ? viaHelper : direct;
     const records = (src.match(/await recordClassificationAttempt\(/g) ?? []).length;
     assert.ok(calls > 0, `${f}: no classify call found — has the call shape changed?`);
     assert.equal(records, calls, `${f}: ${calls} classify calls, ${records} recorded attempts`);

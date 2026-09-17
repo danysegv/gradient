@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropic } from "./admin";
+import { withSpendContext } from "./spend-context.ts";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normaliseDescription } from "@/lib/search/describe-normalise";
 import { normaliseColors, type ClipColor } from "@/lib/color/normalise";
@@ -166,6 +167,13 @@ export async function colorAndStoreClip(clip: {
   title: string | null;
   caption: string | null;
 }): Promise<number> {
+  return withSpendContext({ clipId: clip.id, kind: "color" }, () => colorAndStoreClipInner(clip));
+}
+
+async function colorAndStoreClipInner(clip: {
+  id: string;
+  imageUrl: string;
+}): Promise<number> {
   const response = await anthropic.messages.parse({
     model: DESCRIBER_MODEL,
     max_tokens: 400,
@@ -210,7 +218,9 @@ export async function describeAndStoreClip(clip: {
   title: string | null;
   caption: string | null;
 }): Promise<number> {
-  const description = await describeClip(clip);
+  const description = await withSpendContext({ clipId: clip.id, kind: "describe" }, () =>
+    describeClip(clip)
+  );
   const { error } = await supabaseAdmin.from("clip_descriptions").upsert(
     {
       clip_id: clip.id,

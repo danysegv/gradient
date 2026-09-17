@@ -24,6 +24,7 @@
 
 import { supabaseAdmin } from "../lib/supabase/admin.ts";
 import { extractAttribution } from "../lib/claude/attribution-extract.ts";
+import { withSpendContext } from "../lib/claude/spend-context.ts";
 import { fillEmptyAttribution } from "../lib/clips/write-attribution.ts";
 
 const APPLY = process.argv.includes("--apply");
@@ -70,12 +71,14 @@ let failed = 0;
 for (const [i, clip] of clips.entries()) {
   const label = (clip.title ?? clip.url).slice(0, 52);
   try {
-    const a = await extractAttribution({
-      url: clip.url,
-      imageUrl: clip.image_url!,
-      title: clip.title,
-      caption: clip.caption,
-    });
+    const a = await withSpendContext({ clipId: clip.id, kind: "attribution" }, () =>
+      extractAttribution({
+        url: clip.url,
+        imageUrl: clip.image_url!,
+        title: clip.title,
+        caption: clip.caption,
+      })
+    );
 
     const parts = [
       a.creator ? `creator=${a.creator}` : null,

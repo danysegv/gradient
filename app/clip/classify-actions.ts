@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { withSpendContext } from "@/lib/claude/spend-context";
 import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
 import {
   getClipsNeedingClassification,
@@ -100,9 +101,13 @@ export async function classifyClips(): Promise<ClassifyState> {
       title: clip.title,
       caption: clip.caption,
     };
-    return clip.mode === "full"
-      ? classifyAndTagClip(input)
-      : classifyAndTagClipIncubatingOnly(input);
+    return withSpendContext(
+      { clipId: clip.id, kind: clip.mode === "full" ? "classify-full" : "classify-incubating" },
+      () =>
+        clip.mode === "full"
+          ? classifyAndTagClip(input)
+          : classifyAndTagClipIncubatingOnly(input)
+    );
   };
 
   let firstTags: number | null = null;

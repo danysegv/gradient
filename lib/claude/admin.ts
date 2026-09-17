@@ -1,6 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { assertWithinBudget, recordSpend } from "./spend.ts";
+import { currentSpendContext } from "./spend-context.ts";
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
@@ -56,7 +57,16 @@ async function meteredParse(...args: ParseArgs) {
   // drop the row — silently, and only under load, which is the exact
   // condition where knowing the spend matters most. recordSpend never
   // throws, so this cannot fail the call.
-  await recordSpend({ model, kind: model, usage: response.usage });
+  // Who the call was for comes from the caller's spend context
+  // (lib/claude/spend-context.ts). Outside one, the row is still written,
+  // labelled by model with no clip — an unattributed row, never a lost one.
+  const ctx = currentSpendContext();
+  await recordSpend({
+    model,
+    kind: ctx?.kind ?? model,
+    clipId: ctx?.clipId ?? null,
+    usage: response.usage,
+  });
 
   return response;
 }

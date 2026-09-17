@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchOgImage } from "@/lib/og-image";
+import { withSpendContext } from "@/lib/claude/spend-context";
 
 export type CreateClipState =
   | { error: string; success?: never }
@@ -125,13 +126,16 @@ export async function createClip(
       const { classifyAndTagClip } = await import(
         "@/lib/claude/classify-clip"
       );
-      await classifyAndTagClip({
-        id: inserted.id,
-        url: inserted.url,
-        imageUrl: effectiveImageUrl,
-        title: inserted.title,
-        caption: inserted.caption,
-      });
+      const imageUrl = effectiveImageUrl;
+      await withSpendContext({ clipId: inserted.id, kind: "classify-full" }, () =>
+        classifyAndTagClip({
+          id: inserted.id,
+          url: inserted.url,
+          imageUrl,
+          title: inserted.title,
+          caption: inserted.caption,
+        })
+      );
 
       // Search descriptors. Separate from tagging and allowed to fail on
       // its own: a clip that can't be described is still tagged, and the
