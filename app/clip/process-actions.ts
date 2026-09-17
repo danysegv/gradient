@@ -7,6 +7,7 @@ import {
   getClipsNeedingClassification,
   getClipsMissingDescriptions,
   parkClip,
+  recordClassificationAttempt,
   type UnclassifiedClip,
 } from "@/lib/clips/unclassified";
 
@@ -114,12 +115,14 @@ async function runSteps(
     if (step === "classify-full") {
       const { classifyAndTagClip } = await import("@/lib/claude/classify-clip");
       await classifyAndTagClip(input);
+      await recordClassificationAttempt(input.id, "full");
       tally.classify += 1;
     } else if (step === "classify-incubating") {
       const { classifyAndTagClipIncubatingOnly } = await import(
         "@/lib/claude/classify-clip"
       );
       await classifyAndTagClipIncubatingOnly(input);
+      await recordClassificationAttempt(input.id, "incubating");
       tally.classify += 1;
     } else if (step === "describe") {
       const { describeAndStoreClip } = await import("@/lib/claude/describe-clip");
