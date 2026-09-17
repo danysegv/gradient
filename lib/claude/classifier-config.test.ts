@@ -45,13 +45,16 @@ test("a downscale is applied to the CLASSIFIER, never to what is displayed", () 
   assert.deepEqual(offenders, [], "a rendering surface is reading the model's image size");
 });
 
-test("the cache defaults to an hour, and that is a cost decision only", () => {
+test("the cache defaults to five minutes, and the reason is a measurement", () => {
   const src = readFileSync("lib/claude/classifier-config.ts", "utf8");
-  assert.match(src, /CLASSIFIER_CACHE_5M === "true" \? "5m" : "1h"/);
-  // Caching cannot change a response, so unlike the model and the image
-  // this one is safe before 09-26. If that ever stops being true, this
-  // test is the wrong thing to change.
-  assert.match(src, /SAFE TO TURN ON NOW/);
+  assert.match(src, /CLASSIFIER_CACHE_1H === "true" \? "1h" : "5m"/);
+  // The hour was set on reasoning and reverted on evidence: a 1-hour write
+  // costs 2x input against 1.25x, batches finish inside five minutes so the
+  // hour buys no extra hits, and a solitary clip pays double what not
+  // caching would. The numbers are in the file so the next person to
+  // reconsider it starts from data rather than from the same argument.
+  assert.match(src, /cache miss, 1-hour write/);
+  assert.match(src, /Safe to change at any time/);
 });
 
 test("the frozen classifier's default request is byte-for-byte what it was", () => {

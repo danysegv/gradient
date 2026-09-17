@@ -53,21 +53,40 @@ function parseEdge(raw: string | undefined): number | null {
 export const CLASSIFIER_IMAGE_EDGE = parseEdge(process.env.CLASSIFIER_IMAGE_EDGE);
 
 /**
- * Cache the taxonomy block for an hour instead of five minutes.
+ * How long the taxonomy block stays cached.
  *
- * This one is SAFE TO TURN ON NOW: caching changes what a call costs, not
- * what it returns. A 5-minute write bills at 1.25x input and a read at
- * 0.1x, so a cache written and never read costs 25% MORE than not caching
- * — which is precisely the shape of one person clipping something every
- * few hours. An hour's TTL writes at 2x and reads at 0.1x, and turns a
- * sporadic pattern from a penalty into a saving.
+ * Safe to change at any time: caching alters what a call costs, never what
+ * it returns. It is the only lever here with that property.
  *
- * Default true: the taxonomy block is ~3,000 tokens and identical on every
- * call, so it is the one part of the request that should never be paid for
- * twice in an afternoon.
+ * FIVE MINUTES, revised 2026-09-17 after the first real ledger rows
+ * contradicted the reasoning that set it to an hour. Measured, on the same
+ * 5,288-token taxonomy block:
+ *
+ *   cache miss, 5-minute write   $0.045   (1.25x input)
+ *   cache miss, 1-hour write     $0.079   (2x input)
+ *   cache hit                    $0.015-0.021
+ *   no cache at all              ~$0.039
+ *
+ * Two things follow, and the second is the one that was got wrong.
+ *
+ * A hit is worth roughly two-thirds off, so caching is clearly right
+ * inside a batch — the Process button runs twenty clips back to back in
+ * about two minutes, one write and nineteen reads.
+ *
+ * But a batch finishes well inside five minutes, so the hour buys nothing
+ * and costs 60% more to write. And for the path that matters more — one
+ * person saving one clip, hours from the last — an hour's TTL makes a
+ * solitary call cost DOUBLE what not caching would. The argument for the
+ * hour was that sporadic clipping would get hits it otherwise missed; the
+ * ledger says those hits do not happen, and the premium does.
+ *
+ * Set CLASSIFIER_CACHE_1H=true to go back, if the clipping pattern ever
+ * changes enough to earn it. The honest fix for the solitary path is to
+ * skip the cache entirely there, which needs the classifier to know
+ * whether it is in a batch — a post-09-26 change, noted in the docs.
  */
 export const CLASSIFIER_CACHE_TTL: "5m" | "1h" =
-  process.env.CLASSIFIER_CACHE_5M === "true" ? "5m" : "1h";
+  process.env.CLASSIFIER_CACHE_1H === "true" ? "1h" : "5m";
 
 export const CACHE_CONTROL =
   CLASSIFIER_CACHE_TTL === "1h"
