@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropic } from "./admin";
+import { effortFor } from "./effort.ts";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   attributionInstructions,
@@ -239,7 +240,7 @@ export async function classifyClip(input: {
     model: CLASSIFIER_MODEL,
     max_tokens: 4096,
     output_config: {
-      effort: "low",
+      ...effortFor(CLASSIFIER_MODEL, "low"),
       format: zodOutputFormat(ClassificationSchema),
     },
     system: [

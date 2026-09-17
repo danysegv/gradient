@@ -92,5 +92,7 @@ test("the taxonomy prompt itself is untouched", () => {
     )
   );
   assert.match(src, /never force a weak match/);
-  assert.match(src, /effort: "low"/);
+  // Effort now goes through effortFor, which still yields "low" for the
+  // default model — lib/claude/effort.test.ts asserts that value.
+  assert.match(src, /\.\.\.effortFor\(CLASSIFIER_MODEL, "low"\)/);
 });

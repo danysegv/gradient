@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropic } from "./admin.ts";
+import { effortFor } from "./effort.ts";
 import { knownFinderNames } from "../clips/attribution.ts";
 
 // Extension-ful, relative imports throughout this module and the two it
@@ -9,7 +10,7 @@ import { knownFinderNames } from "../clips/attribution.ts";
 // what lets scripts/backfill-attribution.ts reuse the exact extraction
 // the app uses instead of keeping a second copy of these rules.
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-haiku-4-5";
 
 export type Attribution = {
   /** Who MADE it. Never an aggregator, never a subject or model. */
@@ -95,7 +96,7 @@ export async function extractAttribution(input: {
     model: MODEL,
     max_tokens: 1024,
     output_config: {
-      effort: "low",
+      ...effortFor(MODEL, "low"),
       format: zodOutputFormat(z.object(AttributionShape)),
     },
     system: [
