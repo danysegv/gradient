@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence } from "@/lib/confidence";
 import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
@@ -8,15 +9,16 @@ import { panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { rankClips } from "@/lib/feed-order";
 import { publishedVelocities } from "@/lib/publication";
 import { loaded, LIBRARY_UNAVAILABLE } from "@/lib/query-result";
-import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
-import { SearchBar } from "@/components/search-bar";
 import { SearchSummary } from "@/components/search-summary";
 import { BoardCard } from "@/components/boards/board-card";
 import { getSessionCurator } from "@/lib/clip-session";
 import { boardHref, searchBoards, type BoardHit } from "@/lib/boards/queries";
 import { normaliseQuery, normaliseColor } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds, colorsReady } from "@/lib/search/results";
+import { SiteHeader } from "@/components/site-header";
+import { IntroScreen } from "@/components/intro/intro-screen";
+import { ENTERED_COOKIE } from "@/lib/intro";
 
 // Always fetch fresh — this is a live feed, not a static marketing page.
 export const revalidate = 0;
@@ -66,21 +68,30 @@ type ClipRow = {
 // coming out of these RPCs is coerced with Number() at the boundary below.
 // Left as-is it would poison the arithmetic silently — "49" / "347" is NaN
 // in one direction and string concatenation in the other.
-type StatsRow = {
-  total_clips: number | string;
-  classified_clips: number | string;
-};
-
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[]; color?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    color?: string | string[];
+    intro?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const q = normaliseQuery(params.q);
   // A swatch on its own is a search: browse that colour, most of it first.
   const color = normaliseColor(params.color);
   const searching = Boolean(q || color);
+
+  // First visit: the intro (opening → how it works → sign-up) instead of the
+  // feed. Read from a cookie set by the intro's own server action, so this
+  // stays a plain server-side branch — revalidate = 0 below is untouched,
+  // and proxy.ts's matcher stays exactly ["/clip"]. A shared search link
+  // (?q= / ?color=) always goes straight to the library; ?intro replays it.
+  const entered = (await cookies()).has(ENTERED_COOKIE);
+  if (!searching && (!entered || params.intro !== undefined)) {
+    return <IntroScreen />;
+  }
 
   // Searching: clips ranked by tags, Claude's reading of each image, title
   // and credits; boards by title and description. A signed-in curator also
@@ -105,7 +116,7 @@ export default async function Home({
       )
     : Promise.resolve(null);
 
-  const [tagCountsRes, clipsRes, statsRes, panelRes, frozenAxes, search] =
+  const [tagCountsRes, clipsRes, panelRes, frozenAxes, search] =
     await Promise.all([
     // Per-tag counts, all-time and in the trailing window, aggregated in
     // Postgres. This replaced two unbounded full-table fetches on
@@ -127,7 +138,6 @@ export default async function Home({
       .is("archived_at", null)
       .order("clipped_at", { ascending: false })
       .limit(RECENT_CLIP_LIMIT),
-    supabasePublic.rpc("library_clip_stats").single(),
     // Per-curator COUNTS for the panel-drift gate. Deliberately counts and
     // not rows: the names are reduced to a single boolean here on the
     // server, so no curator identity reaches the browser. That keeps the
@@ -172,9 +182,6 @@ export default async function Home({
   // velocity to be trending by, and after a backfill the new axes would
   // otherwise crowd the rail with the largest counts and no numbers.
   const trendingTags = publishedTags.slice(0, TRENDING_TAG_LIMIT);
-
-  // Navigation, not measurement: every tag with references is searchable.
-  const tagsInPlay = allTags.length;
 
   // Library-wide denominators are the column sums over the PUBLISHED
   // vocabulary — which is exactly what the formula's denominator means
@@ -287,86 +294,12 @@ export default async function Home({
     ];
   });
 
-  // .single(), so this is one object rather than rows — loaded() doesn't
-  // apply, but the same rule does: a failed stats read must not print as
-  // "0 of 0 clips read so far", which is what the 2026-09-12 outage showed
-  // above an empty grid. The sentence drops the clause instead.
-  const statsFailed = statsRes.error !== null;
-  if (statsFailed) {
-    console.error(
-      `[04am] query "library_clip_stats" failed: ${statsRes.error!.message}`
-    );
-  }
-  const stats = (statsRes.data ?? {
-    total_clips: 0,
-    classified_clips: 0,
-  }) as unknown as StatsRow;
-  const totalClips = Number(stats.total_clips);
-  const classifiedClips = Number(stats.classified_clips);
-  const countsKnown = !statsFailed && !tagCounts.failed;
-
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Wordmark className="h-[22px] text-bone" />
-        <nav className="flex items-center gap-7">
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
-            Signals
-          </span>
-          <Link
-            href="/curators"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Curators
-          </Link>
-          {/* Radar stays an inert placeholder until velocity has a run of
-              days to plot — a link to a 404 is worse than a dim word. */}
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
-            Radar
-          </span>
-          <Link
-            href="/genome"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Genome
-          </Link>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader active="signals" />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-        <div className="pt-11 pb-2">
-          <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
-            Signals Feed — live from the library
-          </p>
-          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
-            What&rsquo;s actually moving
-          </h1>
-          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
-            Not scraped, not user-generated. Every reference here was clipped by
-            hand, then classified against a locked taxonomy
-            {countsKnown ? (
-              <>
-                {" "}
-                — {classifiedClips} of {totalClips} clips read so far, across{" "}
-                {tagsInPlay} tags.
-              </>
-            ) : (
-              "."
-            )}
-          </p>
-        </div>
-
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          Trending tags
-        </p>
-        <div className="mb-12 flex gap-3 overflow-x-auto pb-1.5">
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 pt-6 sm:px-8 md:pt-10">
+        <div className="mb-10 flex gap-3 overflow-x-auto pb-1.5">
           {trendingTags.map((tag) => {
             const confidence = getConfidence({
               referenceCount: tag.clip_count,
@@ -383,11 +316,8 @@ export default async function Home({
                 href={`/trend/${encodeURIComponent(tag.editorial_name)}`}
                 className="w-[168px] flex-none rounded-lg border border-white/10 bg-ink-2 p-4 transition-colors hover:border-white/25"
               >
-                <p className="text-[15px] font-bold leading-tight">
+                <p className="mb-5 text-[15px] font-bold leading-tight">
                   {tag.editorial_name}
-                </p>
-                <p className="mb-3.5 text-xs text-bone/70">
-                  {tag.universal_term}
                 </p>
                 <p className="text-[26px] font-normal leading-none">
                   {tag.clip_count}
@@ -407,16 +337,7 @@ export default async function Home({
         </div>
       </div>
 
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          The library
-        </p>
-        <SearchBar
-          initialQuery={q}
-          placeholder="Search looks, subjects, techniques, boards"
-          color={color}
-          showColors
-        />
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 sm:px-8">
         {search ? (
           <SearchSummary
             q={q}
@@ -428,7 +349,7 @@ export default async function Home({
             scope="in the library"
           />
         ) : null}
-        <div className="mb-8" />
+        <div className="mb-6" />
         {search && search.boards.length > 0 && <BoardResults boards={search.boards} />}
       </div>
 
@@ -442,18 +363,6 @@ export default async function Home({
               : "No clips yet."
         }
       />
-
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-        <footer className="border-t border-white/10 py-10">
-          <p className="max-w-xl text-xs leading-relaxed text-bone/70">
-            Sources: Behance, Dribbble, Instagram, agency sites, awards
-            archives. Velocity compares a tag&rsquo;s share of the last 30
-            days to its share of the library overall — a tag reads Early
-            Signal until its reference set is both deep enough and old
-            enough to mean anything.
-          </p>
-        </footer>
-      </div>
     </>
   );
 }

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Wordmark } from "@/components/wordmark";
 import { type GridClip } from "@/components/home-grid";
 import { BoardClipGrid } from "@/components/boards/board-clip-grid";
 import { SearchBar } from "@/components/search-bar";
@@ -13,6 +12,7 @@ import { computeBoardRadar, PRESENCE_CONFIDENCE } from "@/lib/boards/radar";
 import { getSessionCurator } from "@/lib/clip-session";
 import { getBoard, getLibraryPresence } from "@/lib/boards/queries";
 import { SLUG_PATTERN } from "@/lib/boards/slug";
+import { SiteHeader } from "@/components/site-header";
 
 // A board: the clips someone gathered for one project, from anywhere in
 // the library. Filtering works exactly as it does on the library — the
@@ -114,31 +114,7 @@ export default async function BoardPage({
 
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <Link
-            href="/curators"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Curators
-          </Link>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-7">

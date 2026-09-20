@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Wordmark } from "@/components/wordmark";
+import { SiteHeader } from "@/components/site-header";
 
 // DRAFT — approved by neither Daniela nor a lawyer as of 2026-09-12. Not
 // linked from anywhere yet, on purpose. See
@@ -50,22 +49,7 @@ function Section({
 export default function RightsPage() {
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
-            Rights
-          </span>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main className="px-8 py-12">
         <h1 className="mb-3 text-[34px] font-semibold leading-tight text-bone">

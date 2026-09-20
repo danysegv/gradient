@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
-import { Wordmark } from "@/components/wordmark";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { TagName } from "@/components/tag-name";
 import { SaveToBoards } from "@/components/boards/save-to-boards";
@@ -12,6 +11,7 @@ import {
   boardHref,
   publicBoardsForClip,
 } from "@/lib/boards/queries";
+import { SiteHeader } from "@/components/site-header";
 
 // Live, like every other read surface in the product.
 export const revalidate = 0;
@@ -201,40 +201,7 @@ export default async function ClipDetailPage({
 
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <Link
-            href="/curators"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Curators
-          </Link>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
-            Radar
-          </span>
-          <Link
-            href="/genome"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Genome
-          </Link>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-24">
         <div className="pt-7 pb-6">

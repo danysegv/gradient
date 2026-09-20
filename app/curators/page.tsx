@@ -5,10 +5,10 @@ import {
   MAX_PANEL_DRIFT,
 } from "@/lib/curator-velocity";
 import { RECENT_WINDOW_DAYS } from "@/lib/velocity";
-import { Wordmark } from "@/components/wordmark";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { getProfiles } from "@/lib/profiles/queries";
 import { loaded } from "@/lib/query-result";
+import { SiteHeader } from "@/components/site-header";
 
 export const revalidate = 0;
 
@@ -165,34 +165,7 @@ export default async function CuratorsPage() {
 
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
-            Curators
-          </span>
-          <Link
-            href="/genome"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Genome
-          </Link>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader active="curators" />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-24">
         <div className="pt-11 pb-2">

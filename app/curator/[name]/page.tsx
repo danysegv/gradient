@@ -6,7 +6,6 @@ import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
-import { Wordmark } from "@/components/wordmark";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { BoardCard } from "@/components/boards/board-card";
 import { NewBoard } from "@/components/boards/new-board";
@@ -17,6 +16,7 @@ import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds } from "@/lib/search/results";
 import { getProfile } from "@/lib/profiles/queries";
+import { SiteHeader } from "@/components/site-header";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -322,31 +322,7 @@ export default async function CuratorPage({
 
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <Link
-            href="/curators"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone"
-          >
-            Curators
-          </Link>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader active="curators" />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-11 pb-2">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wordmark } from "@/components/wordmark";
+import { SiteHeader } from "@/components/site-header";
 
 // Deliberately dependency-free — no Supabase call, no dynamic data.
 // A 404 page that queries the database breaks precisely when the database
@@ -12,31 +12,7 @@ import { Wordmark } from "@/components/wordmark";
 export default function NotFound() {
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <Link
-            href="/curators"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Curators
-          </Link>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-center px-8 py-24">
         <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">

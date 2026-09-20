@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase/public";
 import { EARLY_SIGNAL_MAX } from "@/lib/confidence";
-import { Wordmark } from "@/components/wordmark";
 import { GenomeMatrix, type GenomeTag, type GenomeCell } from "./genome-matrix";
+import { SiteHeader } from "@/components/site-header";
 
 export const revalidate = 0;
 
@@ -132,38 +131,7 @@ export default async function GenomePage() {
 
   return (
     <>
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-7">
-        <Link href="/" aria-label="04AM — Signals Feed">
-          <Wordmark className="h-[22px] text-bone" />
-        </Link>
-        <nav className="flex items-center gap-7">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Signals
-          </Link>
-          <Link
-            href="/curators"
-            className="text-[13px] font-semibold uppercase tracking-wide text-bone/55"
-          >
-            Curators
-          </Link>
-          {/* Radar stays inert until velocity has a run of days to plot. */}
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone/55">
-            Radar
-          </span>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-bone">
-            Genome
-          </span>
-          <Link
-            href="/clip"
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone"
-          >
-            + Clip
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader active="genome" />
 
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
         <div className="pt-11 pb-2">
