@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { type GridClip } from "@/components/home-grid";
 import { BoardClipGrid } from "@/components/boards/board-clip-grid";
 import { SearchBar } from "@/components/search-bar";
@@ -13,6 +13,7 @@ import { getSessionCurator } from "@/lib/clip-session";
 import { getBoard, getLibraryPresence } from "@/lib/boards/queries";
 import { SLUG_PATTERN } from "@/lib/boards/slug";
 import { SiteHeader } from "@/components/site-header";
+import { currentNameForOldName } from "@/lib/profiles/queries";
 
 // A board: the clips someone gathered for one project, from anywhere in
 // the library. Filtering works exactly as it does on the library — the
@@ -59,7 +60,16 @@ export default async function BoardPage({
   const found = await resolve(params);
   // A private board 404s for everyone but its owner — the same response as
   // a board that doesn't exist, so a URL can't confirm a private board is there.
-  if (!found) notFound();
+  if (!found) {
+    // Unless the owner simply renamed: a board link shared before a rename
+    // should follow them, keeping the same slug.
+    const { name, slug } = await params;
+    const moved = await currentNameForOldName(decodeURIComponent(name));
+    if (moved) {
+      redirect(`/curator/${encodeURIComponent(moved)}/boards/${encodeURIComponent(slug)}`);
+    }
+    notFound();
+  }
   const { board, isOwner } = found;
 
   const gridClips: GridClip[] = board.clips.map((c) => ({

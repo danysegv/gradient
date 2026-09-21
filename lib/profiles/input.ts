@@ -2,14 +2,18 @@
 // Pure, so the rules are tested rather than assumed — same shape as
 // lib/boards/input.ts.
 //
-// One field, deliberately. The username is the name everywhere on the site
-// and comes from the clip data, not from a form, so a curator can't end up
-// with two names. Pictures were built and then taken back out (see
-// scripts/profiles.sql) — they're a Phase-2 decision, not a launch one.
+// Two fields. The USERNAME is still not one of them: it comes from the clip
+// data, it is what every credit and URL uses, and it can't be edited here.
+// display_name (added 2026-09-20) is only what a page prints large, above
+// the @username — a curator with none simply shows their username. Pictures
+// were built and then taken back out (see scripts/profiles.sql) — they're a
+// Phase-2 decision, not a launch one.
 
 export const BIO_MAX = 280;
+export const DISPLAY_NAME_MAX = 60;
 
 export type ProfileInput = {
+  displayName: string | null;
   bio: string | null;
 };
 
@@ -24,12 +28,28 @@ export type ProfileInput = {
 export function parseProfileInput(form: {
   get(key: string): FormDataEntryValue | null;
 }): ProfileInput {
-  const raw = form.get("bio");
-  if (typeof raw !== "string") return { bio: null };
+  return {
+    displayName: parseDisplayName(form.get("display_name")),
+    bio: parseBio(form.get("bio")),
+  };
+}
+
+/** One line: no line breaks survive, since it is set as a heading. */
+function parseDisplayName(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== "string") return null;
+  const value = raw
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, DISPLAY_NAME_MAX);
+  return value.length > 0 ? value : null;
+}
+
+function parseBio(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== "string") return null;
   const value = raw
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, BIO_MAX);
-  return { bio: value.length > 0 ? value : null };
+  return value.length > 0 ? value : null;
 }

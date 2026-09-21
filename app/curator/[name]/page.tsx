@@ -1,21 +1,21 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
 import { getConfidence } from "@/lib/confidence";
 import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { MIN_CURATOR_BASE_VOLUME } from "@/lib/curator-velocity";
+import { AXES, AXIS_LABEL } from "@/lib/axes";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { BoardCard } from "@/components/boards/board-card";
 import { NewBoard } from "@/components/boards/new-board";
 import { getSessionCurator } from "@/lib/clip-session";
 import { boardHref, listBoards, searchBoards } from "@/lib/boards/queries";
-import { SearchBar } from "@/components/search-bar";
 import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds } from "@/lib/search/results";
-import { getProfile } from "@/lib/profiles/queries";
+import { getProfile, currentNameForOldName } from "@/lib/profiles/queries";
 import { SiteHeader } from "@/components/site-header";
 
 // Live, like the Signals Feed. Not a static profile page.
@@ -160,7 +160,13 @@ export default async function CuratorPage({
       );
     }
     const profileName = (profileRes.data as { name: string } | null)?.name;
-    if (!profileName) notFound();
+    if (!profileName) {
+      // A username this person used to hold: send the link to where they
+      // are now rather than 404ing something that was shared in good faith.
+      const moved = await currentNameForOldName(requested);
+      if (moved) redirect(`/curator/${encodeURIComponent(moved)}`);
+      notFound();
+    }
     curator = profileName;
     if (viewer !== curator && (await listBoards(curator, false)).length === 0) {
       notFound();
@@ -216,8 +222,6 @@ export default async function CuratorPage({
   ]);
 
   const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
-  const totalClips = Number(stats?.total_clips ?? 0);
-  const classifiedClips = Number(stats?.classified_clips ?? 0);
 
   const tagStats = ((tagCountsRes.data ?? []) as unknown as RawTagRow[])
     .map((t) => ({
@@ -305,71 +309,48 @@ export default async function CuratorPage({
       })),
   }));
 
-  const share =
-    libraryApplications === 0
-      ? 0
-      : Math.round((theirBaseRefs / libraryApplications) * 100);
-  // From the RPC, not the tail of the capped clips query — that would have
-  // shown the oldest of the most recent 200 clips and called it "since".
-  const firstClip = stats?.first_clipped_at
-    ? new Date(stats.first_clipped_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        timeZone: "UTC",
-      })
-    : "—";
+  // ATTENTION — how their tagging splits across the axes. Their own
+  // applications over their own total: a shape, not a claim about anyone
+  // else, so it needs no gate and prints no number.
+  const perAxis = new Map<string, number>();
+  for (const t of tagStats) {
+    perAxis.set(t.group, (perAxis.get(t.group) ?? 0) + t.clip_count);
+  }
+  const axisTotal = [...perAxis.values()].reduce((n, v) => n + v, 0);
+  const attention = AXES.map((a) => ({
+    key: a.key,
+    label: AXIS_LABEL[a.key] ?? a.key,
+    count: perAxis.get(a.key) ?? 0,
+  })).filter((a) => a.count > 0);
+  const axisPeak = attention.reduce((m, a) => Math.max(m, a.count), 0);
 
   return (
     <>
       <SiteHeader active="curators" />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-        <div className="pt-11 pb-2">
-          <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
-            Curator — live from the library
-          </p>
-          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
-            {curator}
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 sm:px-8">
+        {/* Masthead, after a Dazed contributor page: the name at headline
+            scale, the @username as a byline under it, then the bio. The
+            username is the identity — every credit, every URL — so it is
+            always shown, and it stands alone when no display name is set. */}
+        <div className="border-b border-white/10 pb-10 pt-10 md:pt-14">
+          <h1 className="text-[30px] font-bold leading-[1.05] tracking-tight md:text-[40px]">
+            {profile?.display_name ?? curator}
           </h1>
+          {profile?.display_name && (
+            <p className="mt-2.5 text-[14px] text-bone/55">@{curator}</p>
+          )}
           {profile?.bio && (
-            <p className="mb-5 max-w-xl whitespace-pre-line text-[15px] leading-relaxed text-bone">
+            <p className="mt-5 max-w-[46ch] whitespace-pre-line text-[15px] leading-relaxed text-bone/80">
               {profile.bio}
             </p>
           )}
-          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
-            Every number on this page is scoped to {curator}. Velocity here
-            compares their share of what they clipped in the last 30 days
-            against their share of everything they have ever clipped — a claim
-            about one person&rsquo;s attention, not about the culture.
-            {totalClips > classifiedClips && (
-              <> {classifiedClips} of {totalClips} clips classified so far.</>
-            )}
-          </p>
         </div>
 
-        <dl className="mb-12 flex flex-wrap gap-x-14 gap-y-6 border-y border-white/10 py-6">
-          {[
-            { k: "Clips", v: String(totalClips) },
-            { k: "Tag applications", v: String(theirBaseRefs) },
-            { k: "Share of library", v: `${share}%` },
-            { k: "Clipping since", v: firstClip },
-          ].map(({ k, v }) => (
-            <div key={k}>
-              <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-                {k}
-              </dt>
-              <dd className="text-[26px] font-normal leading-none">{v}</dd>
-            </div>
-          ))}
-        </dl>
-
         <div className="mb-10">
-          <SearchBar
-            initialQuery={q}
-            placeholder={`Search ${curator}’s clips and boards`}
-          />
+          {/* No search box here: the header's search covers the library and
+              a curator's own clips are searched from there. This only
+              reports a ?q= that is already in the URL. */}
           {search && (
             <SearchSummary
               q={q}
@@ -396,16 +377,11 @@ export default async function CuratorPage({
 
         {!search && (isOwner || boards.length > 0) && (
           <section className="mb-12">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
-                Boards
+            {isOwner && (
+              <p className="mb-4 text-[11px] text-bone/60">
+                Signed in as {curator}. Only you see private boards.
               </p>
-              {isOwner && (
-                <p className="text-[11px] text-bone/60">
-                  Signed in as {curator}. Only you see private boards.
-                </p>
-              )}
-            </div>
+            )}
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
               {boards.map((b) => (
                 <BoardCard key={b.id} href={boardHref(curator, b.slug)} board={b} />
@@ -415,66 +391,93 @@ export default async function CuratorPage({
           </section>
         )}
 
-        {showSignature && (
-          <section className="mb-12">
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Signature
-            </p>
-            <p className="mb-5 max-w-xl text-xs leading-relaxed text-bone/70">
-              What {curator}{" "}
-              clips more &mdash; and less &mdash; than the{" "}
-              library does overall, in percentage points of their own tagging.
-              A plain ranking of their tags would mostly rank the
-              library&rsquo;s biggest tags back at you. This is the part that
-              is theirs.
-            </p>
-            <div className="flex flex-col gap-2.5">
-              {signature.map((t) => {
-                const pts = t.lean * 100;
-                const width =
-                  maxLean === 0 ? 0 : (Math.abs(t.lean) / maxLean) * 50;
-                return (
-                  <div key={t.tag_id} className="flex items-center gap-4">
-                    <Link
-                      href={`/trend/${encodeURIComponent(t.editorial_name)}`}
-                      className="w-[186px] flex-none text-[11px] font-semibold uppercase tracking-wide hover:opacity-80"
+        {/* The portrait: what they pull toward and away from, and where
+            their attention sits. Two words of legend between them. */}
+        <div className="mb-14 mt-12 grid gap-12 md:grid-cols-12">
+          {showSignature && (
+            <section className="md:col-span-7">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/55">
+                Signature
+              </div>
+              <div className="mb-3 flex items-baseline gap-4">
+                <span className="w-[150px] flex-none" />
+                <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate">
+                  Less
+                </span>
+                <span className="flex-1 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-oxide">
+                  More
+                </span>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {signature.map((t) => {
+                  const pts = t.lean * 100;
+                  const width =
+                    maxLean === 0 ? 0 : (Math.abs(t.lean) / maxLean) * 50;
+                  return (
+                    <div key={t.tag_id} className="flex items-center gap-4">
+                      <Link
+                        href={`/trend/${encodeURIComponent(t.editorial_name)}`}
+                        className="w-[150px] flex-none truncate text-[11px] font-semibold uppercase tracking-wide hover:opacity-80"
+                      >
+                        {t.editorial_name}
+                      </Link>
+                      <div
+                        className="relative h-[14px] min-w-[140px] flex-1 bg-white/[.06]"
+                        title={`${pts >= 0 ? "+" : "\u2212"}${Math.abs(pts).toFixed(1)} points against the library`}
+                      >
+                        <span
+                          aria-hidden
+                          className="absolute inset-y-0 left-1/2 w-px bg-bone/40"
+                        />
+                        <span
+                          aria-hidden
+                          className={`absolute inset-y-0 ${
+                            pts >= 0 ? "bg-oxide" : "bg-slate"
+                          }`}
+                          style={
+                            pts >= 0
+                              ? { left: "50%", width: `${width}%` }
+                              : { right: "50%", width: `${width}%` }
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Attention: their tagging split across the axes. One word per
+              row, one bar, no figures — the shape is the whole message. */}
+          {attention.length > 0 && axisTotal > 0 && (
+            <section className="md:col-span-4 md:col-start-9">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/55">
+                Attention
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {attention.map((a) => (
+                  <div key={a.key} className="flex items-center gap-4">
+                    <span className="w-[116px] flex-none truncate text-[11px] font-semibold uppercase tracking-wide text-bone/80">
+                      {a.label}
+                    </span>
+                    <div
+                      className="h-[14px] min-w-[60px] flex-1 bg-white/[.06]"
+                      title={`${a.count} of ${axisTotal} tag readings`}
                     >
-                      {t.editorial_name}
-                    </Link>
-                    <div className="relative h-[14px] min-w-[140px] flex-1 bg-white/[.06]">
                       <span
                         aria-hidden
-                        className="absolute inset-y-0 left-1/2 w-px bg-bone/40"
-                      />
-                      <span
-                        aria-hidden
-                        className={`absolute inset-y-0 ${
-                          pts >= 0 ? "bg-oxide" : "bg-slate"
-                        }`}
-                        style={
-                          pts >= 0
-                            ? { left: "50%", width: `${width}%` }
-                            : { right: "50%", width: `${width}%` }
-                        }
+                        className="block h-full bg-bone/75"
+                        style={{ width: `${axisPeak === 0 ? 0 : (a.count / axisPeak) * 100}%` }}
                       />
                     </div>
-                    <span className="w-[62px] flex-none text-right text-[13px] font-normal tabular-nums">
-                      {pts >= 0 ? "+" : "\u2212"}
-                      {Math.abs(pts).toFixed(1)}
-                    </span>
                   </div>
-                );
-              })}
-            </div>
-            <p className="mt-3.5 text-[11px] text-bone/70">
-              Percentage points. Oxide leans toward, Slate leans away.
-            </p>
-          </section>
-        )}
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
 
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          Their tags
-        </p>
         <div className="mb-12 flex gap-3 overflow-x-auto pb-1.5">
           {tagStats.slice(0, TAG_RAIL_LIMIT).map((tag) => {
             const confidence = getConfidence({
@@ -496,11 +499,8 @@ export default async function CuratorPage({
                 href={`/trend/${encodeURIComponent(tag.editorial_name)}`}
                 className="w-[168px] flex-none rounded-lg border border-white/10 bg-ink-2 p-4 transition-colors hover:border-white/25"
               >
-                <p className="text-[15px] font-bold leading-tight">
+                <p className="mb-5 text-[15px] font-bold leading-tight">
                   {tag.editorial_name}
-                </p>
-                <p className="mb-3.5 text-xs text-bone/70">
-                  {tag.universal_term}
                 </p>
                 <p className="text-[26px] font-normal leading-none">
                   {tag.clip_count}
@@ -520,29 +520,12 @@ export default async function CuratorPage({
         </div>
       </div>
 
-      {(search ? search.clips.length > 0 : gridClips.length > 0) && (
-        <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-          <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-            {search ? "Clips" : `Clipped by ${curator}`}
-          </p>
-        </div>
-      )}
       <HomeGrid
         clips={search ? search.clips : gridClips}
         emptyText={null}
         layout="dealt"
       />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-        <footer className="border-t border-white/10 py-10">
-          <p className="max-w-xl text-xs leading-relaxed text-bone/70">
-            A curator page reads one person&rsquo;s library against itself.
-            The Signals Feed reads the whole library — a different question,
-            and one that needs more than one curator before it can be
-            answered honestly.
-          </p>
-        </footer>
-      </div>
     </>
   );
 }

@@ -142,6 +142,7 @@ export default async function CuratorsPage() {
       const profile = profiles.get(c.curator);
       return {
         name: c.curator,
+        displayName: profile?.display_name ?? null,
         bio: profile?.bio ?? null,
         applications: c.base,
         clips: stats ? Number(stats.total_clips) : 0,
@@ -275,34 +276,20 @@ export default async function CuratorsPage() {
             >
               <div>
                 <div className="min-w-0">
+                  {/* Same as the curator page: display name above, the
+                      username — the credit on every clip — under it. */}
                   <p className="text-[21px] font-bold leading-tight tracking-tight">
-                    {c.name}
+                    {c.displayName ?? c.name}
                   </p>
-                  <p className="mt-1 text-xs text-bone/70">
-                    Clipping since {c.since}
-                  </p>
+                  {c.displayName && (
+                    <p className="mt-1.5 text-[13px] text-bone/55">@{c.name}</p>
+                  )}
                 </div>
                 {c.bio && (
                   <p className="mt-3 max-w-[38ch] text-[13px] leading-relaxed text-bone/75">
                     {c.bio}
                   </p>
                 )}
-                <dl className="mt-4 flex gap-7">
-                  {[
-                    { k: "Clips", v: String(c.clips) },
-                    { k: "Tag apps", v: String(c.applications) },
-                    { k: "Share", v: `${c.share}%` },
-                  ].map(({ k, v }) => (
-                    <div key={k}>
-                      <dt className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-bone/70">
-                        {k}
-                      </dt>
-                      <dd className="text-[17px] font-normal leading-none tabular-nums">
-                        {v}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
               </div>
               <div className="flex items-start gap-2 self-start overflow-x-auto">
                 {c.strip.map((clip) => (
