@@ -14,9 +14,11 @@ export type CuratorProfile = {
   login_key: string;
   /** When they last changed their username, for the cooldown. */
   name_changed_at: string | null;
+  /** Runs the curator panel (approving accounts). */
+  is_admin: boolean;
 };
 
-const SELECT = "name, display_name, bio, login_key, name_changed_at";
+const SELECT = "name, display_name, bio, login_key, name_changed_at, is_admin";
 
 export async function getProfile(name: string): Promise<CuratorProfile | null> {
   const { data, error } = await supabasePublic

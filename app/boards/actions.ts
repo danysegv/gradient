@@ -23,7 +23,7 @@ export type BoardFormState =
 
 export type BoardActionResult = { error: string } | { error?: never };
 
-const NOT_SIGNED_IN = "Sign in at /clip-login to make and edit boards.";
+const NOT_SIGNED_IN = "Sign in as a curator to make and edit boards.";
 
 function profilePath(owner: string) {
   return `/curator/${encodeURIComponent(owner)}`;

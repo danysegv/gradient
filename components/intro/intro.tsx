@@ -1,21 +1,21 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Wordmark } from "@/components/wordmark";
 import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 import { COLOR_BUCKETS } from "@/lib/color/buckets";
 import { spaceTagName } from "@/lib/intro";
-import { requestSignInLink, type SignInState } from "@/app/auth/actions";
+import Link from "next/link";
+import { SignUpForm } from "@/components/auth/auth-forms";
 
 // The first-visit intro. Three movements on one scrolling page:
 //   1. Opening  — the mark rises, a query types itself, and real clips that
 //                 carry that tag float into the field (after flim.ai).
 //   2. How it works — five short steps, each with its own small animated
 //                 scene instead of a static sketch (after are.na / Cosmos).
-//   3. Sign-up  — a real account: enter an email, get a sign-in link
-//                 (app/auth/actions.ts). The same form signs a returning
-//                 visitor back in. There is no way into the library from
-//                 here without it.
+//   3. Sign-up  — a real account, email + password (app/auth/actions.ts),
+//                 with a link to /signin for returning people. There is no
+//                 way into the library from here without an account.
 //
 // Rights posture holds here too: every image is shown WHOLE (width set,
 // height follows — no crop, no rounded mask), fetched from the rights
@@ -191,9 +191,9 @@ function TopBar() {
         </a>
       </div>
       <div className="flex items-center gap-5">
-        <a href="#join" className={`${LABEL} text-bone/70 hover:text-bone`}>
+        <Link href="/signin" className={`${LABEL} text-bone/70 hover:text-bone`}>
           Sign in
-        </a>
+        </Link>
         <a href="#join" className={`${LABEL} rounded-[3px] bg-bone px-3 py-1.5 text-ink`}>
           Sign up
         </a>
@@ -657,10 +657,6 @@ function SignUp({
   linkProblem: "expired" | "invalid" | null;
 }) {
   const [ref, seen] = useInView<HTMLDivElement>(0.3);
-  const [state, action, pending] = useActionState<SignInState, FormData>(
-    requestSignInLink,
-    undefined
-  );
   const sinceText = since
     ? new Date(since).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -674,18 +670,6 @@ function SignUp({
       >
         <Wordmark className="mb-12 h-[34px] w-auto text-bone" />
 
-        {state?.sent ? (
-          <div className="[animation:drop-in_300ms_cubic-bezier(.2,.8,.2,1)]">
-            <h2 className="mb-4 text-[40px] font-bold leading-[1.02] tracking-tight md:text-[64px]">
-              Check your inbox.
-            </h2>
-            <p className="text-[16px] text-bone/70">
-              We sent a link to <span className="text-bone">{state.email}</span>.
-              Open it on this device to come in.
-            </p>
-          </div>
-        ) : (
-          <>
             <h2 className="mb-4 text-[40px] font-bold leading-[1.02] tracking-tight md:text-[64px]">
               Get into the library.
             </h2>
@@ -694,40 +678,20 @@ function SignUp({
                 {total} references, clipped by hand{sinceText ? ` since ${sinceText}` : ""}.
               </p>
             )}
-            <form action={action} className="flex w-full max-w-[560px] flex-col gap-2 sm:flex-row">
-              <label htmlFor="join-email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="join-email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="Email address"
-                className="h-14 flex-1 rounded-[4px] border border-white/20 bg-ink px-5 text-[16px] text-bone placeholder:text-bone/45 focus:border-bone/70 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={pending}
-                className={`${LABEL} h-14 rounded-[4px] bg-bone px-8 text-ink transition-colors hover:bg-white disabled:opacity-60`}
-              >
-                {pending ? "Sending…" : "Sign up"}
-              </button>
-            </form>
+            <div className="w-full max-w-[420px]">
+              <SignUpForm />
+            </div>
             <p className="mt-6 text-[14px] text-bone/60">
-              Already have an account? Use the same email and we&rsquo;ll send you a sign-in link.
+              Already have an account?{" "}
+              <Link href="/signin" className="text-bone underline underline-offset-4">
+                Sign in
+              </Link>
             </p>
-            {(state?.error || linkProblem) && (
+            {linkProblem && (
               <p role="alert" className="mt-4 text-[14px] text-bone">
-                {state?.error ??
-                  (linkProblem === "expired"
-                    ? "That link has expired or was already used. Send yourself a new one."
-                    : "That link didn’t work. Send yourself a new one.")}
+                That link has expired or was already used. Sign in, or sign up again.
               </p>
             )}
-          </>
-        )}
       </div>
     </section>
   );

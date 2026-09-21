@@ -25,7 +25,7 @@ export async function updateProfile(
   formData: FormData
 ): Promise<ProfileState> {
   const curator = await getSessionCurator();
-  if (!curator) return { error: "Sign in at /clip-login to edit your profile." };
+  if (!curator) return { error: "Sign in to edit your profile." };
 
   const { displayName, bio } = parseProfileInput(formData);
 
@@ -58,7 +58,7 @@ export async function renameUsername(
   formData: FormData
 ): Promise<ProfileState> {
   const loginKey = await getSessionLoginKey();
-  if (!loginKey) return { error: "Sign in at /clip-login to edit your profile." };
+  if (!loginKey) return { error: "Sign in to edit your profile." };
   const previous = await getSessionCurator();
 
   const parsed = parseUsername(formData.get("username"));

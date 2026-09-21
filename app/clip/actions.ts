@@ -1,9 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
+import { getSessionCurator } from "@/lib/clip-session";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchOgImage } from "@/lib/og-image";
 import { withSpendContext } from "@/lib/claude/spend-context";
@@ -51,9 +50,9 @@ export async function createClip(
 ): Promise<CreateClipState> {
   // Server Actions are reachable via direct POST — re-verify here even
   // though Proxy already gates the /clip route.
-  const cookieStore = await cookies();
-  const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
-  const curatorName = sessionCurator(token);
+  // Current username, never the login key: this is the credit the clip
+  // carries in public.
+  const curatorName = await getSessionCurator();
   if (!curatorName) {
     return { error: "Not authorized." };
   }

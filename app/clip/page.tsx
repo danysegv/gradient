@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
@@ -7,7 +6,9 @@ import {
   getClipsNeedingClassification,
   getParkedClips,
 } from "@/lib/clips/unclassified";
-import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
+import { getSession } from "@/lib/clip-session";
+import { getVisitorEmail } from "@/lib/supabase/auth-server";
+import { NotACurator } from "./not-a-curator";
 import { logoutFromClipper } from "./logout-actions";
 import { ClipForm } from "./clip-form";
 import { ProcessButton } from "./process-button";
@@ -108,14 +109,17 @@ function toGridClip(clip: any): ClipperClip {
 }
 
 export default async function ClipPage() {
-  const cookieStore = await cookies();
-  const curatorName = sessionCurator(
-    cookieStore.get(CLIP_SESSION_COOKIE)?.value
-  );
+  const session = await getSession();
   // Defence in depth: proxy.ts gates this route too, but this page reads
   // through the service-role client (archived clips, parked URLs), so it
   // must never render for a request the proxy happened not to match.
-  if (!curatorName) redirect("/clip-login");
+  if (!session) {
+    // Signed in, but the account hasn't been approved as a curator yet.
+    const email = await getVisitorEmail();
+    if (email) return <NotACurator email={email} />;
+    redirect("/signin?next=/clip");
+  }
+  const curatorName = session.name;
 
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way

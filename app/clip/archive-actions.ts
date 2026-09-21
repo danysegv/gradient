@@ -1,16 +1,13 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { CLIP_SESSION_COOKIE, sessionCurator } from "@/lib/clip-auth";
+import { getSessionCurator } from "@/lib/clip-session";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type ArchiveActionResult = { error: string } | { error?: never };
 
 async function requireSession(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
-  return sessionCurator(token);
+  return getSessionCurator();
 }
 
 // Soft delete — archived_at = now(). Service-role client only; there is

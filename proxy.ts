@@ -3,14 +3,22 @@ import type { NextRequest } from "next/server";
 import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
 
 // Gates the private clipper. Optimistic check only (cookie read, no DB) —
-// the /clip Server Action re-verifies independently, per Next's guidance
-// that Server Actions are reachable via direct POST and must not rely on
-// Proxy alone.
+// the /clip page and every clipper Server Action re-verify independently
+// through lib/clip-session.ts, per Next's guidance that Server Actions are
+// reachable via direct POST and must not rely on Proxy alone.
+//
+// Two ways past it since 2026-09-21: an account session cookie (Supabase
+// Auth, "sb-…-auth-token"), or the old per-curator password cookie. Which
+// accounts are curators is decided by the page, not here — a signed-in
+// visitor who isn't one gets a plain "not a curator yet" page.
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get(CLIP_SESSION_COOKIE)?.value;
+  const legacy = request.cookies.get(CLIP_SESSION_COOKIE)?.value;
+  const hasAccount = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
 
-  if (!isValidSessionToken(token)) {
-    return NextResponse.redirect(new URL("/clip-login", request.url));
+  if (!hasAccount && !isValidSessionToken(legacy)) {
+    return NextResponse.redirect(new URL("/signin?next=/clip", request.url));
   }
 
   return NextResponse.next();

@@ -1,10 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { withSpendContext } from "@/lib/claude/spend-context";
-import { CLIP_SESSION_COOKIE, isValidSessionToken } from "@/lib/clip-auth";
+import { getSessionCurator } from "@/lib/clip-session";
 import {
   getClipsNeedingClassification,
   parkClip,
@@ -68,9 +67,7 @@ export type ClassifyState =
  *   anything else     -> abort and put the real error on screen
  */
 export async function classifyClips(): Promise<ClassifyState> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(CLIP_SESSION_COOKIE)?.value;
-  if (!isValidSessionToken(token)) {
+  if (!(await getSessionCurator())) {
     return { error: "Not authorized." };
   }
 
