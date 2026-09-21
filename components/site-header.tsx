@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Wordmark } from "@/components/wordmark";
 import { SearchOverlay } from "@/components/search-overlay";
+import { AccountButton } from "@/components/account-button";
 
 // One header for every page, A24-simple: the pages on one side, the mark
 // dead centre, search alone on the other side. It replaced nine hand-copied
@@ -110,7 +111,8 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
           <Wordmark className="h-[20px] w-auto text-bone md:h-[26px]" />
         </Link>
 
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-1">
+          <AccountButton />
           <button
             type="button"
             onClick={() => setSearchOpen(true)}

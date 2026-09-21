@@ -1,10 +1,10 @@
 // The first-visit intro on `/` (opening → how it works → sign-up).
 //
-// Having seen it is remembered in one cookie, set only by the intro's own
-// server action (app/intro-actions.ts) and read by app/page.tsx. Sign-up is
-// UI ONLY for now (decided 2026-09-19): the form does not store or send the
-// email anywhere. Real accounts are a separate, load-bearing build — see the
-// legal note in CLAUDE.md on §512(i) — not something to slip in here.
+// Having come in is remembered in one cookie, set when an emailed sign-in
+// link is opened (app/auth/callback/route.ts) and read by app/page.tsx.
+// Sign-up became a real account on 2026-09-21 (Supabase Auth, email link):
+// see lib/supabase/auth-server.ts. That account is a visitor's; it is not
+// the curator gate and grants no write access to anything.
 export const ENTERED_COOKIE = "04am_entered";
 
 /** "AnalogNoise" → "Analog Noise". Display only. */

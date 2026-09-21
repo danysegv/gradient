@@ -22,7 +22,11 @@ type Row = {
   }[] | null;
 };
 
-export async function IntroScreen() {
+export async function IntroScreen({
+  linkProblem = null,
+}: {
+  linkProblem?: "expired" | "invalid" | null;
+} = {}) {
   const [clipsRes, statsRes, firstRes] = await Promise.all([
     supabasePublic
       .from("clips")
@@ -67,5 +71,5 @@ export async function IntroScreen() {
   const total = stats ? Number(stats.total_clips) : null;
   const first = (firstRes.data?.[0] as { clipped_at: string } | undefined)?.clipped_at ?? null;
 
-  return <Intro clips={clips} total={total} since={first} />;
+  return <Intro clips={clips} total={total} since={first} linkProblem={linkProblem} />;
 }

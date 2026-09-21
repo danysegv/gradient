@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo } from "next/font/google";
 import "./globals.css";
+import { SessionKeeper } from "@/components/session-keeper";
 
 // Grotesk throughout, per CLAUDE.md — variable font covers the full
 // weight range in one download (quiet regular for stats/labels, 600 for
@@ -23,7 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${archivo.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SessionKeeper />
+        {children}
+      </body>
     </html>
   );
 }

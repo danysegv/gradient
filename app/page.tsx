@@ -75,6 +75,7 @@ export default async function Home({
     q?: string | string[];
     color?: string | string[];
     intro?: string | string[];
+    link?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -84,13 +85,19 @@ export default async function Home({
   const searching = Boolean(q || color);
 
   // First visit: the intro (opening → how it works → sign-up) instead of the
-  // feed. Read from a cookie set by the intro's own server action, so this
+  // feed. Read from a cookie set when an emailed sign-in link is opened
+  // (app/auth/callback/route.ts), so this
   // stays a plain server-side branch — revalidate = 0 below is untouched,
   // and proxy.ts's matcher stays exactly ["/clip"]. A shared search link
   // (?q= / ?color=) always goes straight to the library; ?intro replays it.
   const entered = (await cookies()).has(ENTERED_COOKIE);
   if (!searching && (!entered || params.intro !== undefined)) {
-    return <IntroScreen />;
+    const link = Array.isArray(params.link) ? params.link[0] : params.link;
+    return (
+      <IntroScreen
+        linkProblem={link === "expired" || link === "invalid" ? link : null}
+      />
+    );
   }
 
   // Searching: clips ranked by tags, Claude's reading of each image, title
