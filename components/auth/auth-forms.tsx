@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   signUp,
   signIn,
@@ -62,6 +62,7 @@ function Password({ autoComplete, placeholder = "Password" }: { autoComplete: st
 // A new password, typed twice. The two fields check each other as you type
 // (the browser won't submit a mismatch), and the server checks again.
 function NewPassword({ placeholder }: { placeholder: string }) {
+  // Each field drops in a beat after the last (see the unfold keyframes).
   const [first, setFirst] = useState("");
   const [second, setSecond] = useState("");
   const mismatch = second.length > 0 && second !== first;
@@ -78,6 +79,7 @@ function NewPassword({ placeholder }: { placeholder: string }) {
         minLength={PASSWORD_MIN}
         autoComplete="new-password"
         placeholder={placeholder}
+        style={{ animation: "field-in 420ms cubic-bezier(.2,.8,.2,1) 80ms both" }}
         value={first}
         onChange={(e) => {
           setFirst(e.target.value);
@@ -101,6 +103,7 @@ function NewPassword({ placeholder }: { placeholder: string }) {
         required
         autoComplete="new-password"
         placeholder="Confirm password"
+        style={{ animation: "field-in 420ms cubic-bezier(.2,.8,.2,1) 200ms both" }}
         value={second}
         onChange={(e) => {
           setSecond(e.target.value);
@@ -121,22 +124,78 @@ function NewPassword({ placeholder }: { placeholder: string }) {
   );
 }
 
+// Sign-up in two beats: the email alone first, then — on Enter or
+// Continue — the two password fields unfold beneath it. The password fields
+// are only mounted once revealed, so the browser's own "required" checks
+// can't trip over fields nobody can see yet.
 export function SignUpForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(signUp, undefined);
+  const [step, setStep] = useState<"email" | "password">("email");
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (step !== "password") return;
+    // Wait for the unfold to start before moving focus, so the caret lands
+    // in a field that is already visible.
+    const t = setTimeout(() => document.getElementById("auth-password")?.focus(), 180);
+    return () => clearTimeout(t);
+  }, [step]);
+
   if (state?.notice) {
     return (
-      <div className="text-center">
+      <div className="text-center [animation:drop-in_400ms_cubic-bezier(.2,.8,.2,1)]">
         <p className="text-[18px] font-semibold">Check your inbox.</p>
         <p className="mt-2 text-[15px] text-bone/70">{state.notice}</p>
       </div>
     );
   }
+
   return (
-    <form action={action} className="flex flex-col gap-2">
-      <Email />
-      <NewPassword placeholder={`Password (${PASSWORD_MIN}+ characters)`} />
-      <button type="submit" disabled={pending} className={BUTTON}>
-        {pending ? "Creating…" : "Sign up"}
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (step === "email") {
+          e.preventDefault();
+          const email = emailRef.current;
+          if (email && email.checkValidity()) setStep("password");
+          else email?.reportValidity();
+        }
+      }}
+      className="flex flex-col gap-2"
+    >
+      <label htmlFor="auth-email" className="sr-only">
+        Email address
+      </label>
+      <input
+        ref={emailRef}
+        id="auth-email"
+        name="email"
+        type="email"
+        required
+        autoComplete="email"
+        placeholder="Email address"
+        className={FIELD}
+      />
+
+      {step === "password" && (
+        <div className="flex flex-col gap-2 overflow-hidden [animation:unfold_520ms_cubic-bezier(.2,.8,.2,1)_both]">
+          <NewPassword placeholder={`Create password (${PASSWORD_MIN}+ characters)`} />
+        </div>
+      )}
+
+      <button type="submit" disabled={pending} className={`${BUTTON} group flex items-center justify-center gap-3`}>
+        {pending ? (
+          "Creating…"
+        ) : step === "email" ? (
+          <>
+            Continue
+            <span aria-hidden className="inline-block transition-transform duration-300 group-hover:translate-x-1">
+              →
+            </span>
+          </>
+        ) : (
+          "Sign up"
+        )}
       </button>
       <div className="mt-2">
         <Message state={state} />

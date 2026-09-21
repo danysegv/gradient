@@ -664,7 +664,7 @@ function SignUp({
     <section id="join" className={`relative scroll-mt-14 border-t border-white/10 ${GRID_PAPER}`}>
       <div
         ref={ref}
-        className={`mx-auto flex min-h-[90svh] max-w-[760px] flex-col items-center justify-center px-4 py-24 text-center transition-all duration-700 ${
+        className={`mx-auto flex min-h-[90svh] max-w-[760px] flex-col items-center justify-start px-4 pb-24 pt-[16svh] text-center transition-all duration-700 ${
           seen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
         }`}
       >

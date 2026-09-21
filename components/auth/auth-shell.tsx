@@ -23,7 +23,9 @@ export function AuthShell({
           <Wordmark className="h-[20px] w-auto text-bone" />
         </Link>
       </div>
-      <div className="flex flex-1 items-center justify-center px-4 pb-24">
+      {/* Pinned from the top, not centred: when sign-up unfolds its password
+          fields, only the fields should move — not the headline. */}
+      <div className="flex flex-1 items-start justify-center px-4 pb-24 pt-[14vh]">
         <div className="w-full max-w-[420px] [animation:drop-in_300ms_cubic-bezier(.2,.8,.2,1)]">
           <h1 className="mb-8 text-center text-[36px] font-bold leading-[1.02] tracking-tight md:text-[44px]">
             {title}
