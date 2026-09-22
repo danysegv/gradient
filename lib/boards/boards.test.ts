@@ -55,3 +55,9 @@ test("board actions never write clips or clip_tags", () => {
   assert.doesNotMatch(src, /from\("clip_tags"\)/);
   assert.doesNotMatch(src, /classify/i);
 });
+
+test("board actions never insert a profile row (login_key is NOT NULL)", () => {
+  const src = readFileSync(new URL("../../app/boards/actions.ts", import.meta.url), "utf8");
+  const profileWrites = src.match(/from\("profiles"\)\s*\.(upsert|insert)\(/g) ?? [];
+  assert.deepEqual(profileWrites, []);
+});

@@ -59,12 +59,18 @@ export async function createBoard(
     return { error: "That clip link isn't valid." };
   }
 
-  // A curator configured after the profiles seed has no row yet, and the
-  // board's owner_name is a foreign key to it.
-  const { error: profileError } = await supabaseAdmin
+  // The board's owner_name is a foreign key to profiles. Every curator has a
+  // profile now (approval creates it, with its login_key), so this only
+  // checks. It used to upsert a bare { name } row, which Postgres rejects
+  // since login_key became NOT NULL: the constraint is checked before
+  // ON CONFLICT DO NOTHING gets a say, so every new board failed.
+  const { data: profileRow, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .upsert({ name: curator }, { onConflict: "name", ignoreDuplicates: true });
+    .select("name")
+    .eq("name", curator)
+    .maybeSingle();
   if (profileError) return { error: profileError.message };
+  if (!profileRow) return { error: NOT_SIGNED_IN };
 
   // Two attempts: the slug is computed from what exists, so a board with
   // the same title created in the same instant can collide on the unique
