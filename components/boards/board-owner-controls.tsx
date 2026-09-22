@@ -1,5 +1,6 @@
 "use client";
 
+import { BOARD } from "@/lib/boards/naming";
 import { useActionState, useState, useTransition } from "react";
 import {
   deleteBoard,
@@ -98,7 +99,7 @@ export function BoardOwnerControls({
             }
             className="rounded border border-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone disabled:opacity-60"
           >
-            {deleting ? "Deleting…" : "Delete board"}
+            {deleting ? "Deleting…" : `Delete ${BOARD.one}`}
           </button>
           <button type="button" onClick={() => setMode("idle")} className={linkClass}>
             Keep it
@@ -111,7 +112,7 @@ export function BoardOwnerControls({
   return (
     <div className="mt-5 flex items-center gap-5">
       <button type="button" onClick={() => setMode("edit")} className={linkClass}>
-        Edit board
+        Edit
       </button>
       <button
         type="button"

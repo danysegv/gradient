@@ -1,3 +1,4 @@
+import { BOARD } from "@/lib/boards/naming";
 import Link from "next/link";
 import { AXIS_LABEL } from "@/lib/axes";
 import {
@@ -100,7 +101,7 @@ function Chart({ radar }: { radar: Radar }) {
         viewBox={`0 0 ${W} ${H}`}
         className="block h-auto w-full max-w-full"
         role="img"
-        aria-label={`Board radar. ${dots.length} published looks plotted by share of this board against lean versus the library.${
+        aria-label={`${BOARD.One} radar. ${dots.length} published looks plotted by share of this ${BOARD.one} against lean versus the library.${
           signature.length ? ` Signature: ${signature.join(", ")}.` : ""
         } The list beside it has every value.`}
       >
@@ -167,7 +168,7 @@ function Chart({ radar }: { radar: Radar }) {
           textAnchor="end"
           className="fill-bone/70 text-[10px] font-semibold uppercase tracking-wide"
         >
-          {X === 0.5 ? "Share of this board, 0–50% →" : "Share of this board →"}
+          {X === 0.5 ? `Share of this ${BOARD.one}, 0–50% →` : `Share of this ${BOARD.one} →`}
         </text>
         <text
           x={M.l}
@@ -203,7 +204,7 @@ function Chart({ radar }: { radar: Radar }) {
           .map(({ t, cx, cy }) => (
             <g key={t.name} className="group">
               <title>
-                {`${t.name} — on ${formatShare(t.boardShare)} of this board (${t.count} clips), ${formatShare(
+                {`${t.name} — on ${formatShare(t.boardShare)} of this ${BOARD.one} (${t.count} clips), ${formatShare(
                   t.libraryShare ?? 0
                 )} of the library, ${formatLean(t.lean!)} points`}
               </title>
@@ -293,10 +294,10 @@ export function BoardRadar({ radar }: { radar: Radar }) {
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div>
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-            Board radar
+            {BOARD.One} radar
           </p>
           <p className="max-w-xl text-[13px] leading-relaxed text-bone/70">
-            What this board is made of, against the whole library. It describes
+            What this {BOARD.one} is made of, against the whole library. It describes
             this collection, not a trend: the Signals radar is a separate reading,
             and nothing here feeds it.
           </p>
@@ -314,9 +315,9 @@ export function BoardRadar({ radar }: { radar: Radar }) {
               <Chart radar={radar} />
               <p className="mt-3 max-w-xl text-[11.5px] leading-relaxed text-bone/65">
                 A look is <span className="text-bone/85">core</span> once it is on{" "}
-                {formatShare(CORE_SHARE)} of the board. Above the line the board has
+                {formatShare(CORE_SHARE)} of the {BOARD.one}. Above the line the {BOARD.one} has
                 more of it than the library does; below, less. Incubating looks
-                show their share of the board only.
+                show their share of the {BOARD.one} only.
               </p>
             </>
           ) : (
@@ -325,7 +326,7 @@ export function BoardRadar({ radar }: { radar: Radar }) {
                 Not yet readable
               </p>
               <p className="max-w-sm text-[13px] leading-relaxed text-bone/70">
-                The radar plots once {BOARD_RADAR_MIN_CLIPS} clips on this board carry
+                The radar plots once {BOARD_RADAR_MIN_CLIPS} clips on this {BOARD.one} carry
                 tags.{" "}
                 <span className="font-normal tabular-nums">{radar.clipsToReadable}</span>{" "}
                 more to go. Below that, one clip moves a share by more than 8 points.
@@ -351,7 +352,7 @@ export function BoardRadar({ radar }: { radar: Radar }) {
 
         <div className="min-w-0">
           <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-bone/60">
-            Share of this board
+            Share of this {BOARD.one}
           </p>
           <ul className="divide-y divide-white/[.07]">
             {head.map((t) => (

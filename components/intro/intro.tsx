@@ -1,5 +1,6 @@
 "use client";
 
+import { BOARD } from "@/lib/boards/naming";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Wordmark } from "@/components/wordmark";
 import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
@@ -384,8 +385,8 @@ function HowItWorks({
     },
     {
       n: "05",
-      title: "Read your board back",
-      body: "Save references to boards, then read a board against the library: what it leans on, and what it is missing.",
+      title: `Read your ${BOARD.one} back`,
+      body: `Save references to ${BOARD.many}, then read a ${BOARD.one} against the library: what it leans on, and what it is missing.`,
       scene: <SceneBoard clips={clips} onBroken={onBroken} />,
     },
   ];

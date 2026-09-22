@@ -1,3 +1,4 @@
+import { BOARD } from "@/lib/boards/naming";
 import { DESCRIPTION_MAX, TITLE_MAX } from "@/lib/boards/input";
 
 // Shared by "New board" and "Edit board", so both enforce the same limits
@@ -41,7 +42,7 @@ export function BoardFields({
           rows={3}
           maxLength={DESCRIPTION_MAX}
           defaultValue={defaults?.description ?? ""}
-          placeholder="What this board is for"
+          placeholder={`What this ${BOARD.one} is for`}
           className="resize-y rounded-[3px] border border-white/15 bg-ink px-3 py-2 text-[14px] leading-relaxed text-bone placeholder:text-bone/45 focus:border-bone/60 focus:outline-none"
         />
       </div>
@@ -59,7 +60,7 @@ export function BoardFields({
         <span>
           Show on my profile
           <span className="block text-[12px] text-bone/60">
-            Off: only you see this board.
+            Off: only you see this {BOARD.one}.
           </span>
         </span>
       </label>

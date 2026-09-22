@@ -1,3 +1,4 @@
+import { BOARD } from "@/lib/boards/naming";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
@@ -322,7 +323,7 @@ export default async function ClipDetailPage({
             {(onPublicBoards.length > 0 || (viewer && choices)) && (
               <section className="mt-8 border-t border-white/10 pt-5">
                 <h2 className="mb-3.5 text-[11px] font-semibold uppercase tracking-wide text-bone/70">
-                  {viewer ? "Save to your boards" : "On boards"}
+                  {viewer ? `Save to your ${BOARD.many}` : `On ${BOARD.many}`}
                 </h2>
                 {viewer && choices && (
                   <SaveToBoards
@@ -339,7 +340,7 @@ export default async function ClipDetailPage({
                   >
                     {viewer && (
                       <li className="text-[10px] font-semibold uppercase tracking-wide text-bone/60">
-                        On public boards
+                        On public {BOARD.many}
                       </li>
                     )}
                     {onPublicBoards.map((b) => (

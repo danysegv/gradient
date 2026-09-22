@@ -70,11 +70,8 @@ export function BoardCard({
         <p className="text-[15px] font-semibold leading-snug text-bone">
           {board.title}
         </p>
+        {(owner || !board.is_public) && (
         <p className="flex items-baseline gap-2.5 text-[12px] text-bone/70">
-          <span>
-            <span className="font-normal tabular-nums">{board.clip_count}</span>{" "}
-            {board.clip_count === 1 ? "clip" : "clips"}
-          </span>
           {owner && <span className="truncate">{owner}</span>}
           {!board.is_public && (
             <span className="rounded-[2px] border border-white/20 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-bone/75">
@@ -82,6 +79,7 @@ export function BoardCard({
             </span>
           )}
         </p>
+        )}
       </div>
     </Link>
   );

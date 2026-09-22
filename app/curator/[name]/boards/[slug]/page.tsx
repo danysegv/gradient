@@ -1,3 +1,4 @@
+import { BOARD } from "@/lib/boards/naming";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { type GridClip } from "@/components/home-grid";
@@ -138,8 +139,8 @@ export default async function BoardPage({
 
         <div className="pt-8 pb-10">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-bone" />
-            {board.is_public ? "Board" : "Private board — only you can see it"}
+            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-slate" />
+            {board.is_public ? BOARD.One : `Private ${BOARD.one} — only you can see it`}
           </p>
           <h1 className="mb-3 max-w-3xl text-[34px] font-bold leading-tight tracking-tight [text-wrap:balance]">
             {board.title}
@@ -190,25 +191,25 @@ export default async function BoardPage({
                 <Link href="/" className="underline underline-offset-4 hover:text-bone">
                   library
                 </Link>{" "}
-                or a curator&rsquo;s page, and tick this board under
-                &ldquo;Save to your boards&rdquo;.
+                or a curator&rsquo;s page, and tick this {BOARD.one} under
+                &ldquo;Save to your {BOARD.many}&rdquo;.
               </>
             ) : (
-              "This board has no clips yet."
+              `This ${BOARD.one} has no clips yet.`
             )}
           </p>
         </div>
       ) : (
         <>
           <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-8">
-            <SearchBar initialQuery={q} placeholder="Search this board" />
+            <SearchBar initialQuery={q} placeholder={`Search this ${BOARD.one}`} />
             {clipSearch && (
               <SearchSummary
                 q={q}
                 clipCount={shownClips.length}
                 boardCount={null}
                 exact={clipSearch.exact}
-                scope="on this board"
+                scope={`on this ${BOARD.one}`}
               />
             )}
           </div>

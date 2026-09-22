@@ -1,5 +1,6 @@
 "use client";
 
+import { BOARD } from "@/lib/boards/naming";
 import Link from "next/link";
 import { useActionState, useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
@@ -79,7 +80,7 @@ export function SaveToBoards({
         </ul>
       ) : (
         <p className="text-[13px] text-bone/70">
-          No boards yet. Name one below and this clip goes straight in.
+          No {BOARD.many} yet. Name one below and this clip goes straight in.
         </p>
       )}
 
@@ -92,14 +93,14 @@ export function SaveToBoards({
       <form ref={formRef} action={createAction} className="flex gap-2">
         <input type="hidden" name="clip_id" value={clipId} />
         <label htmlFor="quick-board-title" className="sr-only">
-          New board title
+          New {BOARD.one} title
         </label>
         <input
           id="quick-board-title"
           name="title"
           required
           maxLength={TITLE_MAX}
-          placeholder="New board"
+          placeholder={`New ${BOARD.one}`}
           className="min-w-0 flex-1 rounded-[3px] border border-white/15 bg-ink-2 px-3 py-1.5 text-[13px] text-bone placeholder:text-bone/50 focus:border-bone/60 focus:outline-none"
         />
         <button
@@ -116,12 +117,12 @@ export function SaveToBoards({
         </p>
       )}
       <p className="text-[11px] text-bone/60">
-        New boards start private.{" "}
+        New {BOARD.many} start private.{" "}
         <Link
           href={`/curator/${encodeURIComponent(ownerName)}`}
           className="underline underline-offset-4 hover:text-bone"
         >
-          All your boards
+          All your {BOARD.many}
         </Link>
       </p>
     </div>

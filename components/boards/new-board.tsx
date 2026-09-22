@@ -1,5 +1,6 @@
 "use client";
 
+import { BOARD } from "@/lib/boards/naming";
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBoard, type BoardFormState } from "@/app/boards/actions";
@@ -32,7 +33,7 @@ export function NewBoard({ ownerName }: { ownerName: string }) {
       >
         <span className="text-[22px] font-normal leading-none">+</span>
         <span className="text-[11px] font-semibold uppercase tracking-wide">
-          New board
+          New {BOARD.one}
         </span>
       </button>
     );
@@ -55,7 +56,7 @@ export function NewBoard({ ownerName }: { ownerName: string }) {
           disabled={pending}
           className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone disabled:opacity-60"
         >
-          {pending ? "Creating…" : "Create board"}
+          {pending ? "Creating…" : `Create ${BOARD.one}`}
         </button>
         <button
           type="button"

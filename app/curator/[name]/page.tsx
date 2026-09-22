@@ -1,3 +1,4 @@
+import { BOARD } from "@/lib/boards/naming";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
@@ -365,7 +366,7 @@ export default async function CuratorPage({
         {search && search.boards.length > 0 && (
           <section className="mb-12">
             <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Boards
+              {BOARD.Many}
             </p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
               {search.boards.map((b) => (
@@ -379,7 +380,7 @@ export default async function CuratorPage({
           <section className="mb-12">
             {isOwner && (
               <p className="mb-4 text-[11px] text-bone/60">
-                Signed in as {curator}. Only you see private boards.
+                Signed in as {curator}. Only you see private {BOARD.many}.
               </p>
             )}
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">

@@ -1,3 +1,4 @@
+import { BOARD } from "@/lib/boards/naming";
 import { COLOR_BUCKETS, type ColorBucket } from "@/lib/color/buckets";
 
 // The line under the search bar: what was searched and what came back.
@@ -62,7 +63,7 @@ export function SearchSummary({
               <>
                 {" "}·{" "}
                 <span className="font-normal tabular-nums">{boardCount}</span>{" "}
-                {boardCount === 1 ? "board" : "boards"}
+                {boardCount === 1 ? BOARD.one : BOARD.many}
               </>
             )}
             {q && <> for &ldquo;{q}&rdquo;</>}
