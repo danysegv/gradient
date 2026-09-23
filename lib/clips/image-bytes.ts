@@ -21,7 +21,10 @@
 /** The biggest file worth pulling; beyond this the clip parks as before. */
 export const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
-/** What the model accepts. Anything else is parked, not converted. */
+/** Longest edge sent to the model. Past this the extra pixels buy nothing. */
+export const MAX_IMAGE_EDGE = 1568;
+
+/** What the model accepts as-is. Everything else we re-encode first. */
 const SUPPORTED = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 export type SupportedMediaType = (typeof SUPPORTED)[number];
 
@@ -39,6 +42,11 @@ export function isDownloadRefusal(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   if (/robots\.txt/i.test(message)) return false;
   return /unable to download the file/i.test(message);
+}
+
+/** Anything the host calls an image is worth handing to sharp. */
+export function isImageContentType(contentType: string | null): boolean {
+  return (contentType ?? "").trim().toLowerCase().startsWith("image/");
 }
 
 export function mediaTypeOf(contentType: string | null): SupportedMediaType | null {
@@ -146,10 +154,10 @@ export async function fetchImageForClassifier(
       console.log(`[classify-clip] fallback fetch got ${res.status} for ${imageUrl}`);
       return null;
     }
-    const mediaType = mediaTypeOf(res.headers.get("content-type"));
-    if (!mediaType) {
+    const contentType = res.headers.get("content-type");
+    if (!isImageContentType(contentType)) {
       console.log(
-        `[classify-clip] fallback fetch got ${res.headers.get("content-type")} for ${imageUrl}`
+        `[classify-clip] fallback fetch got ${contentType} for ${imageUrl}`
       );
       return null;
     }
@@ -158,9 +166,9 @@ export async function fetchImageForClassifier(
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.byteLength > MAX_IMAGE_BYTES) return null;
     console.log(
-      `[classify-clip] fallback fetched ${buf.byteLength} bytes of ${mediaType} for ${imageUrl}`
+      `[classify-clip] fallback fetched ${buf.byteLength} bytes of ${contentType} for ${imageUrl}`
     );
-    return { data: buf.toString("base64"), mediaType };
+    return await asJpeg(buf, contentType, imageUrl);
   } catch (err) {
     console.log(
       `[classify-clip] fallback fetch failed for ${imageUrl}: ${
@@ -168,5 +176,42 @@ export async function fetchImageForClassifier(
       }`
     );
     return null;
+  }
+}
+
+/**
+ * Re-encode to JPEG before sending. What a host serves is not always what
+ * the model takes: the first clip through this path was a .jpg.webp from
+ * a WordPress image plugin, and the API answered "file format is invalid
+ * or unsupported". Re-encoding removes the whole question — one format
+ * goes to the model, whatever the CDN felt like serving — and bounds the
+ * size at the same time. If sharp can't read it, we send the original
+ * only when its own type is one the model accepts, and otherwise let the
+ * clip park with its reason, which is the honest outcome for a file
+ * nothing can decode.
+ */
+async function asJpeg(
+  buf: Buffer,
+  contentType: string | null,
+  imageUrl: string
+): Promise<FetchedImage | null> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const jpeg = await sharp(buf)
+      .resize(MAX_IMAGE_EDGE, MAX_IMAGE_EDGE, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    return { data: jpeg.toString("base64"), mediaType: "image/jpeg" };
+  } catch (err) {
+    console.log(
+      `[classify-clip] fallback could not re-encode ${imageUrl}: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+    const mediaType = mediaTypeOf(contentType);
+    return mediaType ? { data: buf.toString("base64"), mediaType } : null;
   }
 }

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   isDownloadRefusal,
+  isImageContentType,
   mediaTypeOf,
   robotsAllows,
 } from "./image-bytes.ts";
@@ -23,7 +24,17 @@ test("only a failed download is worth refetching ourselves", () => {
   assert.equal(isDownloadRefusal(new Error("credit balance too low")), false);
 });
 
-test("media types the model takes", () => {
+test("anything the host calls an image is worth decoding", () => {
+  // The first clip through this path was a .jpg.webp: served as an image,
+  // rejected by the API until we re-encoded it.
+  assert.equal(isImageContentType("image/webp"), true);
+  assert.equal(isImageContentType("image/avif"), true);
+  assert.equal(isImageContentType("IMAGE/JPEG"), true);
+  assert.equal(isImageContentType("text/html; charset=utf-8"), false);
+  assert.equal(isImageContentType(null), false);
+});
+
+test("media types the model takes as-is", () => {
   assert.equal(mediaTypeOf("image/jpeg"), "image/jpeg");
   assert.equal(mediaTypeOf("image/jpg"), "image/jpeg");
   assert.equal(mediaTypeOf("image/png; charset=binary"), "image/png");
