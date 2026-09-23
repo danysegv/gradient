@@ -4,16 +4,8 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ClipThumbnail } from "./clip-thumbnail";
 import { archiveClip, unarchiveClip } from "@/app/clip/archive-actions";
-
-// Display order matches the taxonomy doc's section headings.
-const AXES: { key: string; label: string }[] = [
-  { key: "movement", label: "Movements" },
-  { key: "typography", label: "Typography" },
-  { key: "palette_light", label: "Palette & Light" },
-  { key: "layout", label: "Layout" },
-  { key: "format_motion", label: "Format & Motion" },
-  { key: "treatment", label: "Treatment" },
-];
+import { AXES } from "@/lib/axes";
+import { PUBLIC_TAG_CONFIDENCE } from "@/lib/tag-confidence";
 
 // The toast is a convenience, not the safety net — the Archived view is.
 // 15s is long enough to catch a genuine misclick without parking a panel
@@ -50,6 +42,18 @@ function ClipCard({
   clip: ClipperClip;
   action: { label: string; onClick: () => void };
 }) {
+  // A reading under PUBLIC_TAG_CONFIDENCE is not a trait anywhere people
+  // see it — the chips, the clip page, the feed order, the plate radar
+  // and Attention all use that line. The clipper used to print every
+  // reading at full strength, so the same clip could look classified
+  // here and bare on the feed. One rule now, everywhere.
+  const visibleAxes = AXES.map((axis) => ({
+    axis,
+    tags: (clip.tagsByAxis.find((a) => a.group === axis.key)?.tags ?? []).filter(
+      (t) => t.confidence >= PUBLIC_TAG_CONFIDENCE
+    ),
+  })).filter((a) => a.tags.length > 0);
+
   return (
     <div className="group relative mb-4 break-inside-avoid overflow-hidden rounded-[3px]">
       {/* Opens the clip, not the source host — same rule as the public
@@ -102,24 +106,19 @@ function ClipCard({
             {[clip.source, clip.clippedByName].filter(Boolean).join(" · ")}
           </p>
         )}
-        {clip.tagsByAxis.length > 0 && (
+        {visibleAxes.length > 0 && (
           <ul className="flex flex-col gap-0.5">
-            {AXES.filter((axis) =>
-              clip.tagsByAxis.some((a) => a.group === axis.key)
-            ).map((axis) => {
-              const group = clip.tagsByAxis.find((a) => a.group === axis.key)!;
-              return (
-                <li key={axis.key} className="text-[10px] text-bone/85">
-                  <span className="text-bone/70">{axis.label}:</span>{" "}
-                  {group.tags
-                    .map(
-                      (t) =>
-                        `${t.editorial_name} (${Math.round(t.confidence * 100)}%)`
-                    )
-                    .join(", ")}
-                </li>
-              );
-            })}
+            {visibleAxes.map(({ axis, tags }) => (
+              <li key={axis.key} className="text-[10px] text-bone/85">
+                <span className="text-bone/70">{axis.label}:</span>{" "}
+                {tags
+                  .map(
+                    (t) =>
+                      `${t.editorial_name} (${Math.round(t.confidence * 100)}%)`
+                  )
+                  .join(", ")}
+              </li>
+            ))}
           </ul>
         )}
       </div>

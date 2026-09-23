@@ -5,7 +5,7 @@
 // tag with no entry in velocityByTagId — incubating, ungated, or the
 // panel-withheld case — simply can't contribute a score, by construction.
 
-const MIN_TAG_CONFIDENCE = 0.5;
+import { PUBLIC_TAG_CONFIDENCE as MIN_TAG_CONFIDENCE } from "./tag-confidence.ts";
 
 export type FeedClip = {
   id: string;

@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { ClipThumbnail } from "./clip-thumbnail";
 import { useColumnCount } from "@/lib/use-column-count";
+import { PUBLIC_TAG_CONFIDENCE as CHIP_CONFIDENCE_THRESHOLD } from "@/lib/tag-confidence";
 
 // The masonry grid of clips. Filtering moved to the search bar
 // (components/search-bar.tsx) on 2026-09-11, which searches on the server:
 // tags, Claude's reading of the image, titles and credits.
-const CHIP_CONFIDENCE_THRESHOLD = 0.5;
 const CHIPS_PER_CARD = 3;
 
 export type GridClip = {

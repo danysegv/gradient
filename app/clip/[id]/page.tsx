@@ -23,7 +23,7 @@ export const revalidate = 0;
 // put this page behind the password form (fixed 2026-09-11). Never widen
 // that matcher again.
 
-const CHIP_CONFIDENCE_THRESHOLD = 0.5; // matches components/home-grid.tsx
+import { PUBLIC_TAG_CONFIDENCE as CHIP_CONFIDENCE_THRESHOLD } from "@/lib/tag-confidence";
 const RELATED_LIMIT = 12;
 // Deliberately under PostgREST's default 1000-row ceiling, which truncates
 // silently rather than erroring (three bugs in this codebase have come from
