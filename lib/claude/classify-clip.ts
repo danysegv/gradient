@@ -1,5 +1,10 @@
 import "server-only";
 import { z } from "zod";
+import {
+  fetchImageForClassifier,
+  isDownloadRefusal,
+  type SupportedMediaType,
+} from "@/lib/clips/image-bytes";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropic } from "./admin";
 import { effortFor } from "./effort.ts";
@@ -106,6 +111,13 @@ export type Classification = {
 // product from day one; what it never gets is a velocity, because it is
 // excluded from the library-wide denominator those figures are shares
 // of. That exclusion lives in the read path — see lib/taxonomy-freeze.ts.
+type ImageBlock = {
+  type: "image";
+  source:
+    | { type: "url"; url: string }
+    | { type: "base64"; media_type: SupportedMediaType; data: string };
+};
+
 /**
  * The image, as the model receives it.
  *
@@ -236,30 +248,51 @@ export async function classifyClip(input: {
     .filter(Boolean)
     .join("\n");
 
-  const response = await anthropic.messages.parse({
-    model: CLASSIFIER_MODEL,
-    max_tokens: 4096,
-    output_config: {
-      ...effortFor(CLASSIFIER_MODEL, "low"),
-      format: zodOutputFormat(ClassificationSchema),
-    },
-    system: [
-      {
-        type: "text",
-        text: `You are classifying a design reference image against 04AM's taxonomy — a faceted system across ${axisCount} axes (${axes.join(", ")}). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}\n\nSECOND TASK — ${attributionInstructions()}`,
-        cache_control: CACHE_CONTROL,
+  const ask = (image: ImageBlock) =>
+    anthropic.messages.parse({
+      model: CLASSIFIER_MODEL,
+      max_tokens: 4096,
+      output_config: {
+        ...effortFor(CLASSIFIER_MODEL, "low"),
+        format: zodOutputFormat(ClassificationSchema),
       },
-    ],
-    messages: [
-      {
-        role: "user",
-        content: [
-          await imageBlock(input.imageUrl),
-          { type: "text", text: contextLines },
-        ],
+      system: [
+        {
+          type: "text",
+          text: `You are classifying a design reference image against 04AM's taxonomy — a faceted system across ${axisCount} axes (${axes.join(", ")}). A single image can carry a tag from every axis at once, or none from a given axis if nothing genuinely fits. For each axis, pick at most the single best-matching tag — never force a weak match. Rate your confidence in each tag from 0 to 1, calibrated to how clearly the image exhibits it.\n\nTaxonomy:\n${taxonomyDescription}\n\nSECOND TASK — ${attributionInstructions()}`,
+          cache_control: CACHE_CONTROL,
+        },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: [image, { type: "text", text: contextLines }],
+        },
+      ],
+    });
+
+  // First ask the way we always have. If the host refused Anthropic's
+  // fetch — hotlink protection, usually — fetch the image ourselves, the
+  // way a browser on the clip's own page would, and ask again with the
+  // bytes attached. One retry, never for a robots.txt refusal, and the
+  // bytes are gone when this request ends: see lib/clips/image-bytes.ts.
+  let response;
+  try {
+    response = await ask(await imageBlock(input.imageUrl));
+  } catch (err) {
+    if (!isDownloadRefusal(err)) throw err;
+    const fetched = await fetchImageForClassifier(input.imageUrl, input.url);
+    if (!fetched) throw err;
+    console.log(`[classify-clip] fallback classifying ${input.imageUrl} from bytes`);
+    response = await ask({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: fetched.mediaType,
+        data: fetched.data,
       },
-    ],
-  });
+    });
+  }
 
   if (!response.parsed_output) {
     throw new Error(
