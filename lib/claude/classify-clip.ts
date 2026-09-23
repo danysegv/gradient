@@ -78,7 +78,12 @@ export function isUnreadableImageError(err: unknown): boolean {
     /could not process image/i.test(message) ||
     /image (?:url )?(?:is )?(?:invalid|unsupported)/i.test(message) ||
     /unsupported (?:image )?(?:format|media type)/i.test(message) ||
-    /image (?:exceeds|is too large)/i.test(message)
+    /image (?:exceeds|is too large)/i.test(message) ||
+    // "The file format is invalid or unsupported" — the bytes reached the
+    // API and it could not read them. A property of the file, so the clip
+    // parks; before 2026-09-23 this fell through to the unknown-error
+    // branch and aborted the whole batch on the first bad file.
+    /file format is invalid or unsupported/i.test(message)
   );
 }
 
@@ -281,16 +286,22 @@ export async function classifyClip(input: {
     response = await ask(await imageBlock(input.imageUrl));
   } catch (err) {
     if (!isDownloadRefusal(err)) throw err;
-    const fetched = await fetchImageForClassifier(input.imageUrl, input.url);
-    if (!fetched) throw err;
-    console.log(`[classify-clip] fallback classifying ${input.imageUrl} from bytes`);
+    const { image, note } = await fetchImageForClassifier(
+      input.imageUrl,
+      input.url
+    );
+    // The note travels with the failure so the parked clip says what the
+    // fallback actually did — the Vercel log is not where someone looks
+    // to find out why a clip has no tags.
+    if (!image) {
+      throw new Error(
+        `${err instanceof Error ? err.message : String(err)} — fallback: ${note}`
+      );
+    }
+    console.log(`[classify-clip] fallback: ${note} for ${input.imageUrl}`);
     response = await ask({
       type: "image",
-      source: {
-        type: "base64",
-        media_type: fetched.mediaType,
-        data: fetched.data,
-      },
+      source: { type: "base64", media_type: image.mediaType, data: image.data },
     });
   }
 

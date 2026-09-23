@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   isDownloadRefusal,
   isImageContentType,
@@ -66,4 +67,15 @@ test("robots.txt: an empty Disallow allows everything", () => {
 
 test("robots.txt: a blanket disallow is respected", () => {
   assert.equal(robotsAllows("User-agent: *\nDisallow: /", "/a.jpg"), false);
+});
+
+// classify-clip.ts is server-only (it pulls in the Anthropic and Supabase
+// clients), so this reads the source the way the taxonomy-freeze tests do.
+test("an unreadable file parks the clip instead of aborting the batch", () => {
+  const src = readFileSync(
+    new URL("../claude/classify-clip.ts", import.meta.url),
+    "utf8"
+  );
+  const body = src.slice(src.indexOf("export function isUnreadableImageError"));
+  assert.match(body, /file format is invalid or unsupported/);
 });

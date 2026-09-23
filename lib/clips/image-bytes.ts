@@ -113,6 +113,15 @@ async function robotsFor(origin: string): Promise<string | null> {
 export type FetchedImage = { data: string; mediaType: SupportedMediaType };
 
 /**
+ * What the fallback did, in one line, so a clip that parks says why.
+ * Vercel logs are not where this belongs: the reason a clip is parked is
+ * a fact about the clip, and it lives with the clip.
+ */
+export type FallbackResult =
+  | { image: FetchedImage; note: string }
+  | { image: null; note: string };
+
+/**
  * The image as bytes, or null with the reason logged. Null always means
  * "carry on and let the clip park as it would have" — this path may
  * never turn a classification failure into a thrown error.
@@ -120,21 +129,20 @@ export type FetchedImage = { data: string; mediaType: SupportedMediaType };
 export async function fetchImageForClassifier(
   imageUrl: string,
   pageUrl: string
-): Promise<FetchedImage | null> {
+): Promise<FallbackResult> {
   let parsed: URL;
   try {
     parsed = new URL(imageUrl);
   } catch {
-    return null;
+    return { image: null, note: "not a URL" };
   }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { image: null, note: `protocol ${parsed.protocol}` };
+  }
 
   const robots = await robotsFor(parsed.origin);
   if (robots !== null && !robotsAllows(robots, parsed.pathname)) {
-    console.log(
-      `[classify-clip] fallback skipped, robots.txt disallows ${parsed.origin}${parsed.pathname}`
-    );
-    return null;
+    return { image: null, note: "robots.txt disallows this path" };
   }
 
   try {
@@ -150,68 +158,66 @@ export async function fetchImageForClassifier(
       redirect: "follow",
       signal: AbortSignal.timeout(20000),
     });
-    if (!res.ok) {
-      console.log(`[classify-clip] fallback fetch got ${res.status} for ${imageUrl}`);
-      return null;
-    }
+    if (!res.ok) return { image: null, note: `host answered ${res.status}` };
     const contentType = res.headers.get("content-type");
     if (!isImageContentType(contentType)) {
-      console.log(
-        `[classify-clip] fallback fetch got ${contentType} for ${imageUrl}`
-      );
-      return null;
+      return { image: null, note: `host served ${contentType ?? "no type"}` };
     }
     const declared = Number(res.headers.get("content-length") ?? "0");
-    if (declared > MAX_IMAGE_BYTES) return null;
+    if (declared > MAX_IMAGE_BYTES) {
+      return { image: null, note: `${declared} bytes, over the limit` };
+    }
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength > MAX_IMAGE_BYTES) return null;
-    console.log(
-      `[classify-clip] fallback fetched ${buf.byteLength} bytes of ${contentType} for ${imageUrl}`
-    );
-    return await asJpeg(buf, contentType, imageUrl);
+    if (buf.byteLength > MAX_IMAGE_BYTES) {
+      return { image: null, note: `${buf.byteLength} bytes, over the limit` };
+    }
+    return await asJpeg(buf, contentType);
   } catch (err) {
-    console.log(
-      `[classify-clip] fallback fetch failed for ${imageUrl}: ${
-        err instanceof Error ? err.message : String(err)
-      }`
-    );
-    return null;
+    return {
+      image: null,
+      note: `fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 
 /**
- * Re-encode to JPEG before sending. What a host serves is not always what
- * the model takes: the first clip through this path was a .jpg.webp from
- * a WordPress image plugin, and the API answered "file format is invalid
- * or unsupported". Re-encoding removes the whole question — one format
- * goes to the model, whatever the CDN felt like serving — and bounds the
- * size at the same time. If sharp can't read it, we send the original
- * only when its own type is one the model accepts, and otherwise let the
- * clip park with its reason, which is the honest outcome for a file
- * nothing can decode.
+ * Re-encode to JPEG, always. What a host serves is not always what the
+ * model takes — the first clip through this path was a .jpg.webp from a
+ * WordPress image plugin, and the API answered "file format is invalid
+ * or unsupported". Re-encoding removes the question: one format reaches
+ * the model whatever the CDN felt like serving, and the payload is
+ * bounded at the same time.
+ *
+ * Bytes sharp cannot read are never forwarded. A host answering a bot
+ * check with an HTML page under an image content-type would otherwise
+ * sail through this function and fail at the API, where the error
+ * describes our request rather than their page.
  */
 async function asJpeg(
   buf: Buffer,
-  contentType: string | null,
-  imageUrl: string
-): Promise<FetchedImage | null> {
+  contentType: string | null
+): Promise<FallbackResult> {
   try {
     const sharp = (await import("sharp")).default;
-    const jpeg = await sharp(buf)
+    const image = sharp(buf);
+    const meta = await image.metadata();
+    const jpeg = await image
       .resize(MAX_IMAGE_EDGE, MAX_IMAGE_EDGE, {
         fit: "inside",
         withoutEnlargement: true,
       })
       .jpeg({ quality: 82 })
       .toBuffer();
-    return { data: jpeg.toString("base64"), mediaType: "image/jpeg" };
+    return {
+      image: { data: jpeg.toString("base64"), mediaType: "image/jpeg" },
+      note: `fetched ${buf.byteLength}B ${contentType ?? "?"} (${meta.format} ${meta.width}x${meta.height}), sent ${jpeg.byteLength}B jpeg`,
+    };
   } catch (err) {
-    console.log(
-      `[classify-clip] fallback could not re-encode ${imageUrl}: ${
+    return {
+      image: null,
+      note: `fetched ${buf.byteLength}B ${contentType ?? "?"} but could not decode it: ${
         err instanceof Error ? err.message : String(err)
-      }`
-    );
-    const mediaType = mediaTypeOf(contentType);
-    return mediaType ? { data: buf.toString("base64"), mediaType } : null;
+      }`,
+    };
   }
 }
