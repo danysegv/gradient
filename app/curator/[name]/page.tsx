@@ -61,6 +61,10 @@ const TAG_RAIL_LIMIT = 8;
 const SIGNATURE_TOWARD = 5;
 const SIGNATURE_AWAY = 3;
 const CLIP_LIMIT = 200;
+// Attention's track: the midpoint is an even split across the axes, the
+// end of the track is this many times that. 2.5 keeps a typical profile
+// around half a bar and leaves room for a genuinely one-eyed curator.
+const ATTENTION_EVEN_SPAN = 2.5;
 
 // clip_tags is a true to-many relation; its nested `tags` is a single
 // object at runtime despite supabase-js inferring an array without
@@ -68,6 +72,12 @@ const CLIP_LIMIT = 200;
 // PostgREST serialises bigint as a JSON string — every count out of these
 // RPCs is coerced with Number() at the boundary. Left alone it would
 // poison the arithmetic silently rather than throwing.
+type AxisAttentionRow = {
+  group: string;
+  curator_readings: number | string;
+  library_readings: number | string;
+};
+
 type RawTagRow = {
   tag_id: string;
   group: string;
@@ -187,7 +197,7 @@ export default async function CuratorPage({
       }))
     : Promise.resolve(null);
 
-  const [clipsRes, tagCountsRes, libraryCountsRes, frozenAxes, boards, search, profile] =
+  const [clipsRes, tagCountsRes, libraryCountsRes, axisRes, frozenAxes, boards, search, profile] =
     await Promise.all([
     // The only row-level query on this page, and deliberately capped —
     // CLIP_LIMIT is display pagination, not an accident.
@@ -195,7 +205,7 @@ export default async function CuratorPage({
       .from("clips")
       .select(
         `id, url, image_url, title, source, clipped_at,
-         clip_tags!inner ( confidence,
+         clip_tags ( confidence,
            tags ( editorial_name, universal_term, group ) )`
       )
       .eq("clipped_by_name", curator)
@@ -214,6 +224,10 @@ export default async function CuratorPage({
     supabasePublic.rpc("tag_velocity_counts", {
       window_days: RECENT_WINDOW_DAYS,
     }),
+    // ATTENTION's own counts: one row per axis, readings at confidence
+    // >= 0.5 — the same bar a trait has to clear everywhere else on the
+    // site — for this curator and for the library. Published tags only.
+    supabasePublic.rpc("curator_axis_attention", { curator_name: curator }),
     // Which axes are mid-expansion. Empty until the 37 frozen tags land.
     fetchFrozenAxes(supabasePublic),
     // Private boards are read only when the signed-in curator is this one.
@@ -310,20 +324,41 @@ export default async function CuratorPage({
       })),
   }));
 
-  // ATTENTION — how their tagging splits across the axes. Their own
-  // applications over their own total: a shape, not a claim about anyone
-  // else, so it needs no gate and prints no number.
-  const perAxis = new Map<string, number>();
-  for (const t of tagStats) {
-    perAxis.set(t.group, (perAxis.get(t.group) ?? 0) + t.clip_count);
-  }
-  const axisTotal = [...perAxis.values()].reduce((n, v) => n + v, 0);
+  // ATTENTION — how their reading splits across the axes, against how
+  // the library's splits. Two things used to make every profile look the
+  // same here. It counted every clip_tags row, including the 0.2-
+  // confidence guesses nothing else on the site treats as a trait, so
+  // the axis with the most tags in the vocabulary always won. And each
+  // bar was drawn as a share of the biggest axis, so the top row was a
+  // full bar on every profile by construction. Now a reading has to
+  // clear 0.5, and the track is a fixed scale — the midpoint is
+  // ATTENTION_EVEN_SPAN times an even split across the axes — so a full
+  // bar means genuinely lopsided attention and is rare. The slate tick
+  // is the library on that axis: the bar says what they look at, the
+  // distance from the tick says how that differs from everyone.
+  const axisRows = (axisRes.data ?? []) as unknown as AxisAttentionRow[];
+  const axisByKey = new Map(
+    axisRows.map((r) => [
+      r.group,
+      { theirs: Number(r.curator_readings), library: Number(r.library_readings) },
+    ])
+  );
   const attention = AXES.map((a) => ({
     key: a.key,
     label: AXIS_LABEL[a.key] ?? a.key,
-    count: perAxis.get(a.key) ?? 0,
-  })).filter((a) => a.count > 0);
-  const axisPeak = attention.reduce((m, a) => Math.max(m, a.count), 0);
+    count: axisByKey.get(a.key)?.theirs ?? 0,
+    libraryCount: axisByKey.get(a.key)?.library ?? 0,
+  })).filter((a) => a.libraryCount > 0);
+  const axisTotal = attention.reduce((n, a) => n + a.count, 0);
+  const axisLibraryTotal = attention.reduce((n, a) => n + a.libraryCount, 0);
+  // An even split across the axes sits at 1 / attention.length; the track
+  // runs to ATTENTION_EVEN_SPAN times that, so even attention draws every
+  // bar at the same middling length and the shape is the difference.
+  const axisScale =
+    attention.length > 0 ? ATTENTION_EVEN_SPAN / attention.length : 1;
+  const barPercent = (count: number, total: number) =>
+    total === 0 ? 0 : Math.min(count / total / axisScale, 1) * 100;
+
 
   return (
     <>
@@ -463,13 +498,20 @@ export default async function CuratorPage({
                       {a.label}
                     </span>
                     <div
-                      className="h-[14px] min-w-[60px] flex-1 bg-white/[.06]"
-                      title={`${a.count} of ${axisTotal} tag readings`}
+                      className="relative h-[14px] min-w-[60px] flex-1 bg-white/[.06]"
+                      title={`${a.count} of ${axisTotal} readings here · the library: ${a.libraryCount} of ${axisLibraryTotal}`}
                     >
                       <span
                         aria-hidden
                         className="block h-full bg-bone/75"
-                        style={{ width: `${axisPeak === 0 ? 0 : (a.count / axisPeak) * 100}%` }}
+                        style={{ width: `${barPercent(a.count, axisTotal)}%` }}
+                      />
+                      {/* the library on this axis, so a bar reads as more
+                          or less than everyone rather than on its own */}
+                      <span
+                        aria-hidden
+                        className="absolute top-0 h-full w-px bg-slate"
+                        style={{ left: `${barPercent(a.libraryCount, axisLibraryTotal)}%` }}
                       />
                     </div>
                   </div>

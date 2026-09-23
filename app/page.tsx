@@ -140,7 +140,7 @@ export default async function Home({
       .from("clips")
       .select(
         `id, url, image_url, title, source, clipped_at,
-         clip_tags!inner ( tag_id, confidence, tags ( editorial_name, group ) )`
+         clip_tags ( tag_id, confidence, tags ( editorial_name, group ) )`
       )
       .is("archived_at", null)
       .order("clipped_at", { ascending: false })
