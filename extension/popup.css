@@ -1,0 +1,10 @@
+body { width: 340px; }
+.popup { padding: 22px 22px 24px; animation: drop-in 240ms cubic-bezier(.2,.8,.2,1); }
+.top { margin-bottom: 28px; }
+.lede { margin: 8px 0 20px; }
+.stack { display: grid; gap: 10px; }
+.stack .alert:empty { display: none; }
+.foot { margin-top: 18px; }
+.who { margin: 6px 0 22px; }
+kbd { font: inherit; font-size: 12px; border: 1px solid var(--field); border-radius: 3px; padding: 0 4px; }
+[data-signout] { margin-top: 14px; }

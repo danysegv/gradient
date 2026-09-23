@@ -1,0 +1,18 @@
+body { min-width: 360px; }
+.options { max-width: 520px; margin: 0 auto; padding: 32px 28px 40px; animation: drop-in 240ms cubic-bezier(.2,.8,.2,1); }
+.top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; }
+.lede { margin: 10px 0 22px; }
+.stack { display: grid; gap: 10px; max-width: 380px; }
+.stack .alert:empty { display: none; }
+h1[data-name] { margin: 6px 0 12px; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 32px 0; }
+.how ol { margin: 14px 0 16px; padding-left: 20px; display: grid; gap: 10px; }
+.how strong { font-weight: 600; }
+kbd { font: inherit; font-size: 12px; border: 1px solid var(--field); border-radius: 3px; padding: 0 4px; }
+.choice { display: flex; align-items: baseline; gap: 10px; margin: 12px 0; cursor: pointer; }
+.choice .note { font-size: 12px; }
+.choice input { accent-color: #e7e3d8; }
+.site summary { cursor: pointer; list-style: none; }
+.site summary::-webkit-details-marker { display: none; }
+.site summary::after { content: " +"; }
+.site[open] summary::after { content: " −"; }

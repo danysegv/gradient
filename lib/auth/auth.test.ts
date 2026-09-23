@@ -54,3 +54,22 @@ test("nothing but the session module reads who the curator is from a cookie", ()
     .filter((f) => /sessionCurator\(|isValidSessionToken\(|CLIP_SESSION_COOKIE/.test(readFileSync(f, "utf8")));
   assert.deepEqual(offenders, []);
 });
+
+test("nothing but the session module turns a bearer token into a curator", () => {
+  // The extension's token is a second key to the same door, not a second
+  // door. Route handlers ask lib/clip-session.ts; none read the header or
+  // call my_curator_profile themselves.
+  const allowed = new Set(["lib/clip-session.ts"]);
+  const offenders = [...walk("app"), ...walk("lib"), ...walk("components")]
+    .filter((f) => !allowed.has(f) && !f.endsWith(".test.ts"))
+    .filter((f) => /headers\.get\(\s*["']authorization["']|my_curator_profile/i.test(readFileSync(f, "utf8")));
+  assert.deepEqual(offenders, []);
+});
+
+test("every extension endpoint that touches the library checks the bearer session first", () => {
+  for (const f of ["app/api/extension/clip/route.ts", "app/api/extension/lookup/route.ts", "app/api/extension/me/route.ts"]) {
+    const src = readFileSync(f, "utf8");
+    assert.match(src, /getBearerSession\(request\)/, f);
+    assert.match(src, /if \(!session\) return json\(request, \{ error: "Signed out\." \}, 401\)/, f);
+  }
+});

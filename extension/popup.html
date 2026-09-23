@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>04AM Clipper</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="popup">
+    <div class="top"><span class="mark" data-mark></span></div>
+
+    <section data-state="signed-out" hidden>
+      <h1>Sign in to clip.</h1>
+      <p class="note lede">Your 04AM account. Curators only.</p>
+      <form class="stack" data-signin novalidate>
+        <label class="sr-only" for="email">Email address</label>
+        <input class="field" id="email" name="email" type="email" autocomplete="email" placeholder="Email address" required>
+        <label class="sr-only" for="password">Password</label>
+        <input class="field" id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <p class="alert" data-error role="alert" aria-live="polite"></p>
+        <button class="button" type="submit">Sign in</button>
+      </form>
+      <p class="note foot">No account? <a data-site-link="/signup" target="_blank" rel="noopener">Create one on 04AM</a>, then ask Daniela to approve it.</p>
+    </section>
+
+    <section data-state="signed-in" hidden>
+      <p class="kicker">Signed in</p>
+      <h1 class="who" data-name></h1>
+      <button class="button" type="button" data-pick>Choose an image on this page</button>
+      <p class="note foot">From now on the 04AM icon opens the picker straight away. You can also right-click any image and choose <em>Clip image to 04AM</em>, or press <kbd>⌥⇧C</kbd>.</p>
+      <button class="link" type="button" data-signout>Sign out</button>
+    </section>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

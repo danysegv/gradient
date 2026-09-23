@@ -1,0 +1,126 @@
+/* 04AM Clipper — the extension's own pages (popup, options, panel).
+   Same system as the site: Ink ground, Bone type, Archivo, lots of
+   negative space. Oxide and Slate never at small sizes. */
+
+@font-face {
+  font-family: "04AM Archivo";
+  src: url("fonts/archivo.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --ink: #0b0a0e;
+  --ink-2: #131218;
+  --bone: #e7e3d8;
+  --bone-72: rgba(231, 227, 216, 0.72);
+  --bone-62: rgba(231, 227, 216, 0.62);
+  --bone-45: rgba(231, 227, 216, 0.45);
+  --rule: rgba(231, 227, 216, 0.12);
+  --field: rgba(231, 227, 216, 0.2);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+/* Author display rules (flex, grid) would otherwise beat the hidden attribute. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font: 400 14px/1.45 "04AM Archivo", Archivo, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--bone); text-underline-offset: 4px; }
+
+.mark { display: block; width: 72px; line-height: 0; color: var(--bone); }
+.mark svg { display: block; width: 100%; height: auto; }
+
+.kicker {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bone-72);
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+}
+
+.field {
+  display: block;
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--field);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--bone);
+  font: inherit;
+  font-size: 15px;
+}
+textarea.field { height: auto; min-height: 72px; padding: 11px 14px; resize: vertical; line-height: 1.4; }
+.field::placeholder { color: var(--bone-45); }
+.field:focus { outline: none; border-color: rgba(231, 227, 216, 0.7); }
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 46px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--bone);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.button:hover { background: #fff; }
+.button:disabled { opacity: 0.55; cursor: default; }
+.button.quiet { background: none; color: var(--bone); border: 1px solid var(--field); }
+.button.quiet:hover { border-color: rgba(231, 227, 216, 0.7); background: none; }
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--bone-72);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.link:hover { color: var(--bone); }
+
+.note { margin: 0; font-size: 13px; color: var(--bone-62); }
+.alert { margin: 0; font-size: 14px; color: var(--bone); }
+
+:focus-visible { outline: 1px solid var(--bone); outline-offset: 3px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@keyframes drop-in { from { opacity: 0; transform: translateY(-10px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes field-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

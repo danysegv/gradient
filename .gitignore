@@ -45,3 +45,6 @@ next-env.d.ts
 commit-04am.sh
 claude-code-prompts.md
 .logs/
+
+# browser extension builds (node extension/build.mjs)
+/extension/dist/

@@ -365,12 +365,31 @@ test("only the create flow and the unified classify action call the full classif
   assert.deepEqual(
     callers,
     [
-      "app/clip/actions.ts",
       "app/clip/classify-actions.ts",
       "app/clip/process-actions.ts",
     ],
     "reprocessing an already-published clip must use classifyAndTagClipIncubatingOnly"
   );
+});
+
+// The create flow moved to lib/clips/create.ts on 2026-09-23 so the /clip
+// form and the browser extension share one insert. The invariant is
+// unchanged: there, the full classifier only ever runs on the row that
+// same call just inserted — never on a clip that already exists.
+test("the create flow classifies only the clip it just inserted, and only two doors reach it", () => {
+  const src = readFileSync("lib/clips/create.ts", "utf8");
+  assert.match(src, /\.insert\(/);
+  assert.match(src, /classifyAndTagClip\(/);
+  assert.match(src, /scheduleEnrichment\(inserted\)/);
+  assert.doesNotMatch(src, /export (async )?function scheduleEnrichment/);
+
+  const doors = walk("app").filter((f) =>
+    /\binsertClip\(/.test(readFileSync(f, "utf8"))
+  );
+  assert.deepEqual(doors, [
+    "app/api/extension/clip/route.ts",
+    "app/clip/actions.ts",
+  ]);
 });
 
 // Both actions are checked, not just the one wired to a button today. A

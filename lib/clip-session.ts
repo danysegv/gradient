@@ -77,3 +77,50 @@ export async function getSessionCurator(): Promise<string | null> {
 export async function getSessionLoginKey(): Promise<string | null> {
   return (await getSession())?.loginKey ?? null;
 }
+
+// ---------------------------------------------------------------------
+// 3. A BEARER TOKEN — the browser extension (2026-09-23).
+//
+// An extension can't rely on the site's cookies (Safari partitions them,
+// and a content script runs on someone else's page), so it holds the
+// account's own Supabase access token and sends it as
+// `Authorization: Bearer …`. Accounts only: the legacy password has no
+// token, so Igor and Verona use the extension once their accounts are
+// linked. Kept in this file on purpose — it is still the one door.
+// ---------------------------------------------------------------------
+
+/** The token from an `Authorization: Bearer …` header, or null. */
+export function bearerToken(request: Request): string | null {
+  const header = request.headers.get("authorization") ?? "";
+  const match = /^Bearer\s+([A-Za-z0-9._-]{20,4096})$/.exec(header.trim());
+  return match ? match[1] : null;
+}
+
+/** The curator behind an account access token, or null. Validated by
+ * Supabase (the RPC runs as that user), never decoded and trusted here. */
+export async function getSessionForToken(token: string): Promise<SessionCurator | null> {
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      }
+    );
+    const { data, error } = await supabase.rpc("my_curator_profile");
+    if (error) return null;
+    const row = (data as { name: string; login_key: string; is_admin: boolean }[] | null)?.[0];
+    if (!row) return null;
+    return { name: row.name, loginKey: row.login_key, isAdmin: row.is_admin, via: "account" };
+  } catch {
+    return null;
+  }
+}
+
+/** The curator on an extension request, or null. */
+export async function getBearerSession(request: Request): Promise<SessionCurator | null> {
+  const token = bearerToken(request);
+  return token ? getSessionForToken(token) : null;
+}

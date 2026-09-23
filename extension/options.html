@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>04AM Clipper</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="options">
+    <div class="top"><span class="mark" data-mark></span><span class="kicker">Clipper</span></div>
+
+    <section data-state="signed-out" hidden>
+      <h1>Sign in to clip.</h1>
+      <p class="note lede">Use your 04AM account. Only approved curators can clip; everyone else can still browse the library on the site.</p>
+      <form class="stack" data-signin novalidate>
+        <label class="sr-only" for="email">Email address</label>
+        <input class="field" id="email" name="email" type="email" autocomplete="email" placeholder="Email address" required>
+        <label class="sr-only" for="password">Password</label>
+        <input class="field" id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <p class="alert" data-error role="alert" aria-live="polite"></p>
+        <button class="button" type="submit">Sign in</button>
+      </form>
+    </section>
+
+    <section data-state="signed-in" hidden>
+      <p class="kicker">Signed in as</p>
+      <h1 data-name></h1>
+      <button class="link" type="button" data-signout>Sign out</button>
+    </section>
+
+    <hr>
+
+    <section class="how">
+      <p class="kicker">Three ways to clip</p>
+      <ol>
+        <li><strong>Click the 04AM icon.</strong> Every image on the page that's big enough to be a reference appears, whole. Pick one.</li>
+        <li><strong>Right-click an image</strong> and choose <em>Clip image to 04AM</em>. On sites that cover their images (Instagram, for one), right-click anywhere and choose <em>Choose an image to clip…</em></li>
+        <li><strong>Press <kbd>⌥⇧C</kbd></strong> (Alt+Shift+C) to open the picker from the keyboard.</li>
+      </ol>
+      <p class="note">04AM links to the original image on its maker's server and shows it whole. The clipper never uploads, screenshots or crops anything.</p>
+    </section>
+
+    <hr>
+
+    <details class="site">
+      <summary class="kicker">Developer</summary>
+      <label class="choice"><input type="radio" name="origin" value="https://gradient-flax.vercel.app"> 04AM <span class="note">gradient-flax.vercel.app</span></label>
+      <label class="choice"><input type="radio" name="origin" value="http://localhost:3000"> Local development <span class="note">localhost:3000</span></label>
+      <p class="note">Which 04AM the clipper talks to. Switching signs you out: each site has its own accounts.</p>
+    </details>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

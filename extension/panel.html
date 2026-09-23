@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Clip to 04AM</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="panel">
+    <header>
+      <span class="mark" data-mark></span>
+      <button class="close" type="button" data-close aria-label="Close" title="Close (Esc)">
+        <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+          <path d="M1 1 L11 11" stroke="currentColor" stroke-width="1.5" fill="none"></path>
+          <path d="M11 1 L1 11" stroke="currentColor" stroke-width="1.5" fill="none"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- The form -->
+    <form class="body" data-view="form" novalidate hidden>
+      <figure class="work">
+        <div class="frame"><img data-image alt=""></div>
+        <figcaption class="meta"><span data-dims></span><span data-host></span></figcaption>
+      </figure>
+
+      <div class="notices" data-notices></div>
+
+      <label class="row">
+        <span class="label">Title</span>
+        <input class="field" name="title" type="text" autocomplete="off" maxlength="500">
+      </label>
+
+      <label class="row">
+        <span class="label">Creator <em>— who made it</em></span>
+        <input class="field" name="creator" type="text" autocomplete="off" maxlength="500" placeholder="Photographer, designer, art director, studio">
+        <span class="suggest" data-suggest="creator"></span>
+      </label>
+
+      <label class="row">
+        <span class="label">Rights holder <em>— who published or owns it</em></span>
+        <input class="field" name="rights_holder" type="text" autocomplete="off" maxlength="500" placeholder="Brand, publisher, magazine, museum, agency">
+        <span class="suggest" data-suggest="rights_holder"></span>
+      </label>
+
+      <div class="row" data-found-via-row>
+        <span class="label">Found via <em>— never a credit</em></span>
+        <p class="fact" data-found-via-fact hidden></p>
+        <input class="field" name="found_via" type="text" autocomplete="off" maxlength="500" placeholder="Designspiration, PICDIT, Fonts in Use, Instagram…">
+      </div>
+
+      <label class="row">
+        <span class="label">Work year <em>— when it was made, not clipped</em></span>
+        <input class="field year" name="source_year" type="number" inputmode="numeric" min="1400" placeholder="1976">
+      </label>
+
+      <label class="row">
+        <span class="label">Caption</span>
+        <textarea class="field" name="caption" rows="3" maxlength="4000"></textarea>
+        <span class="suggest" data-suggest="caption"></span>
+      </label>
+
+      <p class="alert" data-error role="alert" aria-live="polite"></p>
+    </form>
+
+    <footer data-view="form" hidden>
+      <button class="button" type="button" data-save>Clip it</button>
+      <p class="hint"><kbd>⌘</kbd><kbd>↵</kbd> to clip · credits you leave blank are read from the work later</p>
+    </footer>
+
+    <!-- Done -->
+    <section class="body done" data-view="done" hidden>
+      <p class="kicker">In the library</p>
+      <h1>Clipped.</h1>
+      <p class="note">Tagging and describing it now. It'll be on 04AM in about a minute.</p>
+      <div class="actions">
+        <a class="button" data-view-link target="_blank" rel="noopener">View on 04AM</a>
+        <button class="button quiet" type="button" data-again>Clip another from this page</button>
+      </div>
+    </section>
+
+    <!-- Signed out / expired -->
+    <section class="body done" data-view="message" hidden>
+      <h1 data-message-title></h1>
+      <p class="note" data-message-body></p>
+      <div class="actions" data-message-actions></div>
+    </section>
+  </div>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+{
+  "manifest_version": 3,
+  "name": "04AM Clipper",
+  "short_name": "04AM",
+  "version": "0.1.0",
+  "description": "Clip design references to 04AM from any page. Links only, whole images, credited. For approved curators.",
+  "homepage_url": "https://gradient-flax.vercel.app",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Clip to 04AM",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/toolbar-ink-16.png",
+      "32": "icons/toolbar-ink-32.png",
+      "48": "icons/toolbar-ink-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "storage",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://gradient-flax.vercel.app/*"
+  ],
+  "commands": {
+    "pick": {
+      "suggested_key": {
+        "default": "Alt+Shift+C",
+        "mac": "Alt+Shift+C"
+      },
+      "description": "Choose an image on this page to clip"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "panel.html",
+        "fonts/archivo.woff2"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "clipper@04am.app",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": [
+          "authenticationInfo",
+          "websiteContent"
+        ]
+      }
+    }
+  }
+}
