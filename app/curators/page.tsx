@@ -8,6 +8,7 @@ import { RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { getProfiles } from "@/lib/profiles/queries";
 import { loaded } from "@/lib/query-result";
+import { onlyClassified } from "@/lib/clips/visibility";
 import { SiteHeader } from "@/components/site-header";
 
 export const revalidate = 0;
@@ -53,6 +54,8 @@ type StripClip = {
   title: string | null;
   source: string | null;
   clipped_by_name: string | null;
+  // Read only to decide whether the clip is classified enough to show.
+  clip_tags: { confidence: number | null }[] | null;
 };
 
 function formatSince(iso: string | null): string {
@@ -109,7 +112,9 @@ export default async function CuratorsPage() {
     names.length > 0
       ? supabasePublic
           .from("clips")
-          .select("id, image_url, title, source, clipped_by_name")
+          .select(
+            "id, image_url, title, source, clipped_by_name, clip_tags ( confidence )"
+          )
           .in("clipped_by_name", names)
           .is("archived_at", null)
           .not("image_url", "is", null)
@@ -125,7 +130,14 @@ export default async function CuratorsPage() {
   }
 
   const stripByName = new Map<string, StripClip[]>();
-  for (const c of (stripRes.data ?? []) as unknown as StripClip[]) {
+  // Public surfaces show classified clips only (Daniela, 2026-09-24). The
+  // strip is a sample of each curator's work, so an unread image would be
+  // the one thing on this page making no claim. See lib/clips/visibility.ts.
+  const stripClips = onlyClassified(
+    (stripRes.data ?? []) as unknown as StripClip[],
+    (c) => c.clip_tags
+  );
+  for (const c of stripClips) {
     if (!c.clipped_by_name) continue;
     const list = stripByName.get(c.clipped_by_name) ?? [];
     if (list.length < STRIP) list.push(c);

@@ -7,6 +7,7 @@ import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
 import { panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { rankClips } from "@/lib/feed-order";
+import { onlyClassified } from "@/lib/clips/visibility";
 import { publishedVelocities } from "@/lib/publication";
 import { loaded, LIBRARY_UNAVAILABLE } from "@/lib/query-result";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
@@ -115,7 +116,10 @@ export default async function Home({
         color ? colorsReady() : Promise.resolve(true),
       ]).then(
         async ([clipSearch, boards, ready]) => ({
-          clips: await fetchGridClips(clipSearch.ids),
+          clips: onlyClassified(
+            await fetchGridClips(clipSearch.ids),
+            (c) => c.tags
+          ),
           exact: clipSearch.exact,
           boards,
           colorsReady: ready,
@@ -255,7 +259,10 @@ export default async function Home({
   }
 
   const clipLoad = loaded<ClipRow>("clips", clipsRes);
-  const clipRows = clipLoad.rows;
+  // Public surfaces show classified clips only (Daniela, 2026-09-24).
+  // Applied here rather than in the query so clipLoad still knows the
+  // whole page of rows — see lib/clips/visibility.ts.
+  const clipRows = onlyClassified(clipLoad.rows, (c) => c.clip_tags);
   const rankInput = clipRows.map((c) => ({
     id: c.id,
     clipped_at: c.clipped_at,

@@ -16,6 +16,7 @@ import { boardHref, listBoards, searchBoards } from "@/lib/boards/queries";
 import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds } from "@/lib/search/results";
+import { onlyClassified } from "@/lib/clips/visibility";
 import { getProfile, currentNameForOldName } from "@/lib/profiles/queries";
 import { SiteHeader } from "@/components/site-header";
 
@@ -191,7 +192,10 @@ export default async function CuratorPage({
         searchClipIds(q),
         searchBoards(q, { viewer, scopeOwner: curator }),
       ]).then(async ([clipSearch, boardHits]) => ({
-        clips: await fetchGridClips(clipSearch.ids, { curator }),
+        clips: onlyClassified(
+          await fetchGridClips(clipSearch.ids, { curator }),
+          (c) => c.tags
+        ),
         exact: clipSearch.exact,
         boards: boardHits,
       }))
@@ -236,7 +240,13 @@ export default async function CuratorPage({
     getProfile(curator)
   ]);
 
-  const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
+  // Public surfaces show classified clips only (Daniela, 2026-09-24).
+  // Grid rows only: Signature and Attention are computed in Postgres from
+  // every active clip and are untouched by this. See lib/clips/visibility.ts.
+  const clips = onlyClassified(
+    (clipsRes.data ?? []) as unknown as ClipRow[],
+    (c) => c.clip_tags
+  );
 
   const tagStats = ((tagCountsRes.data ?? []) as unknown as RawTagRow[])
     .map((t) => ({
