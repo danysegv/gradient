@@ -15,6 +15,8 @@ import { ProcessButton } from "./process-button";
 import { ProfileEditor } from "./profile-editor";
 import { getProfile } from "@/lib/profiles/queries";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
+import { ClipperInstall } from "@/components/clipper-install";
+import { clipperRelease } from "@/lib/extension/release";
 
 // Classification can process several clips sequentially in the
 // background (after()) — give the route more room than the default.
@@ -188,6 +190,8 @@ export default async function ClipPage() {
           )}
         </div>
         <ClipForm />
+
+        <ClipperInstall version={clipperRelease.version} />
 
         <div className="mt-10 border-t border-white/10 pt-8">
           <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bone/70">
