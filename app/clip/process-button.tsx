@@ -82,7 +82,7 @@ export function ProcessButton({
       {!!state?.parked && (
         <p className="max-w-md text-[14px] text-bone/65">
           Parked {state.parked} clip{state.parked === 1 ? "" : "s"} whose image
-          couldn&rsquo;t be fetched. They&rsquo;re listed below to fix.
+          couldn&rsquo;t be fetched. Open each one and give it an image URL that can be read.
         </p>
       )}
       {colourNote}

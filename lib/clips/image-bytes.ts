@@ -1,5 +1,8 @@
 /**
- * Fetching a clip's image ourselves, for the classifier only.
+ * Fetching a clip's image ourselves, for the classifier — and, since
+ * 2026-09-25, once at the door (lib/clips/create.ts), to refuse a clip
+ * whose image can't be read before it is saved. Either way the bytes are
+ * dropped as soon as the call returns.
  *
  * Normally we hand Anthropic the image URL and their servers fetch it —
  * 04AM never touches the bytes, which is the assumption the whole rights

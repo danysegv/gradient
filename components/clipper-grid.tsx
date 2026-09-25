@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ClipThumbnail } from "./clip-thumbnail";
-import { archiveClip, unarchiveClip } from "@/app/clip/archive-actions";
+import { archiveClip, deleteClipPermanently, unarchiveClip } from "@/app/clip/archive-actions";
 import { AXES } from "@/lib/axes";
 import { PUBLIC_TAG_CONFIDENCE } from "@/lib/tag-confidence";
 
@@ -38,10 +38,14 @@ function byClippedAtDesc(a: ClipperClip, b: ClipperClip) {
 function ClipCard({
   clip,
   action,
+  onDelete,
 }: {
   clip: ClipperClip;
   action: { label: string; onClick: () => void };
+  /** Archived view only: permanent delete, behind a second click. */
+  onDelete?: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   // A reading under PUBLIC_TAG_CONFIDENCE is not a trait anywhere people
   // see it — the chips, the clip page, the feed order, the plate radar
   // and Attention all use that line. The clipper used to print every
@@ -88,13 +92,59 @@ function ClipCard({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={action.onClick}
-        className="absolute right-1.5 top-1.5 rounded bg-ink/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-bone opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-      >
-        {action.label}
-      </button>
+      <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={action.onClick}
+          className="rounded-[2px] bg-ink/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-bone hover:bg-bone hover:text-ink"
+        >
+          {action.label}
+        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 rounded-[2px] bg-ink/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-bone hover:bg-bone hover:text-ink"
+          >
+            <span aria-hidden className="h-1.5 w-1.5 bg-oxide" />
+            Delete permanently
+          </button>
+        )}
+      </div>
+
+      {/* The second click. Covers the card so it can't be missed, says
+          plainly that there is no undo, and defaults to keeping it. */}
+      {confirming && onDelete && (
+        <div
+          role="alertdialog"
+          aria-label={`Delete ${clip.title || "this clip"} permanently?`}
+          className="absolute inset-0 z-10 flex flex-col items-start justify-end gap-3 bg-ink/92 p-3"
+        >
+          <p className="text-[12px] leading-snug text-bone">
+            Delete for good? Its tags, colours and plate entries go with it. There is no undo.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                onDelete();
+              }}
+              className="rounded-[2px] bg-bone px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink hover:bg-white"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setConfirming(false)}
+              className="rounded-[2px] border border-bone/50 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-bone hover:border-bone"
+            >
+              Keep
+            </button>
+          </div>
+        </div>
+      )}
 
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end p-2.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
@@ -196,6 +246,19 @@ export function ClipperGrid({
     }
   }
 
+  async function handleDelete(clip: ClipperClip) {
+    setError(null);
+    // Optimistic like archive, but with no undo window: the second click
+    // on the card was the chance to change your mind. A failure puts the
+    // clip back where it was.
+    setArchived((prev) => prev.filter((c) => c.id !== clip.id));
+    const result = await deleteClipPermanently(clip.id);
+    if (result?.error) {
+      setArchived((prev) => [...prev, clip].sort(byClippedAtDesc));
+      setError(`Couldn't delete "${clip.title || clip.url}": ${result.error}`);
+    }
+  }
+
   const shown = view === "library" ? clips : archived;
 
   return (
@@ -249,6 +312,7 @@ export function ClipperGrid({
                 key={clip.id}
                 clip={clip}
                 action={{ label: "Restore", onClick: () => handleRestore(clip) }}
+                onDelete={() => handleDelete(clip)}
               />
             )
           )}

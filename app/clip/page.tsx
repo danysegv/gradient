@@ -4,7 +4,6 @@ import {
   getClipsMissingDescriptions,
   getClipsMissingColors,
   getClipsNeedingClassification,
-  getParkedClips,
 } from "@/lib/clips/unclassified";
 import { getSession } from "@/lib/clip-session";
 import { getVisitorEmail } from "@/lib/supabase/auth-server";
@@ -127,11 +126,16 @@ export default async function ClipPage() {
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
   // back that doesn't require SQL.
+  //
+  // Your clips only (Daniela, 2026-09-25): the grid and the Archived view
+  // show what the signed-in curator clipped, nobody else's. The credit is
+  // the current username — renaming rewrites clipped_by_name — so this is
+  // the same name the session carries. Processing still covers the whole
+  // library: it is one queue, and a clip is read whoever clipped it.
   const [
     { data: clips },
     { data: archivedClips },
     needsClassification,
-    parked,
     needsDescription,
     needsColors,
     profile,
@@ -139,17 +143,18 @@ export default async function ClipPage() {
     supabaseAdmin
       .from("clips")
       .select(CLIP_SELECT)
+      .eq("clipped_by_name", curatorName)
       .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(RECENT_CLIP_LIMIT),
     supabaseAdmin
       .from("clips")
       .select(CLIP_SELECT)
+      .eq("clipped_by_name", curatorName)
       .not("archived_at", "is", null)
       .order("created_at", { ascending: false })
       .limit(RECENT_CLIP_LIMIT),
     getClipsNeedingClassification(),
-    getParkedClips(),
     getClipsMissingDescriptions(),
     getClipsMissingColors(),
     getProfile(curatorName),
@@ -202,14 +207,11 @@ export default async function ClipPage() {
 
         <ClipForm />
 
-        {/* The state of the library, in one row: what it holds, what is
-            still to read, and what cannot be read until a URL is fixed.
-            Plain figures, never bold. */}
-        <dl className="mt-16 grid gap-x-14 gap-y-6 border-y border-white/10 py-6 sm:grid-cols-3">
+        {/* Your clips, and the one queue. Plain figures, never bold. */}
+        <dl className="mt-16 grid gap-x-14 gap-y-6 border-y border-white/10 py-6 sm:grid-cols-2">
           {[
-            { k: "In the library", v: gridClips.length, note: `${archivedGridClips.length} archived` },
-            { k: "To process", v: needsWork, note: needsWork === 0 ? "all read" : "tags or a description missing" },
-            { k: "Can\u2019t be read", v: parked.length, note: parked.length === 0 ? "none" : "need a new image URL" },
+            { k: "Your clips", v: gridClips.length, note: `${archivedGridClips.length} archived` },
+            { k: "To process", v: needsWork, note: needsWork === 0 ? "all read" : "across the library" },
           ].map(({ k, v, note }) => (
             <div key={k}>
               <dt className={`${KICKER} mb-1.5`}>{k}</dt>
@@ -229,28 +231,6 @@ export default async function ClipPage() {
               describeCount={needsDescription.length}
               awaitingColourReader={awaitingColourReader}
             />
-
-            {parked.length > 0 && (
-              <div id="parked" className="mt-10">
-                <p className={`${KICKER} mb-2`}>
-                  {parked.length} clip{parked.length === 1 ? "" : "s"}{" "}the classifier can&rsquo;t read
-                </p>
-                <p className="mb-4 max-w-md text-[13px] leading-relaxed text-bone/60">
-                  The image couldn&rsquo;t be fetched, usually hotlink protection or a dead link.
-                  Fix the image URL and it rejoins the queue on its own.
-                </p>
-                <ul className="divide-y divide-white/[.07] border-y border-white/[.07]">
-                  {parked.map((c) => (
-                    <li key={c.id} className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] items-baseline gap-x-4 py-2.5">
-                      <a href={`/clip/${c.id}`} className="text-[13px] text-bone underline-offset-4 hover:underline">
-                        {c.title ?? "Untitled"}
-                      </a>
-                      <span className="truncate text-right text-[12px] text-bone/45">{c.image_url}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
 
           <div className="lg:col-span-5">

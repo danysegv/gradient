@@ -31,7 +31,8 @@ export async function POST(request: Request) {
   if (!parsed.ok) return json(request, { error: parsed.error }, 400);
 
   const saved = await insertClip(parsed.value, session.name);
-  if (!saved.ok) return json(request, { error: saved.error }, 500);
+  // An unreadable image is the curator's to fix, not a server fault.
+  if (!saved.ok) return json(request, { error: saved.error }, saved.unreadable ? 422 : 500);
 
   revalidatePath("/clip");
   const origin = new URL(request.url).origin;

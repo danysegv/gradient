@@ -64,12 +64,12 @@ export function ClipForm() {
   };
 
   return (
-    <div className="grid gap-x-12 gap-y-10 lg:grid-cols-12">
+    <div className="grid gap-x-10 gap-y-10 md:grid-cols-12 lg:gap-x-12">
       <form
         ref={formRef}
         action={action}
         onInput={onInput}
-        className="flex flex-col gap-6 lg:col-span-7"
+        className="flex flex-col gap-6 md:col-span-7"
       >
         <Field id="url" label="Page URL" hint="where the work lives" required>
           <input id="url" name="url" type="url" required placeholder="https://" className={`${FIELD} h-14 text-[16px]`} />
@@ -188,8 +188,10 @@ function Preview({ draft }: { draft: Draft }) {
   const pageHost = host(draft.url);
 
   return (
-    <aside className="lg:col-span-5" aria-label="Preview">
-      <div className="lg:sticky lg:top-28">
+    <aside className="md:col-span-5" aria-label="Preview">
+      {/* Stays in its place on the page (Daniela, 2026-09-25). It used to
+          be sticky and follow the scroll; same look, no following. */}
+      <div>
         <p className={`${LABEL} mb-3`}>As it will be kept</p>
         <div className="flex min-h-[260px] items-center justify-center border border-white/10 bg-ink-2 p-5 [background-image:linear-gradient(rgba(231,227,216,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(231,227,216,0.04)_1px,transparent_1px)] [background-size:32px_32px]">
           {src && !broken ? (
@@ -205,7 +207,7 @@ function Preview({ draft }: { draft: Draft }) {
           ) : (
             <p className="max-w-[30ch] text-center text-[13px] leading-relaxed text-bone/50">
               {broken
-                ? "This image won’t load here. The host may block hotlinking, or the address is a page rather than the image file. It can still be saved; it will wait on the list below until the address is fixed."
+                ? "This image won’t load. The host may block it, or the address is a page rather than the image file. Try the image file’s own address."
                 : "Paste an image URL and the reference appears here, whole."}
             </p>
           )}

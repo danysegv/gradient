@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchOgImage } from "@/lib/og-image";
 import { withSpendContext } from "@/lib/claude/spend-context";
 import type { ClipInput } from "@/lib/clips/clip-input";
+import { fetchImageForClassifier } from "@/lib/clips/image-bytes";
 
 // Saving a clip, shared by both ways in: the /clip form (a Server Action)
 // and the browser extension (a Route Handler). Moved here unchanged from
@@ -15,10 +16,36 @@ import type { ClipInput } from "@/lib/clips/clip-input";
 
 export type CreatedClip = { id: string };
 
+/** Said the moment a clip's image can't be read, on both ways in. */
+export const IMAGE_UNREADABLE = "URL can’t be read.";
+
 export async function insertClip(
   input: ClipInput,
   curatorName: string
-): Promise<{ ok: true; clip: CreatedClip } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; clip: CreatedClip }
+  | { ok: false; error: string; unreadable?: true }
+> {
+  // The door check (Daniela, 2026-09-25). A clip whose image can't be read
+  // used to be saved anyway and wait on a "can't read" list until someone
+  // fixed its URL. Now it is refused at the door, with the reason, and
+  // there is no list: the curator finds a readable address while the page
+  // is still open in front of them.
+  //
+  // "Readable" is exactly what the classifier's own fallback can read —
+  // the same robots.txt check, the same browser-like fetch with the page
+  // as referer, the same decode. If that can't get the image, the
+  // classifier can't tag it. The bytes are dropped when this returns;
+  // nothing is stored. A clip with no image URL skips the check and is
+  // saved as before (the page's og:image is looked for afterwards).
+  if (input.image_url) {
+    const read = await fetchImageForClassifier(input.image_url, input.url);
+    if (!read.image) {
+      console.info(`[04am] refused a clip at the door: ${input.image_url} (${read.note})`);
+      return { ok: false, error: IMAGE_UNREADABLE, unreadable: true };
+    }
+  }
+
   const { data: inserted, error } = await supabaseAdmin
     .from("clips")
     .insert({
