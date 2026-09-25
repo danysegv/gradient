@@ -10,8 +10,11 @@ import Link from "next/link";
 import { SignUpForm } from "@/components/auth/auth-forms";
 
 // The first-visit intro. Three movements on one scrolling page:
-//   1. Opening  — the mark rises, a query types itself, and real clips that
-//                 carry that tag float into the field (after flim.ai).
+//   0. The held mark — 04AM full bleed, held at the bottom of the screen
+//                 while the clips pass, released as 2 arrives (after
+//                 jeffkoons.com).
+//   1. Opening  — a query types itself, and real clips that carry that tag
+//                 float through a field taller than the screen (after flim.ai).
 //   2. How it works — five short steps, each with its own small animated
 //                 scene instead of a static sketch (after are.na / Cosmos).
 //   3. Sign-up  — a real account, email + password (app/auth/actions.ts),
@@ -160,9 +163,21 @@ export function Intro({
   );
 
   return (
-    <main className="relative min-h-screen bg-ink text-bone">
+    <main
+      className="relative min-h-screen bg-ink text-bone"
+      style={{ ["--mark-h" as string]: MARK_H }}
+    >
       <TopBar />
-      <Opening clips={usable} onBroken={markBroken} />
+      {/* The pin zone. The mark holds the bottom of the screen while the
+          clips pass beneath it, then lands where the field ends and rides
+          up with it as How it works arrives — after jeffkoons.com, where
+          the name holds through the work and lets go at the biography.
+          Letting go with the clips (Daniela, 2026-09-25) keeps every step
+          of How it works clear of it. */}
+      <div className="relative">
+        <Opening clips={usable} onBroken={markBroken} />
+        <HeldMark />
+      </div>
       <HowItWorks clips={usable} feature={feature} onBroken={markBroken} />
       <SignUp total={total} since={since} linkProblem={linkProblem} />
     </main>
@@ -203,22 +218,65 @@ function TopBar() {
   );
 }
 
+// ---------------------------------------------------------------- the held mark
+
+// The wordmark's own proportion (viewBox 2691 × 846).
+const MARK_RATIO = 846 / 2691;
+// Full bleed with a 12px margin (16px from sm), like the Koons name — but
+// never taller than half the screen, so a wide, short laptop still gets
+// a first screen above it. Everything that has to clear the mark reads
+// this one variable.
+const MARK_H = `min(calc((100vw - 24px) * ${MARK_RATIO}), 50svh)`;
+
+function HeldMark() {
+  const reduced = useReducedMotion();
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    // sticky + bottom-0 as the LAST child of the pin zone: while the zone's
+    // end is below the fold the mark is held at the bottom of the screen;
+    // once the end scrolls into view it sits in its own place and leaves
+    // with the zone. No scroll listener, no JS position.
+    <div
+      aria-hidden
+      className="pointer-events-none sticky bottom-0 z-20 flex justify-center overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4"
+    >
+      <span
+        className={`block ${reduced ? "" : "transition-transform duration-[1100ms] ease-[cubic-bezier(.2,.8,.2,1)]"} ${
+          ready || reduced ? "translate-y-0" : "translate-y-full"
+        }`}
+        style={{ height: "var(--mark-h)" }}
+      >
+        <Wordmark className="block h-full w-auto text-bone" />
+      </span>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- 1. opening
 
-// Where floating clips sit in the field: left/top in %, width in vw (capped).
-// Right-hand slots anchor from the right edge so a narrow screen can't push
-// them out of frame; every image is also height-capped so it always sits
-// wholly inside the field — the field never cuts a clip.
+// The field is taller than the screen, so clips keep passing under the held
+// mark before How it works arrives. Positions: left/right edge in %, top in
+// svh from the top of the section, width in vw (capped). Nothing sits in
+// the top-left, where the words are. Every image is height-capped, so a
+// clip is always whole.
+const FIELD_SVH = 150;
 const SLOTS: { x: number; side: "l" | "r"; t: number; w: number }[] = [
-  { x: 2, side: "l", t: 7, w: 11 },
-  { x: 17, side: "l", t: 44, w: 8 },
-  { x: 25, side: "l", t: 3, w: 9 },
-  { x: 38, side: "l", t: 55, w: 12 },
-  { x: 33, side: "r", t: 4, w: 10 },
-  { x: 20, side: "r", t: 42, w: 9 },
-  { x: 3, side: "r", t: 6, w: 12 },
-  { x: 6, side: "l", t: 54, w: 10 },
-  { x: 3, side: "r", t: 55, w: 9 },
+  { x: 4, side: "r", t: 26, w: 11 },
+  { x: 24, side: "r", t: 20, w: 8 },
+  { x: 40, side: "l", t: 16, w: 8 },
+  { x: 3, side: "l", t: 44, w: 10 },
+  { x: 30, side: "l", t: 60, w: 9 },
+  { x: 8, side: "r", t: 52, w: 12 },
+  { x: 16, side: "l", t: 82, w: 12 },
+  { x: 34, side: "r", t: 76, w: 9 },
+  { x: 46, side: "l", t: 100, w: 10 },
+  { x: 4, side: "r", t: 104, w: 11 },
+  { x: 5, side: "l", t: 118, w: 9 },
+  { x: 26, side: "r", t: 124, w: 10 },
 ];
 
 function Opening({
@@ -267,81 +325,73 @@ function Opening({
   const line3 = useTyped("Every one credited to its source.", ready, 30, 2650);
 
   return (
-    <section className="relative flex min-h-[100svh] flex-col pt-14">
-      <div className="grid gap-8 px-4 pb-8 pt-8 sm:px-8 md:grid-cols-12 md:pt-14">
-        <h1 className="overflow-hidden md:col-span-7">
-          <span className="sr-only">04AM</span>
-          <span
-            aria-hidden
-            className={`block origin-bottom transition-transform duration-[1100ms] ease-[cubic-bezier(.2,.8,.2,1)] ${
-              ready ? "translate-y-0" : "translate-y-full"
-            }`}
-          >
-            <Wordmark className="h-auto w-full max-w-[860px] text-bone" />
-          </span>
-        </h1>
-        <div className="flex flex-col justify-between gap-6 md:col-span-4 md:col-start-9">
-          <p className="min-h-[5.4em] text-[20px] font-semibold leading-[1.2] tracking-tight md:text-[24px]" aria-label="A library of design references, read by what they look like. Every one credited to its source.">
-            <span aria-hidden>
-              {line1}
-              <br />
-              {line2}
-              <br />
-              <span className="text-bone/60">{line3}</span>
-              <span className="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[0.1em] bg-oxide [animation:blink_1s_steps(1)_infinite]" />
+    <section className={`relative overflow-hidden ${GRID_PAPER}`} style={{ height: `${FIELD_SVH}svh` }}>
+      {/* The field: floating clips across the whole height. */}
+      <div key={query} className="absolute inset-0">
+        {shown.map((clip, i) => {
+          const s = SLOTS[i];
+          return (
+            <div
+              key={clip.id}
+              // On a phone the words fill the top third edge to edge, so
+              // the slots up there wait for a wider screen.
+              className={`absolute ${s.t < 34 ? "hidden md:block" : ""}`}
+              style={{
+                [s.side === "l" ? "left" : "right"]: `${s.x}%`,
+                top: `${s.t}svh`,
+                width: `clamp(64px, ${s.w}vw, 230px)`,
+                animation: reduced
+                  ? undefined
+                  : `float-in 900ms cubic-bezier(.2,.8,.2,1) ${120 + i * 110}ms both, drift ${7 + (i % 4) * 1.7}s ease-in-out ${i * 0.4}s infinite alternate`,
+              }}
+            >
+              <ClipImage clip={clip} onBroken={onBroken} className="max-h-[min(24vh,40svh)] !w-auto max-w-full" />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* The first screen: everything above the held mark. */}
+      <div
+        className="relative z-10 flex flex-col px-4 pt-14 sm:px-8"
+        style={{ height: "calc(100svh - var(--mark-h) - 12px)" }}
+      >
+        <div className="flex flex-col gap-6 pt-8 md:flex-row md:items-start md:justify-between md:pt-12">
+          <h1 className="max-w-[640px]">
+            <span className="sr-only">04AM. </span>
+            <span
+              className="block min-h-[3.6em] text-[20px] font-semibold leading-[1.2] tracking-tight md:text-[28px]"
+              aria-label="A library of design references, read by what they look like. Every one credited to its source."
+            >
+              <span aria-hidden>
+                {line1}
+                <br />
+                {line2}
+                <br />
+                <span className="text-bone/60">{line3}</span>
+                <span className="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[0.1em] bg-oxide [animation:blink_1s_steps(1)_infinite]" />
+              </span>
             </span>
-          </p>
+          </h1>
           <a
             href="#join"
-            className="group flex w-fit items-center gap-4 rounded-[4px] bg-bone py-2 pl-2 pr-5 text-ink transition-transform [animation:fade-in_700ms_ease-out_3200ms_both] hover:-translate-y-0.5"
+            className="group flex w-fit flex-none items-center gap-4 rounded-[4px] bg-bone py-2 pl-2 pr-5 text-ink transition-transform [animation:fade-in_700ms_ease-out_3200ms_both] hover:-translate-y-0.5"
           >
             <span aria-hidden className="h-9 w-9 bg-oxide transition-transform group-hover:rotate-90" />
             <span className={LABEL}>Sign up</span>
           </a>
         </div>
-      </div>
 
-      {/* The field: grid paper, floating clips, a query typing itself. */}
-      <div className={`relative flex-1 overflow-hidden border-t border-white/10 ${GRID_PAPER} min-h-[440px]`}>
-        <div key={query} className="absolute inset-0">
-          {shown.map((clip, i) => {
-            const s = SLOTS[i];
-            return (
-              <div
-                key={clip.id}
-                className="absolute"
-                style={{
-                  [s.side === "l" ? "left" : "right"]: `${s.x}%`,
-                  top: `${s.t}%`,
-                  width: `clamp(64px, ${s.w}vw, 230px)`,
-                  animation: reduced
-                    ? undefined
-                    : `float-in 900ms cubic-bezier(.2,.8,.2,1) ${120 + i * 110}ms both, drift ${7 + (i % 4) * 1.7}s ease-in-out ${i * 0.4}s infinite alternate`,
-                }}
-              >
-                <ClipImage clip={clip} onBroken={onBroken} className="max-h-[min(24vh,40svh)] !w-auto max-w-full" />
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center px-4">
-          <div className="flex h-16 w-full max-w-[720px] items-center justify-between rounded-full bg-bone pl-7 pr-2 text-ink shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
+        {/* The query, centred in what is left of the first screen. */}
+        <div className="pointer-events-none flex flex-1 items-center justify-center py-4">
+          <div className="flex h-14 w-full max-w-[720px] items-center justify-between rounded-full bg-bone pl-7 pr-2 text-ink shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] md:h-16">
             <span className="truncate text-[15px] font-semibold uppercase tracking-[0.08em] md:text-[17px]">
               {typedQuery}
               <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[0.15em] bg-ink [animation:blink_1s_steps(1)_infinite]" />
             </span>
-            <span className={`${LABEL} rounded-full bg-ink px-5 py-3.5 text-bone`}>Search</span>
+            <span className={`${LABEL} rounded-full bg-ink px-5 py-3 text-bone md:py-3.5`}>Search</span>
           </div>
         </div>
-
-        <a
-          href="#how"
-          className={`absolute bottom-6 left-1/2 z-10 -translate-x-1/2 ${LABEL} flex flex-col items-center gap-2 text-bone/60 hover:text-bone`}
-        >
-          How it works
-          <span aria-hidden className="block h-8 w-px bg-bone/50 [animation:scroll-cue_1.8s_ease-in-out_infinite]" />
-        </a>
       </div>
     </section>
   );
@@ -392,7 +442,7 @@ function HowItWorks({
   ];
 
   return (
-    <section id="how" className="scroll-mt-14 border-t border-white/10 px-4 py-20 sm:px-8 md:py-28">
+    <section id="how" className="relative scroll-mt-14 border-t border-white/10 bg-ink px-4 py-20 sm:px-8 md:py-28">
       <p className={`${LABEL} mb-14 text-bone/60 md:mb-20`}>How it works</p>
       <ol className="flex flex-col gap-24 md:gap-36">
         {steps.map((s) => (
