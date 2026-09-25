@@ -12,6 +12,7 @@ export function SearchSummary({
   colorsReady = true,
   clipCount,
   boardCount,
+  curatorCount = 0,
   exact,
   scope,
 }: {
@@ -22,10 +23,12 @@ export function SearchSummary({
   colorsReady?: boolean;
   clipCount: number;
   boardCount: number | null;
+  /** Curators whose username or display name matched. */
+  curatorCount?: number;
   exact: boolean;
   scope: string;
 }) {
-  const nothing = clipCount === 0 && (boardCount ?? 0) === 0;
+  const nothing = clipCount === 0 && (boardCount ?? 0) === 0 && curatorCount === 0;
   const label = color
     ? (COLOR_BUCKETS.find((b) => b.id === color)?.label ?? color).toLowerCase()
     : null;
@@ -64,6 +67,13 @@ export function SearchSummary({
                 {" "}·{" "}
                 <span className="font-normal tabular-nums">{boardCount}</span>{" "}
                 {boardCount === 1 ? BOARD.one : BOARD.many}
+              </>
+            )}
+            {curatorCount > 0 && (
+              <>
+                {" "}·{" "}
+                <span className="font-normal tabular-nums">{curatorCount}</span>{" "}
+                {curatorCount === 1 ? "curator" : "curators"}
               </>
             )}
             {q && <> for &ldquo;{q}&rdquo;</>}

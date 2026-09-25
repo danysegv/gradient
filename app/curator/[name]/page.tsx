@@ -12,6 +12,8 @@ import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { BoardCard } from "@/components/boards/board-card";
 import { NewBoard } from "@/components/boards/new-board";
 import { getSessionCurator } from "@/lib/clip-session";
+import { getFollowView } from "@/lib/follows";
+import { FollowButton } from "@/components/follow-button";
 import { boardHref, listBoards, searchBoards } from "@/lib/boards/queries";
 import { SearchSummary } from "@/components/search-summary";
 import { normaliseQuery } from "@/lib/search/query";
@@ -185,6 +187,7 @@ export default async function CuratorPage({
     }
   }
   const isOwner = viewer === curator;
+  const followView = isOwner ? null : await getFollowView();
 
   // Searching this profile: their clips and their boards only.
   const searchPromise = q
@@ -380,9 +383,20 @@ export default async function CuratorPage({
             username is the identity — every credit, every URL — so it is
             always shown, and it stands alone when no display name is set. */}
         <div className="border-b border-white/10 pb-10 pt-10 md:pt-14">
-          <h1 className="text-[30px] font-bold leading-[1.05] tracking-tight md:text-[40px]">
-            {profile?.display_name ?? curator}
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <h1 className="text-[30px] font-bold leading-[1.05] tracking-tight md:text-[40px]">
+              {profile?.display_name ?? curator}
+            </h1>
+            {/* Not on your own page: you can't follow yourself. */}
+            {followView && profile && (
+              <FollowButton
+                name={curator}
+                initialFollowing={followView.following.includes(curator)}
+                signedIn={followView.signedIn}
+                next={`/curator/${encodeURIComponent(curator)}`}
+              />
+            )}
+          </div>
           {profile?.display_name && (
             <p className="mt-2.5 text-[14px] text-bone/55">@{curator}</p>
           )}

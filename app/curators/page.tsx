@@ -1,15 +1,14 @@
-import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase/public";
-import {
-  panelCompositionFromCounts,
-  MAX_PANEL_DRIFT,
-} from "@/lib/curator-velocity";
 import { RECENT_WINDOW_DAYS } from "@/lib/velocity";
-import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { getProfiles } from "@/lib/profiles/queries";
-import { loaded } from "@/lib/query-result";
+import { loaded, LIBRARY_UNAVAILABLE } from "@/lib/query-result";
 import { onlyClassified } from "@/lib/clips/visibility";
 import { SiteHeader } from "@/components/site-header";
+import { CuratorCard, type CuratorCardData } from "@/components/curator-card";
+import { HomeGrid, type GridClip } from "@/components/home-grid";
+import { FollowButton } from "@/components/follow-button";
+import { getFollowView } from "@/lib/follows";
+import { getSessionCurator } from "@/lib/clip-session";
 
 export const revalidate = 0;
 
@@ -18,319 +17,179 @@ export const metadata = {
   // Indexable: curator names were decided public on 2026-09-11.
 };
 
-// Thumbnails per curator on the roster. One query fetches the pool for
-// everyone and groups in JS — N+1 queries would scale with the panel,
-// which is the thing this page exists to grow.
-const STRIP = 5;
-const STRIP_POOL = 200;
+// The panel, shown the way the Signals page shows the library (Daniela,
+// 2026-09-25): a rail of curators, then their latest work, and almost no
+// words.
+//
+// Following (same day): the grid is the work of the curators YOU follow.
+// The rail puts them first under "Following", everyone else under
+// "Suggested". Following nobody — or signed out — the rail is all
+// "Suggested" and the grid waits, with one line saying why. Your own
+// profile is never suggested to you. The instrument notes this page used to carry — drift, the gate,
+// tag applications — are unchanged and still enforced on the feed
+// (app/page.tsx, lib/curator-velocity.ts); they are just not explained here.
 
-type CompositionRow = {
-  curator: string;
-  base_count: number | string;
-  recent_count: number | string;
-};
+// One query for everyone's recent clips, grouped in JS: N+1 queries would
+// scale with the panel, which is the thing this page exists to grow.
+const STRIP = 3;
+const POOL = 200;
 
-// Same shape, different grouping. curator_composition is keyed by clipping
-// identity and drives what this page DISPLAYS — one row per profile.
-// panel_composition is keyed by the human behind it and drives the GATE.
-// They are equal until someone holds two identities, which is the whole
-// reason both exist. The person keys are never rendered.
-type PanelRow = {
-  person: string;
-  base_count: number | string;
-  recent_count: number | string;
-};
-
-type StatsRow = {
-  curator: string | null;
-  total_clips: number | string;
-  classified_clips: number | string;
-  first_clipped_at: string | null;
-};
-
-type StripClip = {
+type CompositionRow = { curator: string; base_count: number | string };
+type StatsRow = { curator: string | null; total_clips: number | string };
+type PoolClip = {
   id: string;
+  url: string;
   image_url: string | null;
   title: string | null;
   source: string | null;
+  creator: string | null;
+  rights_holder: string | null;
   clipped_by_name: string | null;
-  // Read only to decide whether the clip is classified enough to show.
-  clip_tags: { confidence: number | null }[] | null;
+  clip_tags: { confidence: number | null; tags: { editorial_name: string } | null }[] | null;
 };
 
-function formatSince(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 export default async function CuratorsPage() {
-  const [compRes, panelRes] = await Promise.all([
-    supabasePublic.rpc("curator_composition", {
-      window_days: RECENT_WINDOW_DAYS,
-    }),
-    supabasePublic.rpc("panel_composition", {
-      window_days: RECENT_WINDOW_DAYS,
-    }),
+  const [compRes, followView, me] = await Promise.all([
+    supabasePublic.rpc("curator_composition", { window_days: RECENT_WINDOW_DAYS }),
+    getFollowView(),
+    getSessionCurator(),
   ]);
   const compLoad = loaded<CompositionRow>("curator_composition", compRes);
-  const panelLoad = loaded<PanelRow>("panel_composition", panelRes);
+  // Most active first, as before: ordered by tag applications, all-time.
+  const names = compLoad.rows
+    .map((c) => ({ name: c.curator, base: Number(c.base_count) }))
+    .sort((a, b) => b.base - a.base)
+    .map((c) => c.name);
+  const followed = new Set(followView.following);
+  const followedNames = names.filter((n) => followed.has(n));
 
-  // PostgREST serialises bigint as a JSON string — coerce once, here.
-  const composition = compLoad.rows.map((c) => ({
-    curator: c.curator,
-    base: Number(c.base_count),
-    recent: Number(c.recent_count),
-  }));
-
-  // The gate reads people, not names.
-  const panel = panelCompositionFromCounts(
-    panelLoad.rows.map((c) => ({
-      person: c.person,
-      base: Number(c.base_count),
-      recent: Number(c.recent_count),
-    }))
-  );
-  // This page's whole job is to disclose the instrument, so it must not
-  // describe a broken read as a state of the panel. A failed query leaves
-  // every total at zero, which reads as "Not yet readable" — a claim about
-  // the library, made when the truth is a claim about the database.
-  const panelKnown = !panelLoad.failed;
-  const names = composition.map((c) => c.curator);
-
-  const [statsResults, stripRes] = await Promise.all([
-    Promise.all(
-      names.map((n) =>
-        supabasePublic
-          .rpc("curator_clip_stats", { curator_name: n })
-          .single()
-      )
-    ),
+  const [statsResults, poolRes, profiles, feedRes] = await Promise.all([
+    Promise.all(names.map((n) => supabasePublic.rpc("curator_clip_stats", { curator_name: n }).single())),
     names.length > 0
       ? supabasePublic
           .from("clips")
           .select(
-            "id, image_url, title, source, clipped_by_name, clip_tags ( confidence )"
+            `id, url, image_url, title, source, creator, rights_holder, clipped_by_name,
+             clip_tags ( confidence, tags ( editorial_name ) )`
           )
           .in("clipped_by_name", names)
           .is("archived_at", null)
           .not("image_url", "is", null)
           .order("clipped_at", { ascending: false })
-          .limit(STRIP_POOL)
-      : Promise.resolve({ data: [] as StripClip[] }),
+          .limit(POOL)
+      : Promise.resolve({ data: [] as PoolClip[], error: null }),
+    getProfiles(names),
+    // The grid: only the curators you follow, newest first.
+    followedNames.length > 0
+      ? supabasePublic
+          .from("clips")
+          .select(
+            `id, url, image_url, title, source, creator, rights_holder, clipped_by_name,
+             clip_tags ( confidence, tags ( editorial_name ) )`
+          )
+          .in("clipped_by_name", followedNames)
+          .is("archived_at", null)
+          .not("image_url", "is", null)
+          .order("clipped_at", { ascending: false })
+          .limit(POOL)
+      : Promise.resolve({ data: [] as PoolClip[], error: null }),
   ]);
 
-  const statsByName = new Map<string, StatsRow>();
+  const clipsByName = new Map<string, number>();
   for (const r of statsResults) {
     const row = r.data as unknown as StatsRow | null;
-    if (row?.curator) statsByName.set(row.curator, row);
+    if (row?.curator) clipsByName.set(row.curator, Number(row.total_clips));
   }
 
-  const stripByName = new Map<string, StripClip[]>();
-  // Public surfaces show classified clips only (Daniela, 2026-09-24). The
-  // strip is a sample of each curator's work, so an unread image would be
-  // the one thing on this page making no claim. See lib/clips/visibility.ts.
-  const stripClips = onlyClassified(
-    (stripRes.data ?? []) as unknown as StripClip[],
-    (c) => c.clip_tags
-  );
-  for (const c of stripClips) {
+  // Public surfaces show classified clips only (Daniela, 2026-09-24).
+  const pool = onlyClassified((poolRes.data ?? []) as unknown as PoolClip[], (c) => c.clip_tags);
+
+  const strips = new Map<string, CuratorCardData["strip"]>();
+  for (const c of pool) {
     if (!c.clipped_by_name) continue;
-    const list = stripByName.get(c.clipped_by_name) ?? [];
-    if (list.length < STRIP) list.push(c);
-    stripByName.set(c.clipped_by_name, list);
+    const list = strips.get(c.clipped_by_name) ?? [];
+    if (list.length < STRIP) list.push({ id: c.id, image_url: c.image_url, title: c.title });
+    strips.set(c.clipped_by_name, list);
   }
 
-  // One query for every curator's profile, keyed by name. A curator with no
-  // profile row simply has no bio, and the roster entry omits the line.
-  const profiles = await getProfiles(composition.map((c) => c.curator));
+  const roster: CuratorCardData[] = names.map((name) => ({
+    name,
+    displayName: profiles.get(name)?.display_name ?? null,
+    clips: clipsByName.get(name) ?? null,
+    strip: strips.get(name) ?? [],
+  }));
 
-  const roster = composition
-    .map((c) => {
-      const stats = statsByName.get(c.curator);
-      const profile = profiles.get(c.curator);
-      return {
-        name: c.curator,
-        displayName: profile?.display_name ?? null,
-        bio: profile?.bio ?? null,
-        applications: c.base,
-        clips: stats ? Number(stats.total_clips) : 0,
-        since: formatSince(stats?.first_clipped_at ?? null),
-        share:
-          panel.baseTotal === 0
-            ? 0
-            : Math.round((c.base / panel.baseTotal) * 100),
-        strip: stripByName.get(c.curator) ?? [],
-      };
-    })
-    .sort((a, b) => b.applications - a.applications);
+  const feed = onlyClassified((feedRes.data ?? []) as unknown as PoolClip[], (c) => c.clip_tags);
+  const grid: GridClip[] = feed.map((c) => ({
+    id: c.id,
+    url: c.url,
+    image_url: c.image_url,
+    title: c.title,
+    source: c.creator ?? c.rights_holder ?? c.source,
+    by: c.clipped_by_name,
+    tags: (c.clip_tags ?? [])
+      .filter((ct) => ct.tags !== null)
+      .map((ct) => ({ editorial_name: ct.tags!.editorial_name, confidence: ct.confidence ?? 0 })),
+  }));
 
-  // Drift is a comparison between the trailing window's curator mix and
-  // the all-time mix. While the window still covers the entire library
-  // those two sets are the same rows, so the figure is 0.0% by
-  // construction and says nothing. Reporting it as "the panel is
-  // balanced" was logged as a mistake on 2026-09-01 — so the page checks
-  // for the degenerate case and says what is actually true instead.
-  const driftIsMeaningful = panelKnown && panel.recentTotal < panel.baseTotal;
+  const card = (c: CuratorCardData) => (
+    <CuratorCard
+      key={c.name}
+      curator={c}
+      className="w-[260px] flex-none"
+      follow={
+        <FollowButton
+          name={c.name}
+          initialFollowing={followed.has(c.name)}
+          signedIn={followView.signedIn}
+          next="/curators"
+        />
+      }
+    />
+  );
+  const following = roster.filter((c) => followed.has(c.name));
+  const suggested = roster.filter((c) => !followed.has(c.name) && c.name !== me);
 
   return (
     <>
       <SiteHeader active="curators" />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 pb-24">
-        <div className="pt-11 pb-2">
-          <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span
-              aria-hidden
-              className="inline-block h-2.5 w-2.5 flex-none bg-oxide"
-            />
-            The panel — live from the library
-          </p>
-          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
-            Curators
-          </h1>
-          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
-            04AM measures what working creatives chose to keep as reference.
-            That makes the panel the instrument, not the audience — every
-            figure on the Signals Feed is only as honest as the mix of people
-            behind it.
-          </p>
-        </div>
-
-        <dl className="mb-12 flex flex-wrap gap-x-14 gap-y-6 border-y border-white/10 py-6">
-          <div>
-            <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Curators
-            </dt>
-            <dd className="text-[26px] font-normal leading-none">
-              {compLoad.failed ? "—" : roster.length}
-            </dd>
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 pt-6 sm:px-8 md:pt-10">
+        <h1 className="sr-only">Curators</h1>
+        {compLoad.failed ? (
+          <p className="mb-10 text-sm text-bone/70">{LIBRARY_UNAVAILABLE}</p>
+        ) : (
+          <div className="mb-10 flex gap-8 overflow-x-auto pb-1.5">
+            {following.length > 0 && (
+              <Rail label="Following">{following.map(card)}</Rail>
+            )}
+            {suggested.length > 0 && (
+              <Rail label="Suggested">{suggested.map(card)}</Rail>
+            )}
           </div>
-          <div>
-            <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Tag applications
-            </dt>
-            <dd className="text-[26px] font-normal leading-none">
-              {panelKnown ? panel.baseTotal : "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Panel drift
-            </dt>
-            <dd className="text-[26px] font-normal leading-none">
-              {driftIsMeaningful
-                ? `${(panel.drift * 100).toFixed(1)}%`
-                : "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Gate
-            </dt>
-            <dd className="flex items-center gap-2 text-[15px] font-semibold leading-none">
-              <span
-                aria-hidden
-                className={`inline-block h-2.5 w-2.5 flex-none ${
-                  !driftIsMeaningful
-                    ? "bg-slate"
-                    : panel.safeForGlobalVelocity
-                      ? "bg-bone"
-                      : "bg-oxide"
-                }`}
-              />
-              {!panelKnown
-                ? "Couldn't be read just now"
-                : !driftIsMeaningful
-                  ? "Not yet readable"
-                  : panel.safeForGlobalVelocity
-                    ? "Global number publishable"
-                    : "Global number withheld"}
-            </dd>
-          </div>
-        </dl>
-
-        <p className="mb-12 max-w-xl text-xs leading-relaxed text-bone/70">
-          {driftIsMeaningful ? (
-            <>
-              Drift is the share of the trailing {RECENT_WINDOW_DAYS} days
-              that would have to be reassigned to a different curator for the
-              window to match the library&rsquo;s all-time mix. Above{" "}
-              {(MAX_PANEL_DRIFT * 100).toFixed(0)}% the Signals Feed withholds
-              its global velocity figures, because at that point the board
-              would be describing a change in who is clipping rather than a
-              change in what is being clipped.
-            </>
-          ) : (
-            <>
-              Drift cannot be read yet. The trailing{" "}
-              {RECENT_WINDOW_DAYS}-day window still covers the entire library,
-              so the recent mix and the all-time mix are the same rows and the
-              figure is zero by construction &mdash; not because the panel is
-              balanced. It becomes meaningful once the earliest clips age out
-              of the window.
-            </>
-          )}
-        </p>
-
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          The roster
-        </p>
-        <div className="flex flex-col">
-          {roster.map((c) => (
-            <Link
-              key={c.name}
-              href={`/curator/${encodeURIComponent(c.name)}`}
-              className="group grid gap-6 border-t border-white/10 py-7 transition-colors hover:bg-ink-2 lg:grid-cols-[260px_1fr]"
-            >
-              <div>
-                <div className="min-w-0">
-                  {/* Same as the curator page: display name above, the
-                      username — the credit on every clip — under it. */}
-                  <p className="text-[21px] font-bold leading-tight tracking-tight">
-                    {c.displayName ?? c.name}
-                  </p>
-                  {c.displayName && (
-                    <p className="mt-1.5 text-[13px] text-bone/55">@{c.name}</p>
-                  )}
-                </div>
-                {c.bio && (
-                  <p className="mt-3 max-w-[38ch] text-[13px] leading-relaxed text-bone/75">
-                    {c.bio}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-start gap-2 self-start overflow-x-auto">
-                {c.strip.map((clip) => (
-                  <div
-                    key={clip.id}
-                    className="flex-none overflow-hidden rounded-[3px]"
-                  >
-                    <ClipThumbnail
-                      imageUrl={clip.image_url}
-                      title={clip.title}
-                      source={clip.source}
-                      variant="strip"
-                    />
-                  </div>
-                ))}
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <footer className="mt-14 border-t border-white/10 py-10">
-          <p className="max-w-xl text-xs leading-relaxed text-bone/70">
-            A two-person panel is two people. The velocity figures on the
-            Signals Feed describe a culture only to the degree that the panel
-            behind them does &mdash; which is why recruiting curators is a
-            measurement decision before it is a growth one.
-          </p>
-        </footer>
+        )}
       </div>
+
+      {following.length > 0 ? (
+        <HomeGrid clips={grid} emptyText="Nothing from the curators you follow yet." />
+      ) : (
+        !compLoad.failed && (
+          <p className="mx-auto w-full max-w-[1180px] px-4 pb-24 text-[13px] text-bone/55 sm:px-8">
+            Follow a curator and their clips gather here.
+          </p>
+        )
+      )}
     </>
+  );
+}
+
+// One labelled run of cards inside the scrolling rail. The label rides
+// with its cards, so "Suggested" starts exactly where "Following" ends.
+function Rail({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-none flex-col">
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-bone/60">{label}</p>
+      <div className="flex gap-3">{children}</div>
+    </section>
   );
 }

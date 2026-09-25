@@ -16,6 +16,8 @@ export type GridClip = {
   image_url: string | null;
   title: string | null;
   source: string | null;
+  /** Who clipped it, shown on hover where the page is about curators. */
+  by?: string | null;
   tags: { editorial_name: string; confidence: number }[];
 };
 
@@ -56,6 +58,9 @@ function ClipTile({ clip, dealt }: { clip: GridClip; dealt: boolean }) {
         </p>
         {clip.source && (
           <p className="mb-2 text-xs text-bone/75">{clip.source}</p>
+        )}
+        {clip.by && (
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-bone/60">@{clip.by}</p>
         )}
         <div className="flex flex-wrap gap-1.5">
           {chips.map((chip, i) => (

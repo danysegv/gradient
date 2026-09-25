@@ -17,6 +17,8 @@ import { getSessionCurator } from "@/lib/clip-session";
 import { boardHref, searchBoards, type BoardHit } from "@/lib/boards/queries";
 import { normaliseQuery, normaliseColor } from "@/lib/search/query";
 import { fetchGridClips, searchClipIds, colorsReady } from "@/lib/search/results";
+import { searchCurators } from "@/lib/search/curators";
+import { CuratorCard, type CuratorCardData } from "@/components/curator-card";
 import { SiteHeader } from "@/components/site-header";
 import { IntroScreen } from "@/components/intro/intro-screen";
 import { ENTERED_COOKIE } from "@/lib/intro";
@@ -114,8 +116,12 @@ export default async function Home({
         // Only asked when a swatch is applied, and only to tell "nothing is
         // yellow" apart from "no colours have been read yet".
         color ? colorsReady() : Promise.resolve(true),
+        // Usernames and display names (2026-09-25). A curator lookup that
+        // fails must not take the clip results down with it.
+        q ? searchCurators(q).catch(() => [] as CuratorCardData[]) : Promise.resolve([] as CuratorCardData[]),
       ]).then(
-        async ([clipSearch, boards, ready]) => ({
+        async ([clipSearch, boards, ready, curators]) => ({
+          curators,
           clips: onlyClassified(
             await fetchGridClips(clipSearch.ids),
             (c) => c.tags
@@ -359,11 +365,13 @@ export default async function Home({
             colorsReady={search.colorsReady}
             clipCount={search.clips.length}
             boardCount={search.boards.length}
+            curatorCount={search.curators.length}
             exact={search.exact}
             scope="in the library"
           />
         ) : null}
         <div className="mb-6" />
+        {search && search.curators.length > 0 && <CuratorResults curators={search.curators} />}
         {search && search.boards.length > 0 && <BoardResults boards={search.boards} />}
       </div>
 
@@ -395,6 +403,21 @@ function BoardResults({ boards }: { boards: BoardHit[] }) {
             board={b}
             owner={b.owner_name}
           />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CuratorResults({ curators }: { curators: CuratorCardData[] }) {
+  return (
+    <section className="mb-10">
+      <p className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-bone/70">
+        Curators
+      </p>
+      <div className="flex gap-3 overflow-x-auto pb-1.5">
+        {curators.map((c) => (
+          <CuratorCard key={c.name} curator={c} className="w-[260px] flex-none" />
         ))}
       </div>
     </section>
