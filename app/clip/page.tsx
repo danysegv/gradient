@@ -17,6 +17,7 @@ import { getProfile } from "@/lib/profiles/queries";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 import { ClipperInstall } from "@/components/clipper-install";
 import { clipperRelease } from "@/lib/extension/release";
+import { SiteHeader } from "@/components/site-header";
 
 // Classification can process several clips sequentially in the
 // background (after()) — give the route more room than the default.
@@ -168,85 +169,110 @@ export default async function ClipPage() {
   // within about fifteen minutes. Shown so a stalled watcher is visible.
   const awaitingColourReader = needsColors.filter((c) => !describedIds.has(c.id)).length;
 
+  const KICKER = "text-xs font-semibold uppercase tracking-wide text-bone/70";
+
   return (
     <>
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8 py-10">
-        <div className="mb-6 flex items-baseline justify-between">
-          <h1 className="text-lg font-semibold">Clipper</h1>
+      <SiteHeader active="clip" />
+
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 sm:px-8">
+        {/* Head: the genome/radar pattern — an Oxide square kicker, one
+            headline, and who is clipping on the right. */}
+        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-10 pt-11">
+          <div>
+            <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
+              Clipper
+            </p>
+            <h1 className="text-[34px] font-bold leading-tight tracking-tight">Clip a reference</h1>
+          </div>
           {curatorName && (
-            <div className="flex items-baseline gap-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
-                Clipping as {curatorName}
+            <div className="flex items-baseline gap-5">
+              <p className={KICKER}>
+                Clipping as <span className="text-bone">@{curatorName}</span>
               </p>
               <form action={logoutFromClipper}>
-                <button
-                  type="submit"
-                  className="text-xs font-semibold uppercase tracking-wide text-bone/70 underline underline-offset-4 hover:text-bone"
-                >
+                <button type="submit" className={`${KICKER} underline underline-offset-4 hover:text-bone`}>
                   Sign out
                 </button>
               </form>
             </div>
           )}
         </div>
+
         <ClipForm />
 
-        <ClipperInstall version={clipperRelease.version} />
+        {/* The state of the library, in one row: what it holds, what is
+            still to read, and what cannot be read until a URL is fixed.
+            Plain figures, never bold. */}
+        <dl className="mt-16 grid gap-x-14 gap-y-6 border-y border-white/10 py-6 sm:grid-cols-3">
+          {[
+            { k: "In the library", v: gridClips.length, note: `${archivedGridClips.length} archived` },
+            { k: "To process", v: needsWork, note: needsWork === 0 ? "all read" : "tags or a description missing" },
+            { k: "Can\u2019t be read", v: parked.length, note: parked.length === 0 ? "none" : "need a new image URL" },
+          ].map(({ k, v, note }) => (
+            <div key={k}>
+              <dt className={`${KICKER} mb-1.5`}>{k}</dt>
+              <dd className="flex items-baseline gap-3">
+                <span className="text-[26px] font-normal leading-none tabular-nums">{v}</span>
+                <span className="text-[12px] text-bone/50">{note}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
 
-        <div className="mt-10 border-t border-white/10 pt-8">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bone/70">
-            Your profile
-          </p>
+        <div className="grid gap-x-12 gap-y-10 py-10 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <ProcessButton
+              totalCount={needsWork}
+              classifyCount={needsClassification.length}
+              describeCount={needsDescription.length}
+              awaitingColourReader={awaitingColourReader}
+            />
+
+            {parked.length > 0 && (
+              <div id="parked" className="mt-10">
+                <p className={`${KICKER} mb-2`}>
+                  {parked.length} clip{parked.length === 1 ? "" : "s"}{" "}the classifier can&rsquo;t read
+                </p>
+                <p className="mb-4 max-w-md text-[13px] leading-relaxed text-bone/60">
+                  The image couldn&rsquo;t be fetched, usually hotlink protection or a dead link.
+                  Fix the image URL and it rejoins the queue on its own.
+                </p>
+                <ul className="divide-y divide-white/[.07] border-y border-white/[.07]">
+                  {parked.map((c) => (
+                    <li key={c.id} className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] items-baseline gap-x-4 py-2.5">
+                      <a href={`/clip/${c.id}`} className="text-[13px] text-bone underline-offset-4 hover:underline">
+                        {c.title ?? "Untitled"}
+                      </a>
+                      <span className="truncate text-right text-[12px] text-bone/45">{c.image_url}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-5">
+            <ClipperInstall version={clipperRelease.version} />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 px-4 pb-24 pt-10 sm:px-6">
+        <ClipperGrid initialClips={gridClips} initialArchived={archivedGridClips} />
+      </div>
+
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 pb-24 sm:px-8">
+        <section className="border-t border-white/10 pt-8">
+          <p className={`${KICKER} mb-5`}>Your profile</p>
           <ProfileEditor
             curator={curatorName}
             displayName={profile?.display_name ?? null}
             bio={profile?.bio ?? null}
             nameChangedAt={profile?.name_changed_at ?? null}
           />
-        </div>
-
-        <div className="mt-10 border-t border-white/10 pt-8">
-          <ProcessButton
-            totalCount={needsWork}
-            classifyCount={needsClassification.length}
-            describeCount={needsDescription.length}
-            awaitingColourReader={awaitingColourReader}
-          />
-        </div>
-
-        {parked.length > 0 && (
-          <div className="mt-8">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              {parked.length} clip{parked.length === 1 ? "" : "s"}{" "}
-              the classifier can&rsquo;t read
-            </p>
-            <p className="mb-3 max-w-md text-xs opacity-70">
-              The image URL couldn&rsquo;t be fetched — usually hotlink
-              protection or a dead link. Fix the image URL and these rejoin the
-              queue automatically.
-            </p>
-            <ul className="flex flex-col gap-1.5">
-              {parked.map((c) => (
-                <li key={c.id} className="text-xs">
-                  <a
-                    href={`/clip/${c.id}`}
-                    className="underline underline-offset-4"
-                  >
-                    {c.title ?? "Untitled"}
-                  </a>
-                  <span className="opacity-60"> — {c.image_url}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 pb-24">
-        <ClipperGrid
-          initialClips={gridClips}
-          initialArchived={archivedGridClips}
-        />
+        </section>
       </div>
     </>
   );

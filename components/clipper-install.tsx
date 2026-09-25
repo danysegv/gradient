@@ -63,7 +63,7 @@ export function ClipperInstall({ version }: { version: string }) {
   if (dismissedFor === UNKNOWN || dismissedFor === version) return null;
 
   return (
-    <section className="mt-10 border-t border-white/10 pt-8">
+    <section className="border border-white/10 bg-ink-2 p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">
           Clip from anywhere
@@ -77,7 +77,7 @@ export function ClipperInstall({ version }: { version: string }) {
         </button>
       </div>
 
-      <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed">
+      <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-bone/85">
         The 04AM Clipper puts the library one right-click away. On any page,
         pick an image and it arrives here credited, classified and whole —
         linked to the original, never copied.
@@ -85,8 +85,8 @@ export function ClipperInstall({ version }: { version: string }) {
 
       <ol className="mt-5 flex max-w-[52ch] flex-col gap-2">
         {STEPS.map((step, i) => (
-          <li key={step} className="flex gap-3 text-sm">
-            <span className="w-4 shrink-0 tabular-nums opacity-50">{i + 1}</span>
+          <li key={step} className="flex gap-3 text-[14px] text-bone/80">
+            <span className="w-4 shrink-0 tabular-nums text-bone/45">{i + 1}</span>
             <span>{step}</span>
           </li>
         ))}

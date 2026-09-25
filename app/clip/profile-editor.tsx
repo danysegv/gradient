@@ -71,7 +71,7 @@ export function ProfileEditor({
               form="rename-form"
               type="submit"
               disabled={!unlocked || namePending}
-              className="flex-none rounded border border-white/25 px-3 py-2 text-sm disabled:opacity-50"
+              className="h-10 flex-none rounded-[4px] border border-bone/60 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone transition-colors hover:bg-bone hover:text-ink disabled:opacity-50"
             >
               {namePending ? "Changing…" : "Change"}
             </button>
@@ -100,7 +100,7 @@ export function ProfileEditor({
           <p className="mt-2 text-sm text-bone/70">Username changed.</p>
         )}
         {nameState?.error && (
-          <p role="alert" className="mt-2 text-sm text-red-400">
+          <p role="alert" className="mt-2 flex items-center gap-2 text-sm text-bone">
             {nameState.error}
           </p>
         )}
@@ -148,7 +148,7 @@ export function ProfileEditor({
         <button
           type="submit"
           disabled={pending}
-          className="rounded border border-white/25 px-3 py-2 text-sm disabled:opacity-50"
+          className="h-11 rounded-[4px] bg-bone px-6 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink transition-colors hover:bg-white disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save profile"}
         </button>
@@ -158,7 +158,7 @@ export function ProfileEditor({
       </div>
 
       {state?.error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="flex items-center gap-2 text-sm text-bone">
           {state.error}
         </p>
       )}

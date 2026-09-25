@@ -74,12 +74,14 @@ function ClipCard({
       {(clip.needsImage || clip.badImageUrl) && (
         <div className="pointer-events-none absolute left-1.5 top-1.5 flex flex-col gap-1">
           {clip.needsImage && (
-            <span className="rounded bg-ink/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+            <span className="flex items-center gap-1.5 rounded-[2px] bg-ink/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bone">
+              <span aria-hidden className="h-1.5 w-1.5 bg-oxide" />
               Needs image
             </span>
           )}
           {clip.badImageUrl && (
-            <span className="rounded bg-ink/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-400">
+            <span className="flex items-center gap-1.5 rounded-[2px] bg-ink/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bone">
+              <span aria-hidden className="h-1.5 w-1.5 bg-oxide" />
               Bad image URL
             </span>
           )}
@@ -198,7 +200,8 @@ export function ClipperGrid({
 
   return (
     <div className="relative">
-      <div className="mb-4 flex items-center gap-2 px-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2 px-2">
+        <p className="mr-3 text-xs font-semibold uppercase tracking-wide text-bone/70">Your library</p>
         {(
           [
             ["library", "Library", clips.length],
@@ -216,13 +219,14 @@ export function ClipperGrid({
                 : "border-white/20 text-bone/75 hover:border-white/40 hover:text-bone"
             }`}
           >
-            {label} ({count})
+            {label} <span className="font-normal tabular-nums">{count}</span>
           </button>
         ))}
       </div>
 
       {error && (
-        <p role="alert" className="mb-3 px-2 text-sm text-red-400">
+        <p role="alert" className="mb-3 flex items-center gap-2 px-2 text-sm text-bone">
+          <span aria-hidden className="h-2 w-2 flex-none bg-oxide" />
           {error}
         </p>
       )}

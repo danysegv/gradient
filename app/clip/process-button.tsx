@@ -35,7 +35,8 @@ export function ProcessButton({
   if (totalCount === 0 && !state) {
     return (
       <div className="flex flex-col items-start gap-2">
-        <p className="text-sm opacity-70">Every clip is fully processed.</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">Processing</p>
+        <p className="text-[15px] text-bone/80">Every clip is fully read.</p>
         {colourNote}
       </div>
     );
@@ -48,17 +49,18 @@ export function ProcessButton({
   ].filter(Boolean);
 
   return (
-    <form action={action} className="flex flex-col items-start gap-2">
+    <form action={action} className="flex flex-col items-start gap-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-bone/70">Processing</p>
       <button
         disabled={pending || totalCount === 0}
         type="submit"
-        className="rounded border border-white/25 px-3 py-2 text-sm disabled:opacity-50"
+        className="h-12 rounded-[4px] border border-bone/60 px-6 text-[12px] font-semibold uppercase tracking-[0.08em] text-bone transition-colors hover:bg-bone hover:text-ink disabled:opacity-50"
       >
         {pending
           ? "Processing the first clip…"
           : `Process ${batchSize} of ${totalCount} clip${totalCount === 1 ? "" : "s"}`}
       </button>
-      <p className="max-w-md text-xs opacity-70">
+      <p className="max-w-md text-[13px] leading-relaxed text-bone/60">
         {parts.length > 0 ? `${parts.join(" · ")}. ` : ""}
         Each clip gets whatever it&rsquo;s missing: tags against the frozen
         vocabulary, and one Haiku call that writes both its search description
@@ -71,14 +73,14 @@ export function ProcessButton({
         </p>
       )}
       {state?.startedCount !== undefined && (
-        <p className="max-w-md text-sm opacity-80">
+        <p className="max-w-md text-[14px] text-bone/80">
           {state.startedCount === 0 && state.parked === 0
             ? "Nothing left to process."
             : `First clip done. The other ${Math.max(state.startedCount - 1, 0)} are processing in the background${state.remaining > 0 ? `, with ${state.remaining} still queued after this batch` : ""}. Refresh, then click again.`}
         </p>
       )}
       {!!state?.parked && (
-        <p className="max-w-md text-sm opacity-70">
+        <p className="max-w-md text-[14px] text-bone/65">
           Parked {state.parked} clip{state.parked === 1 ? "" : "s"} whose image
           couldn&rsquo;t be fetched. They&rsquo;re listed below to fix.
         </p>
