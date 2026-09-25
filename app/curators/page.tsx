@@ -35,7 +35,6 @@ const STRIP = 3;
 const POOL = 200;
 
 type CompositionRow = { curator: string; base_count: number | string };
-type StatsRow = { curator: string | null; total_clips: number | string };
 type PoolClip = {
   id: string;
   url: string;
@@ -63,8 +62,7 @@ export default async function CuratorsPage() {
   const followed = new Set(followView.following);
   const followedNames = names.filter((n) => followed.has(n));
 
-  const [statsResults, poolRes, profiles, feedRes] = await Promise.all([
-    Promise.all(names.map((n) => supabasePublic.rpc("curator_clip_stats", { curator_name: n }).single())),
+  const [poolRes, profiles, feedRes] = await Promise.all([
     names.length > 0
       ? supabasePublic
           .from("clips")
@@ -95,11 +93,6 @@ export default async function CuratorsPage() {
       : Promise.resolve({ data: [] as PoolClip[], error: null }),
   ]);
 
-  const clipsByName = new Map<string, number>();
-  for (const r of statsResults) {
-    const row = r.data as unknown as StatsRow | null;
-    if (row?.curator) clipsByName.set(row.curator, Number(row.total_clips));
-  }
 
   // Public surfaces show classified clips only (Daniela, 2026-09-24).
   const pool = onlyClassified((poolRes.data ?? []) as unknown as PoolClip[], (c) => c.clip_tags);
@@ -115,7 +108,6 @@ export default async function CuratorsPage() {
   const roster: CuratorCardData[] = names.map((name) => ({
     name,
     displayName: profiles.get(name)?.display_name ?? null,
-    clips: clipsByName.get(name) ?? null,
     strip: strips.get(name) ?? [],
   }));
 

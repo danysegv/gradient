@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 
 // A curator as a card, the way the Signals rail shows a trend: a small
-// frame of their work, their name, the credit, one plain figure. Used on
+// frame of their work, their name and the credit, no figures. Used on
 // /curators and in search results when a query names a curator.
 //
 // The work is shown whole — three slots of equal width, each image fitted
@@ -16,8 +16,6 @@ import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 export type CuratorCardData = {
   name: string;
   displayName: string | null;
-  /** Clips in the library, when known. Plain figure, never bold. */
-  clips?: number | null;
   strip: { id: string; image_url: string | null; title: string | null }[];
 };
 
@@ -71,9 +69,6 @@ export function CuratorCard({
           <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-bone/70">
             @{curator.name}
           </span>
-          {curator.clips != null && (
-            <span className="flex-none text-[13px] font-normal tabular-nums text-bone/80">{curator.clips}</span>
-          )}
         </div>
       </Link>
     </div>
