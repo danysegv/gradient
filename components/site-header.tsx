@@ -14,14 +14,14 @@ import { AccountButton } from "@/components/account-button";
 // while RIGHTS_CONTACT is the placeholder, and the page stays unlinked
 // until that is settled.
 
-export type NavKey = "signals" | "curators" | "genome" | "clip";
+export type NavKey = "signals" | "curators" | "radar" | "genome" | "clip";
 
-const NAV: { key: NavKey | "radar"; label: string; href: string | null }[] = [
+const NAV: { key: NavKey; label: string; href: string | null }[] = [
   { key: "signals", label: "Signals", href: "/" },
   { key: "curators", label: "Curators", href: "/curators" },
-  // Radar stays an inert word until velocity has a run of days to plot —
-  // a link to a 404 is worse than a dim word.
-  { key: "radar", label: "Radar", href: null },
+  // Live since 2026-09-25. Before the board publishes the page says when
+  // it opens instead of plotting anything, so the link is safe early.
+  { key: "radar", label: "Radar", href: "/radar" },
   { key: "genome", label: "Genome", href: "/genome" },
   { key: "clip", label: "Clip", href: "/clip" },
 ];

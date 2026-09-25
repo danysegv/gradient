@@ -16,11 +16,21 @@ export function confidenceNoteText(state: ConfidenceState): string {
     // window vs its share of all-time) — see lib/velocity.ts. Labeled
     // "30d" because that's the window the number is actually keyed to,
     // even though the 45-day age gate above it still spans 90.
-    const pct = Math.round(state.velocity * 100);
-    return `${pct > 0 ? "+" : ""}${pct}% · 30d`;
+    return `${formatVelocity(state.velocity)} · 30d`;
   }
   // Age- and count-eligible, but the recent-window volume was too thin to
   // trust a share figure yet (see MIN_RECENT_WINDOW_VOLUME) — show
   // something true rather than nothing.
   return `${state.referenceCount} references`;
+}
+
+/**
+ * A velocity figure as words: "+1%", "-2%", "0%". Whole points, the same
+ * everywhere a velocity is printed — the feed, curator pages, the radar.
+ * Split out of confidenceNoteText on 2026-09-25 so the radar could print
+ * a figure without re-deciding its rounding.
+ */
+export function formatVelocity(velocity: number): string {
+  const pct = Math.round(velocity * 100);
+  return `${pct > 0 ? "+" : ""}${pct}%`;
 }
