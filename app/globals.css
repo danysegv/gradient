@@ -26,6 +26,10 @@
 body {
   background: var(--ink);
   color: var(--bone);
+  /* iOS draws ↗ (U+2197) as a colour emoji unless told otherwise.
+     Every symbol in the product is type, never emoji. The literal
+     arrows also carry U+FE0E, for browsers without this property. */
+  font-variant-emoji: text;
 }
 
 /* ---- Motion (2026-09-19 rebrand) ------------------------------------ */

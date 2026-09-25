@@ -242,7 +242,7 @@ export default async function ClipDetailPage({
               rel="noreferrer"
               className="mt-5 inline-block rounded bg-oxide px-4 py-2.5 text-[13px] font-semibold tracking-wide text-bone"
             >
-              View source ↗
+              View source {"↗\uFE0E"}
             </a>
             {host && (
               <p className="mt-2 text-[11px] text-bone/70">{host}</p>

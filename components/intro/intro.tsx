@@ -478,7 +478,7 @@ function SceneClip({ clips, onBroken }: { clips: IntroClip[]; onBroken: (id: str
               <ClipImage clip={clip!} fit="box" onBroken={onBroken} />
             </div>
             <figcaption className={`mt-2 h-4 w-full truncate text-center text-[11px] text-bone/70 ${i === 1 ? "" : "invisible"}`}>
-              ↗ {clip!.source ?? "Source"}
+              {"↗\uFE0E"} {clip!.source ?? "Source"}
             </figcaption>
           </figure>
         ))}

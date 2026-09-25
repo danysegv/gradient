@@ -187,7 +187,7 @@ async function start() {
     a.href = `${session.origin}/clip/${encodeURIComponent(info.existing.id)}`;
     a.target = "_blank";
     a.rel = "noopener";
-    a.textContent = "View ↗";
+    a.textContent = "View \u2197\uFE0E";
     n.appendChild(a);
     saveButton.disabled = true;
     saveButton.textContent = "Already clipped";
