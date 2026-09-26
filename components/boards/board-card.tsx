@@ -43,13 +43,19 @@ export function BoardCard({
       href={href}
       className="group flex h-full flex-col gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-bone"
     >
-      {/* The cover takes whatever height its row gives it (flex-1), so a
-          plate with two covers lines up with a neighbour whose four covers
-          came out taller, instead of sitting short. Nothing else changes:
-          each plate's covers keep the size they had. */}
-      <div className="flex flex-1 flex-col overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90">
-        {covers.length > 0 ? (
-          <div className="grid aspect-square flex-1 grid-cols-2 grid-rows-2 gap-[6px]">
+      {/* Only a full, four-cover plate sets how tall a row is, exactly as
+          before. A plate with fewer covers (Obsessions after a couple of
+          likes) is pinned inside its frame, so it can neither push the row
+          taller — which re-cropped its neighbours — nor sit short: it fills
+          whatever height the row already has, or a square if nothing sets
+          one. */}
+      <div
+        className={`relative flex flex-col overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90 ${
+          covers.length >= 4 ? "" : "flex-1"
+        }`}
+      >
+        {covers.length >= 4 ? (
+          <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-[6px]">
             {covers.map((c, i) => (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
               <img
@@ -62,6 +68,23 @@ export function BoardCard({
               />
             ))}
           </div>
+        ) : covers.length > 0 ? (
+          <>
+            <div aria-hidden className="aspect-square w-full flex-1" />
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-[6px]">
+              {covers.map((c, i) => (
+                // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
+                <img
+                  key={c.id}
+                  src={c.image_url!}
+                  alt=""
+                  loading="lazy"
+                  referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
+                  className={`h-full min-h-0 w-full object-cover ${spanFor(covers.length, i)}`}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           // No clip to show yet — a card, not a photo, so a background is
           // fine here same as ClipThumbnail's no-image fallback.
