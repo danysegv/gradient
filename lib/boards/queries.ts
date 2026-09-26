@@ -2,6 +2,7 @@ import "server-only";
 import { supabasePublic } from "@/lib/supabase/public";
 import { byPositionThenNewest } from "./position.ts";
 import { resolveCover } from "./cover.ts";
+import { LIKES_SLUG } from "./likes.ts";
 
 // Reads for boards. Visitors read through the publishable key, where RLS
 // returns public boards only. The owner reads through the service role —
@@ -98,7 +99,13 @@ export async function listBoards(
   const { data, error } = await query;
   if (error) throw new Error(`listBoards(${owner}): ${error.message}`);
 
-  return ((data ?? []) as unknown as RawSummary[]).map(summariseRaw);
+  // Obsessions (the heart's plate) is always first and never moves
+  // (Daniela, 2026-09-25); every other plate keeps most-recently-changed
+  // order behind it. A like bumps updated_at, which would otherwise shuffle
+  // it along the row every time.
+  return ((data ?? []) as unknown as RawSummary[])
+    .map(summariseRaw)
+    .sort((a, b) => Number(b.slug === LIKES_SLUG) - Number(a.slug === LIKES_SLUG));
 }
 
 function summariseRaw(b: RawSummary): BoardSummary {
