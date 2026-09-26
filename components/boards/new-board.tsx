@@ -29,7 +29,7 @@ export function NewBoard({ ownerName }: { ownerName: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[3px] border border-dashed border-white/20 text-bone/75 transition-colors hover:border-white/40 hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-bone"
+        className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-1.5 rounded-[3px] border border-dashed border-white/20 text-bone/75 transition-colors hover:border-white/40 hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-bone"
       >
         <span className="text-[22px] font-normal leading-none">+</span>
         <span className="text-[11px] font-semibold uppercase tracking-wide">

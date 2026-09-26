@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { BoardSummary } from "@/lib/boards/queries";
 import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 
-// A board on a profile: up to four clips in a square, then its name.
+// A board on a profile: up to four clips in a 4:5 frame, then its name.
 //
 // Which four, and in what order, is lib/boards/cover.ts: the owner's chosen
 // cover if there is one, otherwise the first four in the board's own order,
@@ -19,7 +19,8 @@ import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 //
 // One clip fills the square, two split it, three give the first the full
 // height, four make a 2x2 — so every board card is the same shape whatever
-// it contains.
+// it contains. (4:5 since 2026-09-25, the shape most plates already
+// drifted to; see the frame note below.)
 export function BoardCard({
   href,
   board,
@@ -45,7 +46,13 @@ export function BoardCard({
     >
       <div className="overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90">
         {covers.length > 0 ? (
-          <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-[6px]">
+          // The frame's size is fixed first (aspect box, grid pinned inside
+          // it), so the images can never stretch it. Before 2026-09-25 the
+          // grid sized itself from its images: a plate whose four covers
+          // were tall grew taller than one with two, and cards in the same
+          // row stopped lining up.
+          <div className="relative aspect-[4/5]">
+          <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-[6px]">
             {covers.map((c, i) => (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
               <img
@@ -58,10 +65,11 @@ export function BoardCard({
               />
             ))}
           </div>
+          </div>
         ) : (
           // No clip to show yet — a card, not a photo, so a background is
           // fine here same as ClipThumbnail's no-image fallback.
-          <div className="flex aspect-square w-full items-center justify-center bg-ink-2 text-center text-xs text-bone/60">
+          <div className="flex aspect-[4/5] w-full items-center justify-center bg-ink-2 text-center text-xs text-bone/60">
             No clips yet
           </div>
         )}
