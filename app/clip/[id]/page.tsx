@@ -6,7 +6,11 @@ import { ClipThumbnail } from "@/components/clip-thumbnail";
 import { TagName } from "@/components/tag-name";
 import { SaveToBoards } from "@/components/boards/save-to-boards";
 import { AXES } from "@/lib/axes";
-import { getSessionCurator } from "@/lib/clip-session";
+import { getSession } from "@/lib/clip-session";
+import { LIKES_SLUG, LIKES_TITLE } from "@/lib/boards/likes";
+import { LikeButton } from "@/components/like-button";
+import { ClipNotes } from "@/components/clip-notes";
+import { getNotes } from "@/lib/notes";
 import {
   boardChoicesForClip,
   boardHref,
@@ -154,11 +158,20 @@ export default async function ClipDetailPage({
 
   // Boards. A visitor sees the public boards this clip is on; a signed-in
   // curator also gets their own boards to tick, private ones included.
-  const viewer = await getSessionCurator();
-  const [onPublicBoards, choices] = await Promise.all([
+  const session = await getSession();
+  const viewer = session?.name ?? null;
+  const [onPublicBoards, allChoices, notes] = await Promise.all([
     publicBoardsForClip(clip.id),
     viewer ? boardChoicesForClip(viewer, clip.id) : Promise.resolve(null),
+    getNotes(clip.id),
   ]);
+  // The Obsessions plate is driven by the heart, so it is left out of the
+  // tick-list below rather than offered twice.
+  const liked = allChoices?.find((b) => b.slug === LIKES_SLUG)?.has ?? false;
+  // Never offered as a place to save: the heart is the only way in.
+  const choices = allChoices
+    ? allChoices.filter((b) => b.slug !== LIKES_SLUG && b.title !== LIKES_TITLE)
+    : null;
 
   // "More like this" computed from the clip, not from the viewer — shared
   // tags only. The 2026-08-26 decision: recommendation from the object,
@@ -236,14 +249,18 @@ export default async function ClipDetailPage({
               </p>
             )}
 
-            <a
-              href={clip.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-block rounded bg-oxide px-4 py-2.5 text-[13px] font-semibold tracking-wide text-bone"
-            >
-              View source {"↗\uFE0E"}
-            </a>
+            <div className="mt-5 flex flex-wrap items-center gap-2.5">
+              <a
+                href={clip.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block rounded bg-oxide px-4 py-2.5 text-[13px] font-semibold tracking-wide text-bone"
+              >
+                View source {"↗\uFE0E"}
+              </a>
+              {/* Curators only: a like saves to their own "Obsessions" plate. */}
+              {viewer && <LikeButton clipId={clip.id} initialLiked={liked} />}
+            </div>
             {host && (
               <p className="mt-2 text-[11px] text-bone/70">{host}</p>
             )}
@@ -358,6 +375,15 @@ export default async function ClipDetailPage({
                 )}
               </section>
             )}
+
+            {/* Last and quietest in the column. */}
+            <ClipNotes
+              clipId={clip.id}
+              notes={notes}
+              viewer={viewer}
+              clipCurator={clip.clipped_by_name}
+              isAdmin={session?.isAdmin ?? false}
+            />
           </div>
         </div>
 

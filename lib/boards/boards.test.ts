@@ -61,3 +61,11 @@ test("board actions never insert a profile row (login_key is NOT NULL)", () => {
   const profileWrites = src.match(/from\("profiles"\)\s*\.(upsert|insert)\(/g) ?? [];
   assert.deepEqual(profileWrites, []);
 });
+
+test("liking is a plate save and never writes clips or clip_tags", () => {
+  const src = readFileSync(new URL("../../app/boards/like-actions.ts", import.meta.url), "utf8");
+  assert.match(src, /setClipOnBoard\(/);
+  assert.doesNotMatch(src, /from\("clips"\)/);
+  assert.doesNotMatch(src, /from\("clip_tags"\)/);
+  assert.doesNotMatch(src, /from\("profiles"\)/);
+});

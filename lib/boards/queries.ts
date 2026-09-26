@@ -222,6 +222,7 @@ export async function getBoard(
 
 export type BoardChoice = {
   id: string;
+  slug: string;
   title: string;
   is_public: boolean;
   has: boolean;
@@ -235,11 +236,11 @@ export async function boardChoicesForClip(
   const { supabaseAdmin } = await import("@/lib/supabase/admin");
   const { data: boards, error } = await supabaseAdmin
     .from("boards")
-    .select("id, title, is_public")
+    .select("id, slug, title, is_public")
     .eq("owner_name", owner)
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`boardChoicesForClip: ${error.message}`);
-  const rows = (boards ?? []) as { id: string; title: string; is_public: boolean }[];
+  const rows = (boards ?? []) as { id: string; slug: string; title: string; is_public: boolean }[];
   if (rows.length === 0) return [];
 
   const { data: links, error: linkError } = await supabaseAdmin
