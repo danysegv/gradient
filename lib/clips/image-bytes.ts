@@ -27,6 +27,9 @@ export const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 /** Longest edge sent to the model. Past this the extra pixels buy nothing. */
 export const MAX_IMAGE_EDGE = 1568;
 
+/** The API's cap on one image; raw bytes above it can't go without sharp. */
+const MAX_RAW_BYTES = 5 * 1024 * 1024;
+
 /** What the model accepts as-is. Everything else we re-encode first. */
 const SUPPORTED = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 export type SupportedMediaType = (typeof SUPPORTED)[number];
@@ -216,6 +219,22 @@ async function asJpeg(
       note: `fetched ${buf.byteLength}B ${contentType ?? "?"} (${meta.format} ${meta.width}x${meta.height}), sent ${jpeg.byteLength}B jpeg`,
     };
   } catch (err) {
+    // sharp missing from the runtime (it was, on Vercel, 2026-09-23..26:
+    // libvips wasn't shipped with the function) must not cost the clip its
+    // tags. If the bytes are already a format the model takes and small
+    // enough to send, send them as they are.
+    const sniffed = sniffImageType(buf);
+    const raw = sniffed && (SUPPORTED as readonly string[]).includes(sniffed)
+      ? (sniffed as SupportedMediaType)
+      : null;
+    if (raw && buf.byteLength <= MAX_RAW_BYTES) {
+      return {
+        image: { data: buf.toString("base64"), mediaType: raw },
+        note: `fetched ${buf.byteLength}B ${contentType ?? "?"}, sent as-is (${raw}); sharp unavailable: ${
+          err instanceof Error ? err.message.split("\n")[0] : String(err)
+        }`,
+      };
+    }
     return {
       image: null,
       note: `fetched ${buf.byteLength}B ${contentType ?? "?"} but could not decode it: ${
@@ -223,4 +242,123 @@ async function asJpeg(
       }`,
     };
   }
+}
+
+/**
+ * What the first bytes say the file is, whatever the header claims. Enough
+ * to tell a real image from an HTML bot-check page served as image/jpeg,
+ * without decoding anything.
+ */
+export function sniffImageType(bytes: Uint8Array): string | null {
+  const b = bytes;
+  const at = (i: number, ...xs: number[]) => xs.every((x, k) => b[i + k] === x);
+  const ascii = (i: number, n: number) =>
+    String.fromCharCode(...Array.from(b.subarray(i, i + n)));
+  if (b.length < 4) return null;
+  if (at(0, 0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (at(0, 0x89, 0x50, 0x4e, 0x47)) return "image/png";
+  if (ascii(0, 4) === "GIF8") return "image/gif";
+  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
+  if (ascii(4, 4) === "ftyp") {
+    const brand = ascii(8, 4);
+    if (brand === "avif" || brand === "avis") return "image/avif";
+    if (/^(heic|heix|mif1|msf1)$/.test(brand)) return "image/heic";
+  }
+  if (ascii(0, 2) === "BM") return "image/bmp";
+  if (at(0, 0x49, 0x49, 0x2a, 0x00) || at(0, 0x4d, 0x4d, 0x00, 0x2a)) return "image/tiff";
+  const head = ascii(0, Math.min(b.length, 256)).trimStart().toLowerCase();
+  if (head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) {
+    return "image/svg+xml";
+  }
+  return null;
+}
+
+export type DoorCheck = { readable: boolean; note: string };
+
+/**
+ * The door check (lib/clips/create.ts): is there an image at this address?
+ *
+ * Deliberately not the classifier fallback. It reads the first bytes and
+ * stops — no decode, so it can't depend on sharp (whose absence on Vercel
+ * refused nearly every clip from 2026-09-25 to 26) — and it only says no
+ * when the answer is certain: the host says the file is gone, or what
+ * comes back is plainly not an image. A slow host, a network error, or a
+ * bot wall that refuses servers but serves browsers is not a reason to
+ * turn a curator away; those clips save and the classifier tries later.
+ * No robots.txt gate here either: this is one person saving one image
+ * they are looking at, not a crawl.
+ */
+export async function checkImageReadable(
+  imageUrl: string,
+  pageUrl: string
+): Promise<DoorCheck> {
+  let parsed: URL;
+  try {
+    parsed = new URL(imageUrl);
+  } catch {
+    return { readable: false, note: "not a URL" };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { readable: false, note: `protocol ${parsed.protocol}` };
+  }
+  try {
+    const res = await fetch(imageUrl, {
+      headers: {
+        "user-agent": BROWSER_USER_AGENT,
+        accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        referer: pageUrl,
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.status === 404 || res.status === 410) {
+      await res.body?.cancel().catch(() => {});
+      return { readable: false, note: `host answered ${res.status}` };
+    }
+    if (!res.ok) {
+      await res.body?.cancel().catch(() => {});
+      return { readable: true, note: `host answered ${res.status}; let through` };
+    }
+    const contentType = res.headers.get("content-type");
+    const first = await firstBytes(res, 512);
+    const sniffed = sniffImageType(first);
+    if (sniffed) return { readable: true, note: `${sniffed}` };
+    if (first.byteLength === 0) return { readable: false, note: "empty response" };
+    const type = (contentType ?? "").toLowerCase();
+    if (type.includes("text/html") || type.includes("application/json")) {
+      return { readable: false, note: `host served ${contentType}` };
+    }
+    // An image/* we don't recognise (jxl, ico…) is still an image.
+    if (isImageContentType(contentType)) return { readable: true, note: `${contentType}` };
+    return { readable: false, note: `host served ${contentType ?? "no type"}` };
+  } catch (err) {
+    return {
+      readable: true,
+      note: `could not check (${err instanceof Error ? err.message : String(err)}); let through`,
+    };
+  }
+}
+
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
+
+async function firstBytes(res: Response, n: number): Promise<Uint8Array> {
+  if (!res.body) return new Uint8Array(0);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < n) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      total += value.byteLength;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.byteLength; }
+  return out;
 }

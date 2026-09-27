@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { fetchOgImage } from "@/lib/og-image";
 import { withSpendContext } from "@/lib/claude/spend-context";
 import type { ClipInput } from "@/lib/clips/clip-input";
-import { fetchImageForClassifier } from "@/lib/clips/image-bytes";
+import { checkImageReadable } from "@/lib/clips/image-bytes";
 
 // Saving a clip, shared by both ways in: the /clip form (a Server Action)
 // and the browser extension (a Route Handler). Moved here unchanged from
@@ -32,16 +32,17 @@ export async function insertClip(
   // there is no list: the curator finds a readable address while the page
   // is still open in front of them.
   //
-  // "Readable" is exactly what the classifier's own fallback can read —
-  // the same robots.txt check, the same browser-like fetch with the page
-  // as referer, the same decode. If that can't get the image, the
-  // classifier can't tag it. The bytes are dropped when this returns;
-  // nothing is stored. A clip with no image URL skips the check and is
-  // saved as before (the page's og:image is looked for afterwards).
+  // "Can't be read" means certain: the host says the file is gone, or
+  // what comes back is plainly not an image. The first version asked the
+  // classifier fallback instead — robots.txt, a full fetch and a sharp
+  // decode — and when sharp failed to load on Vercel it refused nearly
+  // every clip (2026-09-25..26). Doubt now lets the clip in; the
+  // classifier sorts it out later. Nothing is stored. A clip with no
+  // image URL skips the check (the page's og:image is looked for after).
   if (input.image_url) {
-    const read = await fetchImageForClassifier(input.image_url, input.url);
-    if (!read.image) {
-      console.info(`[04am] refused a clip at the door: ${input.image_url} (${read.note})`);
+    const check = await checkImageReadable(input.image_url, input.url);
+    if (!check.readable) {
+      console.info(`[04am] refused a clip at the door: ${input.image_url} (${check.note})`);
       return { ok: false, error: IMAGE_UNREADABLE, unreadable: true };
     }
   }
