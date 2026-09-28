@@ -22,7 +22,11 @@ export type SpendKind =
   | "classify-incubating"
   | "describe"
   | "color"
-  | "attribution";
+  | "attribution"
+  // The market series (lib/market/run.ts): a feed item, not a clip, so
+  // clipId is always null. Kept apart so the market's own weekly cap can
+  // be read from the ledger, and so it never hides inside clip spend.
+  | "market";
 
 export type SpendContext = { clipId: string | null; kind: SpendKind };
 

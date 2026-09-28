@@ -15,6 +15,7 @@ import {
   type WaitingReason,
   type RadarWaiting,
 } from "@/lib/radar/trend-radar";
+import { computeMarketOverlay, type MarketOverlay } from "@/lib/market/overlay";
 import { SiteHeader } from "@/components/site-header";
 import { TrendRadarChart } from "@/components/radar/trend-radar-chart";
 
@@ -63,6 +64,18 @@ function renderNow(): number {
   return Date.now();
 }
 
+type RawMarketCount = { tag_id: string; recent_count: number | string };
+type RawMarketSource = {
+  source_id: string;
+  name: string;
+  homepage: string;
+  series: "market" | "archive";
+  enabled: boolean;
+  paused_reason: string | null;
+  last_polled_at: string | null;
+  items_read: number | string;
+};
+
 type RawPanelRow = { person: string; base_count: number | string; recent_count: number | string };
 
 const toInput = (t: RawTagRow): RadarTagInput => ({
@@ -89,13 +102,16 @@ export default async function RadarPage() {
   const now = renderNow();
   const weekAgoAt = new Date(now - TRAIL_DAYS * 86_400_000).toISOString();
 
-  const [tagRes, panelRes, frozenAxes, prevTagRes, prevPanelRes] = await Promise.all([
+  const [tagRes, panelRes, frozenAxes, prevTagRes, prevPanelRes, marketRes, sourcesRes] = await Promise.all([
     supabasePublic.rpc("tag_velocity_counts", { window_days: RECENT_WINDOW_DAYS }),
     supabasePublic.rpc("panel_composition", { window_days: RECENT_WINDOW_DAYS }),
     fetchFrozenAxes(supabasePublic),
     // The same two readings, as of a week ago — scripts/radar-week-ago.sql.
     supabasePublic.rpc("tag_velocity_counts_at", { window_days: RECENT_WINDOW_DAYS, as_of: weekAgoAt }),
     supabasePublic.rpc("panel_composition_at", { window_days: RECENT_WINDOW_DAYS, as_of: weekAgoAt }),
+    // The market series — scripts/market.sql. Aggregates only.
+    supabasePublic.rpc("market_tag_counts", { window_days: RECENT_WINDOW_DAYS }),
+    supabasePublic.rpc("market_status", { window_days: RECENT_WINDOW_DAYS }),
   ]);
 
   const tagLoad = loaded<RawTagRow>("tag_velocity_counts", tagRes);
@@ -120,6 +136,25 @@ export default async function RadarPage() {
         publicationNow: now,
       });
   const weekly = attachTrail(radar, weekAgo);
+
+  // The market, against the library, like for like. A failed query means
+  // no overlay and says so; it never reads as a market with nothing in it.
+  const marketLoad = loaded<RawMarketCount>("market_tag_counts", marketRes);
+  const sourcesLoad = loaded<RawMarketSource>("market_status", sourcesRes);
+  const marketSources = sourcesLoad.rows.filter((s) => s.series === "market");
+  const itemsRead = marketSources.reduce((n, s) => n + Number(s.items_read), 0);
+  const overlay: MarketOverlay | null =
+    marketLoad.failed || sourcesLoad.failed || tagLoad.failed
+      ? null
+      : computeMarketOverlay({
+          marketCounts: new Map(marketLoad.rows.map((r) => [r.tag_id, Number(r.recent_count)])),
+          itemsRead,
+          libraryRecent: new Map(
+            tagLoad.rows.filter((t) => t.is_published).map((t) => [t.tag_id, Number(t.recent_count)])
+          ),
+        });
+  const marketShare = overlay?.open ? Object.fromEntries(overlay.share) : null;
+  const nameOf = new Map(tagLoad.rows.map((t) => [t.tag_id, t.editorial_name]));
 
   const rising = radar.points.filter((p) => p.shift > 0).length;
   const byReason = new Map<WaitingReason, RadarWaiting[]>();
@@ -175,6 +210,7 @@ export default async function RadarPage() {
                   points={weekly.points}
                   evenShare={radar.evenShare}
                   hasTrail={weekly.hasTrail}
+                  market={marketShare}
                 />
               </>
             ) : (
@@ -189,6 +225,13 @@ export default async function RadarPage() {
                 </p>
               </div>
             )}
+
+            <MarketSection
+              overlay={overlay}
+              sources={sourcesLoad.rows}
+              nameOf={nameOf}
+              onRadar={new Set(radar.points.map((p) => p.id))}
+            />
 
             {radar.waiting.length > 0 && (
               <section className="mt-14 mb-16 border-t border-white/10 pt-7">
@@ -276,5 +319,136 @@ function WeekLine({ weekly }: { weekly: ReturnType<typeof attachTrail> }) {
       </span>
       {text}
     </p>
+  );
+}
+
+function Gap({
+  rows,
+  label,
+  note,
+  nameOf,
+}: {
+  rows: { id: string; library: number; market: number }[];
+  label: string;
+  note: string;
+  nameOf: Map<string, string>;
+}) {
+  if (rows.length === 0) return null;
+  return (
+      <div className="min-w-0">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-bone/80">{label}</p>
+        <p className="mb-2 text-[11.5px] leading-relaxed text-bone/50">{note}</p>
+        <ul className="divide-y divide-white/[.07]">
+          {rows.slice(0, 6).map((g) => (
+            <li key={g.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 py-2">
+              <Link
+                href={`/trend/${encodeURIComponent(nameOf.get(g.id) ?? "")}`}
+                className="truncate text-[11px] font-semibold uppercase tracking-wide text-bone hover:opacity-80"
+              >
+                {nameOf.get(g.id) ?? "—"}
+              </Link>
+              <span className="text-right text-[12px] tabular-nums text-bone/70">
+                04AM {formatRadarShare(g.library)} <span className="text-bone/40">·</span> market{" "}
+                {formatRadarShare(g.market)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+}
+
+// The market, as a reading and as a list of where it comes from. The
+// sources are named because a figure about "the market" is only as good
+// as the question "which market?", and because a publication that is read
+// should be able to see that it is.
+function MarketSection({
+  overlay,
+  sources,
+  nameOf,
+  onRadar,
+}: {
+  overlay: MarketOverlay | null;
+  sources: RawMarketSource[];
+  nameOf: Map<string, string>;
+  /**
+   * Only looks already on the radar are named. A withheld, early or
+   * incubating look has no published figure, and a market comparison
+   * would publish one by the side door.
+   */
+  onRadar: Set<string>;
+}) {
+  const ahead = overlay?.open ? overlay.ahead.filter((g) => onRadar.has(g.id)) : [];
+  const behind = overlay?.open ? overlay.behind.filter((g) => onRadar.has(g.id)) : [];
+  const market = sources.filter((s) => s.series === "market");
+  const reading = market.filter((s) => s.enabled && !s.paused_reason);
+  const status = (s: RawMarketSource) =>
+    !s.enabled
+      ? s.paused_reason === "Opted out"
+        ? "Opted out"
+        : "Not read — waiting on permission"
+      : s.paused_reason
+        ? `Paused — ${s.paused_reason}`
+        : s.last_polled_at
+          ? `${Number(s.items_read)} read this month`
+          : "Starts with the next daily pass";
+
+  return (
+    <section className="mt-14 border-t border-white/10 pt-7">
+      <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/70">
+        <span aria-hidden className="inline-block h-2 w-2 border border-bone/70" />
+        The market
+      </p>
+      <p className="mb-6 max-w-xl text-[13px] leading-relaxed text-bone/65">
+        The same looks, read by the same classifier, across what the design press published in
+        the last 30 days. Where 04AM and the market part ways is the reading: ahead of it, or
+        missing something.
+      </p>
+
+      {overlay === null ? (
+        <p className="mb-8 text-[13px] text-bone/60">The market reading could not be loaded just now.</p>
+      ) : !overlay.open ? (
+        <div className="mb-8 max-w-xl border border-white/10 bg-ink-2 px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-bone/75">Gathering</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-bone/70">
+            <span className="tabular-nums text-bone">{overlay.itemsRead}</span> of{" "}
+            <span className="tabular-nums">{overlay.floor}</span> items read. Below that one article
+            moves a share by points, so no market mark is drawn until then.
+          </p>
+        </div>
+      ) : ahead.length + behind.length > 0 ? (
+        <div className="mb-10 grid gap-x-10 gap-y-7 md:grid-cols-2">
+          <Gap nameOf={nameOf} rows={ahead} label="Ahead of the market" note="A bigger part of 04AM this month than of the press." />
+          <Gap nameOf={nameOf} rows={behind} label="The market has more" note="Out there more than it is in here." />
+        </div>
+      ) : (
+        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree this month, within two points on every look.</p>
+      )}
+
+      <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-bone/70">
+        Read from <span className="font-normal tabular-nums text-bone/45">{reading.length}</span>
+      </p>
+      <ul className="mb-4 grid gap-x-10 gap-y-1.5 sm:grid-cols-2">
+        {market.map((s) => (
+          <li key={s.source_id} className="flex min-w-0 items-baseline justify-between gap-4 text-[12px]">
+            <a href={s.homepage} className="truncate text-bone/85 hover:text-bone" rel="noopener">
+              {s.name}
+            </a>
+            <span
+              title={status(s)}
+              className={`truncate text-right text-[11px] ${s.enabled && !s.paused_reason ? "text-bone/50" : "text-bone/35"}`}
+            >
+              {status(s)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="max-w-xl text-[11.5px] leading-relaxed text-bone/50">
+        Read from each publication&rsquo;s own feed, and only where its robots.txt, its terms and
+        its text-and-data-mining signals allow it; any of them saying no pauses the source. 04AM
+        keeps the link and the tags, never the image or the text, and shows neither. A publisher
+        who asks to be left out is removed, with everything read from them.
+      </p>
+    </section>
   );
 }

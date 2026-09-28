@@ -107,13 +107,22 @@ export function TrendRadarChart({
   points,
   evenShare,
   hasTrail,
+  market = null,
 }: {
   points: RadarPoint[];
   evenShare: number;
   hasTrail: boolean;
+  /**
+   * tag id → the market's share, 30 days (lib/market/overlay.ts). Null
+   * until the market has read enough to say anything; then no mark and
+   * no toggle is drawn at all.
+   */
+  market?: Record<string, number> | null;
 }) {
   const [axis, setAxis] = useState<string | null>(null);
   const [trail, setTrail] = useState(true);
+  const [showMarket, setShowMarket] = useState(true);
+  const marketOf = (id: string) => (market ? market[id] ?? 0 : null);
   const [hover, setHover] = useState<string | null>(null);
 
   const box = useRef<HTMLElement>(null);
@@ -133,11 +142,13 @@ export function TrendRadarChart({
         [
           ...points,
           ...points.flatMap((p) => (p.prior ? [{ ...p, share: p.prior.share, shift: p.prior.shift }] : [])),
+          // The market's marks share the axis, so they must fit on it.
+          ...(market ? points.map((p) => ({ ...p, share: market[p.id] ?? 0 })) : []),
         ],
         evenShare,
         dims
       ),
-    [points, evenShare, dims]
+    [points, evenShare, dims, market]
   );
   const dots = useMemo(
     () =>
@@ -188,12 +199,27 @@ export function TrendRadarChart({
             </button>
           );
         })}
+        {market && (
+          <button
+            type="button"
+            aria-pressed={showMarket}
+            onClick={() => setShowMarket((v) => !v)}
+            className={`ml-auto flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+              showMarket
+                ? "border-white/35 text-bone"
+                : "border-white/15 text-bone/60 hover:border-white/35 hover:text-bone"
+            }`}
+          >
+            <span aria-hidden className="inline-block h-2 w-2 border border-bone/70" />
+            The market
+          </button>
+        )}
         {hasTrail && (
           <button
             type="button"
             aria-pressed={trail}
             onClick={() => setTrail((v) => !v)}
-            className={`ml-auto flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+            className={`${market ? "" : "ml-auto "}flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
               trail
                 ? "border-white/35 text-bone"
                 : "border-white/15 text-bone/60 hover:border-white/35 hover:text-bone"
@@ -223,6 +249,11 @@ export function TrendRadarChart({
                   {formatVelocity(focused.shift)}
                 </span>{" "}
                 in 30 days, <span className="tabular-nums">{focused.refs}</span> references
+                {market && (
+                  <span className="text-bone/55">
+                    {" · "}the market <span className="tabular-nums text-bone/80">{formatRadarShare(marketOf(focused.id) ?? 0)}</span>
+                  </span>
+                )}
                 <span className="text-bone/55">
                   {focused.prior
                     ? focused.prior.quadrant === focused.quadrant
@@ -330,6 +361,24 @@ export function TrendRadarChart({
                 </text>
               ))}
 
+              {market &&
+                showMarket &&
+                dots.map(({ p, cx, cy }) => {
+                  const mx = x(marketOf(p.id) ?? 0);
+                  return (
+                    <g
+                      key={`market-${p.id}`}
+                      aria-hidden
+                      className="pointer-events-none"
+                      opacity={inFilter(p) ? (hover === null || hover === p.id ? 1 : 0.3) : 0.1}
+                      style={{ transition: "opacity 160ms ease" }}
+                    >
+                      <line x1={mx} y1={cy} x2={cx} y2={cy} stroke={BONE} strokeOpacity={0.35} strokeDasharray="2 3" />
+                      <rect x={mx - 3.5} y={cy - 3.5} width={7} height={7} fill={INK} stroke={BONE} strokeOpacity={0.75} strokeWidth={1} />
+                    </g>
+                  );
+                })}
+
               {trail &&
                 dots.map(({ p, cx, cy, px, py }) =>
                   px === null || py === null ? null : (
@@ -398,6 +447,8 @@ export function TrendRadarChart({
             the library. Up and down: how that share moved in the last 30 days, in points.
             Oxide is taking share, Slate is giving it back.
             {hasTrail && " The small ring is where each look sat a week ago, read the same way."}
+            {market &&
+              " The hollow square is the same look's share of the market over the last 30 days, on the same scale: the dashed line between them is the gap."}
           </p>
         </div>
 
@@ -433,6 +484,11 @@ export function TrendRadarChart({
                         <span className="ml-2 text-[10.5px] text-bone/55">
                           {AXIS_LABEL[p.group] ?? p.group}
                         </span>
+                        {market && (
+                          <span className="ml-2 text-[10.5px] tabular-nums text-bone/45">
+                            market {formatRadarShare(marketOf(p.id) ?? 0)}
+                          </span>
+                        )}
                         {hasTrail && (!p.prior || p.prior.quadrant !== p.quadrant) && (
                           <span className="ml-2 text-[10.5px] text-bone/45">
                             {p.prior ? `was ${RADAR_QUADRANT_LABEL[p.prior.quadrant]}` : "new"}

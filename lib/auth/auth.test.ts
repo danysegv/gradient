@@ -59,7 +59,9 @@ test("nothing but the session module turns a bearer token into a curator", () =>
   // The extension's token is a second key to the same door, not a second
   // door. Route handlers ask lib/clip-session.ts; none read the header or
   // call my_curator_profile themselves.
-  const allowed = new Set(["lib/clip-session.ts"]);
+  // lib/cron-auth.ts reads the header for a MACHINE key (Vercel Cron's
+  // secret), which never becomes a curator; it is the only other reader.
+  const allowed = new Set(["lib/clip-session.ts", "lib/cron-auth.ts"]);
   const offenders = [...walk("app"), ...walk("lib"), ...walk("components")]
     .filter((f) => !allowed.has(f) && !f.endsWith(".test.ts"))
     .filter((f) => /headers\.get\(\s*["']authorization["']|my_curator_profile/i.test(readFileSync(f, "utf8")));
