@@ -28,8 +28,7 @@ export function DescribeButton({ eligibleCount }: { eligibleCount: number }) {
       <p className="max-w-md text-xs opacity-70">
         Claude looks at each image and writes what&rsquo;s in it, so a search for
         &ldquo;film photography&rdquo; finds every film photograph. Search uses it;
-        nobody sees it. Tags aren&rsquo;t touched, so no figure moves. About 2 cents
-        per clip in API credits.
+        nobody sees it. Tags aren&rsquo;t touched, so no figure moves.
       </p>
       {state?.error && (
         <p role="alert" className="max-w-md text-sm text-bone">

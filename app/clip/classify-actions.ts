@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { withSpendContext } from "@/lib/claude/spend-context";
-import { getSessionCurator } from "@/lib/clip-session";
+import { getSession } from "@/lib/clip-session";
 import {
   getClipsNeedingClassification,
   parkClip,
@@ -67,7 +67,8 @@ export type ClassifyState =
  *   anything else     -> abort and put the real error on screen
  */
 export async function classifyClips(): Promise<ClassifyState> {
-  if (!(await getSessionCurator())) {
+  // Batch spending is the operator's job; curators' clips are read on add.
+  if (!(await getSession())?.isAdmin) {
     return { error: "Not authorized." };
   }
 

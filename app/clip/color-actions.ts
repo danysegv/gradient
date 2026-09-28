@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { getSessionCurator } from "@/lib/clip-session";
+import { getSession } from "@/lib/clip-session";
 import {
   getClipsMissingColors,
   parkClip,
@@ -34,7 +34,8 @@ export type ColorState =
   | undefined;
 
 export async function colorClipsForSearch(): Promise<ColorState> {
-  if (!(await getSessionCurator())) return { error: "Not authorized." };
+  // Batch spending is the operator's job; curators' clips are read on add.
+  if (!(await getSession())?.isAdmin) return { error: "Not authorized." };
 
   let targets: UnclassifiedClip[];
   try {

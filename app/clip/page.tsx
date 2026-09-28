@@ -122,6 +122,11 @@ export default async function ClipPage() {
     redirect("/signin?next=/clip");
   }
   const curatorName = session.name;
+  // The pipeline is the operator's desk, not the curator's (Daniela,
+  // 2026-09-28, opening to invited friends). Clips are read automatically
+  // when they are added; the queue, the batch button and anything about
+  // cost show only to an admin.
+  const isAdmin = session.isAdmin;
 
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
@@ -211,7 +216,9 @@ export default async function ClipPage() {
         <dl className="mt-16 grid gap-x-14 gap-y-6 border-y border-white/10 py-6 sm:grid-cols-2">
           {[
             { k: "Your clips", v: gridClips.length, note: `${archivedGridClips.length} archived` },
-            { k: "To process", v: needsWork, note: needsWork === 0 ? "all read" : "across the library" },
+            ...(isAdmin
+              ? [{ k: "To process", v: needsWork, note: needsWork === 0 ? "all read" : "across the library" }]
+              : []),
           ].map(({ k, v, note }) => (
             <div key={k}>
               <dt className={`${KICKER} mb-1.5`}>{k}</dt>
@@ -224,14 +231,16 @@ export default async function ClipPage() {
         </dl>
 
         <div className="grid gap-x-12 gap-y-10 py-10 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <ProcessButton
-              totalCount={needsWork}
-              classifyCount={needsClassification.length}
-              describeCount={needsDescription.length}
-              awaitingColourReader={awaitingColourReader}
-            />
-          </div>
+          {isAdmin && (
+            <div className="lg:col-span-7">
+              <ProcessButton
+                totalCount={needsWork}
+                classifyCount={needsClassification.length}
+                describeCount={needsDescription.length}
+                awaitingColourReader={awaitingColourReader}
+              />
+            </div>
+          )}
 
           <div className="lg:col-span-5">
             <ClipperInstall version={clipperRelease.version} />

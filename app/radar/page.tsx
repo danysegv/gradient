@@ -358,10 +358,11 @@ function Gap({
     );
 }
 
-// The market, as a reading and as a list of where it comes from. The
-// sources are named because a figure about "the market" is only as good
-// as the question "which market?", and because a publication that is read
-// should be able to see that it is.
+// The market, against the library. Shown only once it has something to
+// say: while it is gathering, or if its query fails, the section is simply
+// absent (Daniela, 2026-09-28 — the page is for readers, not a status
+// board). Sources are named in one line; their review, pauses and counts
+// live in market_sources, for the operator.
 function MarketSection({
   overlay,
   sources,
@@ -378,20 +379,10 @@ function MarketSection({
    */
   onRadar: Set<string>;
 }) {
-  const ahead = overlay?.open ? overlay.ahead.filter((g) => onRadar.has(g.id)) : [];
-  const behind = overlay?.open ? overlay.behind.filter((g) => onRadar.has(g.id)) : [];
-  const market = sources.filter((s) => s.series === "market");
-  const reading = market.filter((s) => s.enabled && !s.paused_reason);
-  const status = (s: RawMarketSource) =>
-    !s.enabled
-      ? s.paused_reason === "Opted out"
-        ? "Opted out"
-        : "Not read — waiting on permission"
-      : s.paused_reason
-        ? `Paused — ${s.paused_reason}`
-        : s.last_polled_at
-          ? `${Number(s.items_read)} read this month`
-          : "Starts with the next daily pass";
+  if (!overlay?.open) return null;
+  const ahead = overlay.ahead.filter((g) => onRadar.has(g.id));
+  const behind = overlay.behind.filter((g) => onRadar.has(g.id));
+  const read = sources.filter((s) => s.series === "market" && Number(s.items_read) > 0);
 
   return (
     <section className="mt-14 border-t border-white/10 pt-7">
@@ -400,55 +391,32 @@ function MarketSection({
         The market
       </p>
       <p className="mb-6 max-w-xl text-[13px] leading-relaxed text-bone/65">
-        The same looks, read by the same classifier, across what the design press published in
-        the last 30 days. Where 04AM and the market part ways is the reading: ahead of it, or
-        missing something.
+        The same looks, across what the design press published in the last 30 days.
       </p>
 
-      {overlay === null ? (
-        <p className="mb-8 text-[13px] text-bone/60">The market reading could not be loaded just now.</p>
-      ) : !overlay.open ? (
-        <div className="mb-8 max-w-xl border border-white/10 bg-ink-2 px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-bone/75">Gathering</p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-bone/70">
-            <span className="tabular-nums text-bone">{overlay.itemsRead}</span> of{" "}
-            <span className="tabular-nums">{overlay.floor}</span> items read. Below that one article
-            moves a share by points, so no market mark is drawn until then.
-          </p>
-        </div>
-      ) : ahead.length + behind.length > 0 ? (
-        <div className="mb-10 grid gap-x-10 gap-y-7 md:grid-cols-2">
+      {ahead.length + behind.length > 0 ? (
+        <div className="mb-8 grid gap-x-10 gap-y-7 md:grid-cols-2">
           <Gap nameOf={nameOf} rows={ahead} label="Ahead of the market" note="A bigger part of 04AM this month than of the press." />
           <Gap nameOf={nameOf} rows={behind} label="The market has more" note="Out there more than it is in here." />
         </div>
       ) : (
-        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree this month, within two points on every look.</p>
+        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree this month.</p>
       )}
 
-      <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-bone/70">
-        Read from <span className="font-normal tabular-nums text-bone/45">{reading.length}</span>
-      </p>
-      <ul className="mb-4 grid gap-x-10 gap-y-1.5 sm:grid-cols-2">
-        {market.map((s) => (
-          <li key={s.source_id} className="flex min-w-0 items-baseline justify-between gap-4 text-[12px]">
-            <a href={s.homepage} className="truncate text-bone/85 hover:text-bone" rel="noopener">
-              {s.name}
-            </a>
-            <span
-              title={status(s)}
-              className={`truncate text-right text-[11px] ${s.enabled && !s.paused_reason ? "text-bone/50" : "text-bone/35"}`}
-            >
-              {status(s)}
+      {read.length > 0 && (
+        <p className="max-w-2xl text-[11.5px] leading-relaxed text-bone/50">
+          Read from{" "}
+          {read.map((s, i) => (
+            <span key={s.source_id}>
+              {i > 0 && (i === read.length - 1 ? " and " : ", ")}
+              <a href={s.homepage} rel="noopener" className="text-bone/70 hover:text-bone">
+                {s.name}
+              </a>
             </span>
-          </li>
-        ))}
-      </ul>
-      <p className="max-w-xl text-[11.5px] leading-relaxed text-bone/50">
-        Read from each publication&rsquo;s own feed, and only where its robots.txt, its terms and
-        its text-and-data-mining signals allow it; any of them saying no pauses the source. 04AM
-        keeps the link and the tags, never the image or the text, and shows neither. A publisher
-        who asks to be left out is removed, with everything read from them.
-      </p>
+          ))}
+          .
+        </p>
+      )}
     </section>
   );
 }

@@ -28,7 +28,7 @@ export function ProcessButton({
     awaitingColourReader > 0 ? (
       <p className="text-xs text-bone/55">
         {awaitingColourReader} clip{awaitingColourReader === 1 ? "" : "s"} waiting
-        on the colour reader — free, and usually done within fifteen minutes.
+        on the colour reader, usually done within fifteen minutes.
       </p>
     ) : null;
 
@@ -62,10 +62,8 @@ export function ProcessButton({
       </button>
       <p className="max-w-md text-[13px] leading-relaxed text-bone/60">
         {parts.length > 0 ? `${parts.join(" · ")}. ` : ""}
-        Each clip gets whatever it&rsquo;s missing: tags against the frozen
-        vocabulary, and one Haiku call that writes both its search description
-        and its colours. Tagging is the expensive part — roughly 5&ndash;8&cent; a
-        clip on Opus; describing and colouring together cost well under a cent.
+        Each clip gets whatever it&rsquo;s missing: its tags, a search
+        description and its colours.
       </p>
       {state?.error && (
         <p role="alert" className="max-w-md text-sm text-bone">
