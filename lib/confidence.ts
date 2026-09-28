@@ -1,6 +1,6 @@
 // Confidence display logic — see CLAUDE.md "Confidence display (locked)".
 // The 15/40 count cutoffs and 30-day cooling window are the locked spec.
-// The 45-day age gate below is an addition on top of it (2026-08-21): a
+// The 30-day age gate below is an addition on top of it (2026-08-21): a
 // tag can only show a velocity number once its earliest reference is at
 // least half the 90-day trailing window old — otherwise a "velocity" is
 // just noise computed from too few days of data, even if reference count
@@ -9,8 +9,8 @@
 
 export const EARLY_SIGNAL_MAX = 14; // under 15 references
 export const FULL_STAT_MIN = 41; // over 40 references
-const VELOCITY_WINDOW_DAYS = 90;
-export const AGE_GATE_DAYS = VELOCITY_WINDOW_DAYS / 2; // ~45 days
+// A fixed threshold, independent of the trailing 30-day movement window.
+export const AGE_GATE_DAYS = 30;
 export const COOLING_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -95,7 +95,7 @@ export function getConfidence(input: {
    * "Cooling" is a claim about the culture, and during incubation it
    * would be a claim caused by 04AM's own vocabulary change.
    *
-   * Suspends ONLY Cooling. The count bands, the 45-day age gate and the
+   * Suspends ONLY Cooling. The count bands, the 30-day age gate and the
    * panel gate all still apply — this withholds a false signal, it does
    * not manufacture a true one. Reverses at graduation, when the axis
    * stops carrying frozen tags and this goes false on its own.

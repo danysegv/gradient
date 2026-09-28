@@ -15,7 +15,7 @@ export function confidenceNoteText(state: ConfidenceState): string {
     // Velocity is a share-shift (this tag's share of the trailing 30-day
     // window vs its share of all-time) — see lib/velocity.ts. Labeled
     // "30d" because that's the window the number is actually keyed to,
-    // even though the 45-day age gate above it still spans 90.
+    // even though the separate age gate is also 30 days.
     return `${formatVelocity(state.velocity)} · 30d`;
   }
   // Age- and count-eligible, but the recent-window volume was too thin to

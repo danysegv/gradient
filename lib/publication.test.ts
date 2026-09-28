@@ -38,7 +38,7 @@ test("a withheld tag at confidence 1.0 still can't score a clip, post-launch", (
 });
 
 test("BOARD_PUBLISHES_AT is later than the last launch-cohort tag's age gate", () => {
-  // Sciura is the last tag of the 09-26 launch cohort to clear the 45-day
+  // Sciura is the last tag of the 09-26 launch cohort to clear the 30-day
   // age gate, at 2026-09-26T08:01:13Z. BOARD_PUBLISHES_AT must stay later
   // than that instant, or the feed could start ranking by a tag's velocity
   // before the board itself has published anything — the exact bug this

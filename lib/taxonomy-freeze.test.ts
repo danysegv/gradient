@@ -221,7 +221,7 @@ test("suspension does not bypass the count band or the age gate", () => {
     coolingSuspended: true,
     now: NOW,
   });
-  assert.equal(young.band, "early-signal", "45-day age gate still applies");
+  assert.equal(young.band, "early-signal", "30-day age gate still applies");
   assert.equal(young.velocity, null);
 });
 

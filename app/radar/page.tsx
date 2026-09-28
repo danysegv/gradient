@@ -47,7 +47,7 @@ const REASON_NOTE: Record<WaitingReason, string> = {
     "This month's clipping came from a different mix of curators than the library as a whole, so a library-wide shift would describe who clipped, not what moved.",
   "Thin window": "Too few references across the library in the last 30 days to trust a share.",
   Cooling: "No new reference in 30 days.",
-  "Early Signal": "Fewer than 15 references, or first seen under 45 days ago.",
+  "Early Signal": "Fewer than 15 references, or first seen under 30 days ago.",
   Incubating: "New vocabulary: applied to clips, outside every published figure until it graduates.",
 };
 

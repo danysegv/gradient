@@ -7,10 +7,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * DAY_MS);
 
 // A tag that has cleared every pre-existing gate: plenty of references,
-// old enough for the 45-day gate, referenced recently.
+// old enough for the 30-day gate, referenced recently.
 const CLEARED = {
   referenceCount: 45,
-  earliestReferenceAt: daysAgo(46),
+  earliestReferenceAt: daysAgo(31),
   latestReferenceAt: daysAgo(1),
   velocity: -0.0336,
   now: NOW,
@@ -68,23 +68,23 @@ test("Early Signal takes precedence over Panel Skew", () => {
   assert.equal(state.velocity, null);
 });
 
-test("a tag inside the 45-day age gate still reads Early Signal, panel or no panel", () => {
+test("a tag inside the 30-day age gate still reads Early Signal, panel or no panel", () => {
   const state = getConfidence({
     ...CLEARED,
-    earliestReferenceAt: daysAgo(44),
+    earliestReferenceAt: daysAgo(29),
     panelSafeForGlobalVelocity: false,
   });
   assert.equal(state.band, "early-signal");
   assert.equal(state.label, "Early Signal");
 });
 
-test("the 45-day age gate boundary is inclusive", () => {
+test("the 30-day age gate boundary is inclusive", () => {
   assert.equal(
-    getConfidence({ ...CLEARED, earliestReferenceAt: daysAgo(45) }).band,
+    getConfidence({ ...CLEARED, earliestReferenceAt: daysAgo(30) }).band,
     "full-stat"
   );
   assert.equal(
-    getConfidence({ ...CLEARED, earliestReferenceAt: daysAgo(44.9) }).band,
+    getConfidence({ ...CLEARED, earliestReferenceAt: daysAgo(29.9) }).band,
     "early-signal"
   );
 });

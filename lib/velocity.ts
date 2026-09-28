@@ -7,7 +7,7 @@
 // unanswerable until the library itself is old enough to contain a full
 // prior period — 180 days for growth rate, 90 for a 90-days-ago snapshot.
 // The library's first reference is 2026-08-10, so both would still return
-// null on 2026-11-08 at the earliest, more than a month after the 45-day
+// null on 2026-11-08 at the earliest, more than a month after the 30-day
 // age gate opens. Neither could ever produce the number this system was
 // built to show.
 //
@@ -43,7 +43,7 @@ export const RECENT_WINDOW_DAYS = 30;
 // than ~3 percentage points on its own — the number would be describing
 // one clipping session, not a trend. 30 is a starting point (roughly one
 // tag-application a day across the whole library), not derived from data
-// — revisit alongside the 15/40 count bands and the 45-day age gate.
+// — revisit alongside the 15/40 count bands and the 30-day age gate.
 const MIN_RECENT_WINDOW_VOLUME = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;

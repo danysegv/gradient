@@ -3,7 +3,7 @@
 // launch the withheld tags still aren't. One rule, read by both surfaces.
 
 // 11:00 ET on launch Saturday, decided 2026-09-12. The last tag of the launch
-// cohort clears its 45-day age gate at 08:01Z, so any value after that is safe
+// cohort clears its 30-day age gate at 08:01Z, so any value after that is safe
 // from a mid-cohort flip. Sequence: derive the board (scripts/panel-report.ts)
 // from ~13:00Z, publish it STRICTLY BEFORE 15:00Z, feed ranking opens at 15:00Z.
 // Publishing the board after this timestamp re-creates the bug this module

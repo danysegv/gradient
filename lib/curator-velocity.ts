@@ -44,7 +44,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // a single reference moves a share by more than ~3 points on its own.
 //
 // Starting points, not derived from data — revisit alongside the 15/40
-// count bands, the 45-day age gate, and MIN_RECENT_WINDOW_VOLUME.
+// count bands, the 30-day age gate, and MIN_RECENT_WINDOW_VOLUME.
 export const MIN_CURATOR_RECENT_VOLUME = 30;
 export const MIN_CURATOR_BASE_VOLUME = 30;
 
@@ -242,7 +242,7 @@ export function panelCompositionFromCounts(
 /**
  * How far the trailing window's curator mix has drifted from the all-time
  * mix. This is the panel-concentration gate's input — the fourth gate,
- * alongside the count bands, the 45-day age gate and Cooling.
+ * alongside the count bands, the 30-day age gate and Cooling.
  */
 export function computePanelComposition(
   rows: CuratorRow[],
