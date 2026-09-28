@@ -204,6 +204,30 @@ export function SignUpForm() {
   );
 }
 
+/** "Remember me", on by default. Off, the sign-in (and the extension's,
+ * which follows it) ends when the browser closes — lib/auth/remember.ts. */
+function Remember() {
+  return (
+    <label className="my-2 flex cursor-pointer select-none items-center gap-3 self-start text-[13px] text-bone/65 hover:text-bone">
+      <input
+        type="checkbox"
+        name="remember"
+        defaultChecked
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="grid h-[14px] w-[14px] place-items-center rounded-[2px] border border-bone/45 peer-checked:border-bone peer-checked:bg-bone peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-bone [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100"
+      >
+        <svg viewBox="0 0 10 10" className="h-[9px] w-[9px] text-ink" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <path d="M1.5 5.2 4 7.5 8.5 2.5" />
+        </svg>
+      </span>
+      Remember me
+    </label>
+  );
+}
+
 export function SignInForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
   return (
@@ -211,6 +235,7 @@ export function SignInForm({ next }: { next: string }) {
       <input type="hidden" name="next" value={next} />
       <Email />
       <Password autoComplete="current-password" />
+      <Remember />
       <button type="submit" disabled={pending} className={BUTTON}>
         {pending ? "Signing in…" : "Sign in"}
       </button>

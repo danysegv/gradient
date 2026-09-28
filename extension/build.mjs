@@ -16,7 +16,7 @@ import { crc32, deflateRawSync } from "node:zlib";
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(here, "dist");
 const SHIP = [
-  "manifest.json", "background.js", "content.js", "ui.js", "ui.css",
+  "manifest.json", "background.js", "content.js", "site.js", "ui.js", "ui.css",
   "popup.html", "popup.css", "popup.js", "options.html", "options.css", "options.js",
   "panel.html", "panel.css", "panel.js", "scheme.html", "scheme.js", "icons", "fonts",
 ];

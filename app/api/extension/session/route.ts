@@ -38,7 +38,11 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  // ?superseded=1: this session is being replaced by a newer one for the
+  // same browser (the extension picked up the site's sign-in), so the site
+  // session it may be paired with stays signed in.
+  const superseded = new URL(request.url).searchParams.get("superseded") === "1";
   const token = bearerToken(request);
-  if (token) await signOutExtension(token);
+  if (token) await signOutExtension(token, { superseded });
   return json(request, { ok: true });
 }

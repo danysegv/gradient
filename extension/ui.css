@@ -124,3 +124,11 @@ textarea.field { height: auto; min-height: 72px; padding: 11px 14px; resize: ver
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* "Remember me" — a small outlined square, filled Bone when on. */
+.remember { display: inline-flex; align-items: center; gap: 10px; margin: 2px 0; font-size: 13px; color: var(--bone-62); cursor: pointer; user-select: none; }
+.remember:hover { color: var(--bone); }
+.remember input { appearance: none; -webkit-appearance: none; margin: 0; width: 14px; height: 14px; border: 1px solid var(--bone-45); border-radius: 2px; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.remember input:checked { background: var(--bone); border-color: var(--bone); }
+.remember input:checked::after { content: ""; width: 7px; height: 4px; border: solid var(--ink); border-width: 0 0 1.5px 1.5px; transform: translateY(-1px) rotate(-45deg); }
+.remember input:focus-visible { outline: 1px solid var(--bone); outline-offset: 2px; }

@@ -47,6 +47,7 @@ export function wireSignIn(form, { onSignedIn }) {
     const res = await ask("session:signin", {
       email: String(data.get("email") || ""),
       password: String(data.get("password") || ""),
+      remember: data.get("remember") === "on",
     });
     button.disabled = false;
     button.textContent = "Sign in";

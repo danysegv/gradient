@@ -5,7 +5,7 @@
 export const clipperRelease = {
   "version": "0.1.0",
   "sources": {
-    "background.js": "e9ea88ac622a4347a03797cc9b3e0020cefe72e08a8be00e0aa58b9edea92e93",
+    "background.js": "30e02b514f7fba8b9ff291a40c4c89b1fcdb9963d098d53280bce00e952b54bd",
     "content.js": "64db1bccfbcbeab0af31c3362509b769f55b0ee69cd396d9335f1b52ebd3a97f",
     "fonts/OFL.txt": "c3c8402eec0e31dc9a76851235b1c02a0bb821488b2db8e35bcc2ab60ca8fc2b",
     "fonts/archivo.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
@@ -21,19 +21,20 @@ export const clipperRelease = {
     "icons/toolbar-ink-32.png": "6ab78fd89bae57b20c65761ed516e3cfeee373d5f655186b7fb362c7fe417f33",
     "icons/toolbar-ink-48.png": "7f1bf562a32b32c50858a33d9e05c5045dcaa3d45dd6ce297887fc23f740b3b2",
     "icons/wordmark.svg": "a066016c641a6b53314a73c4d8a0b73f0a9bd14238056869e3220759e83e518b",
-    "manifest.json": "83aaa8ba558b982cde21c0590caff0e19118f56ae1e6743b62c9d326cdb01228",
+    "manifest.json": "ca56dc75a1fc8850696bc0f1c5718a95966eb43e76396aefdeef16e8a58c4316",
     "options.css": "a85086a04d61106d5ff93ef29fed54d9438d6d3d68617e390c34c709d7fa8937",
-    "options.html": "8f9ad8e4072e63d1fbde7a6e2647706697251c027950033af1ae7a08b1cc0b00",
+    "options.html": "bd8ff1259571a991dc65d1036378dd5b293f8cb5e93a64e3ef6b773d2bffebe8",
     "options.js": "cfc1f6be358e2d86539ff01601c7aa74f50da7af19cfe60237aba16cc49656c1",
     "panel.css": "df9194f4b554269f2332951812a68b127ecb1afba7fded7584bb83c34d03a15a",
     "panel.html": "cbf7e3791a203f705981b49c5cc67241bf595b7d6e8a9ccd0067644779ed1107",
     "panel.js": "b5d77019db41811c194471c8af8fcd73314eb89670938ba590a6de9e83f802f0",
     "popup.css": "82fd7c1e7572e8c4c3fe30943122fe8cff87ea34d43c54761f720562f3893193",
-    "popup.html": "ccbe1a8841038421ca7fb2c716922d527b0c7426f3d79596ddcb23c0e43e2d0b",
+    "popup.html": "00e025c32d27b8ec41c6fbe48063eae65ef3fbee836b34ec69cd7efa917ee4b9",
     "popup.js": "dcca89df2e776bc446b21421a2dda8612d3fd39f4381c6a62905e000ad6c2f21",
     "scheme.html": "f4653f91f5c7d2d45fe8a3b324718430fe9f540dfad96f9816e923b9ad98540e",
     "scheme.js": "836c980f2140db9756591a0f8045d00b4ace0f2f25ddf1487875dfd812cfa97c",
-    "ui.css": "2d62366e851c6a4ef9e7e11817941ab6ef08353cd6870b2a2217aa30053190d8",
-    "ui.js": "6071faf4be65b7b9e2816a6b1ca793bd0d6e069802424026a3a59fc9b031771d"
+    "site.js": "9898053f0f607cf644ef7091d4c47629e74c74a65c96309b27cfc35efd4bb3b1",
+    "ui.css": "686e3396da9aba639bfb515764c2869ef272ff4d6c9755d2f4043571d180b7f4",
+    "ui.js": "9943c0d4fa1fa808be0c3656417bcaefbfa86bc26eaf1130b0aee2afe01b81ea"
   }
 } as const;

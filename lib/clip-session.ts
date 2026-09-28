@@ -25,7 +25,30 @@ export type SessionCurator = {
   loginKey: string;
   isAdmin: boolean;
   via: "account" | "password";
+  /** Accounts only: the Supabase user and the sign-in session this request
+   * rides on — what pairs the site and the extension (lib/auth/session-pairs.ts). */
+  userId?: string;
+  sessionId?: string;
 };
+
+type ProfileRow = {
+  name: string;
+  login_key: string;
+  is_admin: boolean;
+  user_id: string;
+  session_id: string;
+};
+
+function fromRow(row: ProfileRow): SessionCurator {
+  return {
+    name: row.name,
+    loginKey: row.login_key,
+    isAdmin: row.is_admin,
+    via: "account",
+    userId: row.user_id,
+    sessionId: row.session_id,
+  };
+}
 
 function hasAuthCookie(names: string[]): boolean {
   return names.some((n) => n.startsWith("sb-") && n.includes("-auth-token"));
@@ -40,10 +63,11 @@ export async function getSession(): Promise<SessionCurator | null> {
     try {
       const supabase = await authServerClient();
       const { data } = await supabase.rpc("my_curator_profile");
-      const row = (data as { name: string; login_key: string; is_admin: boolean }[] | null)?.[0];
-      if (row) {
-        return { name: row.name, loginKey: row.login_key, isAdmin: row.is_admin, via: "account" };
-      }
+      // my_curator_profile answers only while the token's session still
+      // exists (scripts/session-pairs.sql), so a sign-out anywhere — here
+      // or in the paired extension — takes effect on the next request.
+      const row = (data as ProfileRow[] | null)?.[0];
+      if (row) return fromRow(row);
     } catch {
       // fall through to the password cookie
     }
@@ -111,9 +135,8 @@ export async function getSessionForToken(token: string): Promise<SessionCurator 
     );
     const { data, error } = await supabase.rpc("my_curator_profile");
     if (error) return null;
-    const row = (data as { name: string; login_key: string; is_admin: boolean }[] | null)?.[0];
-    if (!row) return null;
-    return { name: row.name, loginKey: row.login_key, isAdmin: row.is_admin, via: "account" };
+    const row = (data as ProfileRow[] | null)?.[0];
+    return row ? fromRow(row) : null;
   } catch {
     return null;
   }

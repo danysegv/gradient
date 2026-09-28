@@ -7,6 +7,10 @@ import { parseEmail } from "@/lib/auth/email";
 import { parseNewPassword } from "@/lib/auth/password";
 import { safeNext } from "@/lib/auth/next";
 import { ENTERED_COOKIE } from "@/lib/intro";
+import { SESSION_ONLY_COOKIE } from "@/lib/auth/remember";
+import { setRemember } from "@/lib/auth/remember-cookie";
+import { getSession } from "@/lib/clip-session";
+import { endPairedSessions } from "@/lib/auth/session-pairs";
 
 // Accounts (2026-09-21): email + password through Supabase Auth, for
 // everyone. A curator is an account an admin has linked to a curator
@@ -91,7 +95,12 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     return { error: "Enter your password." };
   }
 
-  const supabase = await authServerClient();
+  // "Remember me" (on unless unticked). Off: this sign-in, and the
+  // extension's when it picks it up, end when the browser closes.
+  const remember = formData.get("remember") === "on";
+  await setRemember(remember);
+
+  const supabase = await authServerClient({ sessionOnly: !remember });
   const { error } = await supabase.auth.signInWithPassword({
     email: email.value,
     password,
@@ -143,7 +152,11 @@ export async function updatePassword(
 }
 
 export async function signOut() {
+  // Signing out of the site signs the paired extension out too.
+  await endPairedSessions((await getSession())?.sessionId);
   const supabase = await authServerClient();
   await supabase.auth.signOut();
+  (await cookies()).delete(SESSION_ONLY_COOKIE);
   redirect("/");
 }
+

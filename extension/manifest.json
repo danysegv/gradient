@@ -27,6 +27,18 @@
       "background.js"
     ]
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gradient-flax.vercel.app/*",
+        "http://localhost:3000/*"
+      ],
+      "js": [
+        "site.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false

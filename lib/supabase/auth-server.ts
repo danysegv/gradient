@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { SESSION_ONLY_COOKIE, sessionOnly } from "@/lib/auth/remember";
 
 // Visitor accounts (2026-09-21): email sign-in links through Supabase Auth.
 //
@@ -14,8 +15,10 @@ import { createServerClient } from "@supabase/ssr";
 // render can't set a cookie), so tokens are refreshed in the browser by
 // components/session-keeper.tsx rather than in proxy.ts — the proxy's
 // matcher stays exactly ["/clip"].
-export async function authServerClient() {
+export async function authServerClient(opts: { sessionOnly?: boolean } = {}) {
   const store = await cookies();
+  // "Remember me" off: auth cookies last only as long as the browser.
+  const forget = opts.sessionOnly ?? store.get(SESSION_ONLY_COOKIE)?.value === "1";
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -25,7 +28,7 @@ export async function authServerClient() {
         setAll: (list) => {
           try {
             for (const { name, value, options } of list) {
-              store.set(name, value, options);
+              store.set(name, value, forget ? sessionOnly(options) : options);
             }
           } catch {
             // Called from a server component render, where cookies are

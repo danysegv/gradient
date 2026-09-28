@@ -49,3 +49,23 @@ export async function readJsonObject(request: Request, maxBytes = 64_000): Promi
     return null;
   }
 }
+
+/**
+ * A call made by the extension's script on a 04AM page itself (extension/
+ * site.js), which rides on the site's cookies. Both marks are required:
+ * the browser's own Sec-Fetch-Site (a page can't forge it) or a matching
+ * Origin, and a custom header no cross-site form can send.
+ */
+export function isSiteBridgeCall(request: Request): boolean {
+  if (request.headers.get("x-04am-clipper") !== "1") return false;
+  const site = request.headers.get("sec-fetch-site");
+  if (site) return site === "same-origin";
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!origin || !host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}

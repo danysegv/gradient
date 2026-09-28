@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { getSessionForToken, type SessionCurator } from "@/lib/clip-session";
+import { mintSession, sessionIdOfMinted } from "@/lib/auth/mint-session";
+import { endPairedSessions, pairSessions } from "@/lib/auth/session-pairs";
 
 // Signing the browser extension in (2026-09-23). Same account system as
 // the site — email + password through Supabase Auth — but the session is
@@ -16,6 +18,9 @@ export type ExtensionSession = {
   refresh_token: string;
   /** Unix seconds. */
   expires_at: number;
+  /** The Supabase user — how the extension tells whether the site is
+   * signed in as the same person. */
+  user_id: string | null;
   curator: { name: string; isAdmin: boolean };
 };
 
@@ -67,6 +72,7 @@ async function asCurator(
       access_token: s.access_token,
       refresh_token: s.refresh_token,
       expires_at: s.expires_at ?? Math.floor(Date.now() / 1000) + s.expires_in,
+      user_id: curator.userId ?? null,
       curator: { name: curator.name, isAdmin: curator.isAdmin },
     },
   };
@@ -86,9 +92,33 @@ export async function refreshExtension(refreshToken: string): Promise<ExtensionS
   return asCurator(supabase, data.session);
 }
 
-/** Ends this one session (other devices stay signed in). Best-effort. */
-export async function signOutExtension(accessToken: string): Promise<void> {
+/**
+ * The extension picking up the site's sign-in: a fresh session of its own
+ * for the curator signed in on the site, paired with the site's session so
+ * signing out of either ends both.
+ */
+export async function handoffToExtension(site: SessionCurator): Promise<ExtensionSessionResult> {
+  if (site.via !== "account" || !site.userId || !site.sessionId) {
+    return { ok: false, status: 401, code: "invalid", error: "Signed out." };
+  }
+  const minted = await mintSession(site.userId);
+  if (!minted) return { ok: false, status: 502, code: "failed", error: "Something went wrong. Try again." };
+  const result = await asCurator(client(), minted);
+  const extId = sessionIdOfMinted(minted.access_token);
+  if (result.ok && extId) await pairSessions(site.sessionId, extId, site.userId);
+  return result;
+}
+
+/**
+ * Ends this one session, and — unless it is only being replaced by a newer
+ * one — the site session paired with it. Best-effort.
+ */
+export async function signOutExtension(accessToken: string, opts: { superseded?: boolean } = {}): Promise<void> {
   try {
+    if (!opts.superseded) {
+      const session = await getSessionForToken(accessToken);
+      await endPairedSessions(session?.sessionId);
+    }
     const { supabaseAdmin } = await import("@/lib/supabase/admin");
     await supabaseAdmin.auth.admin.signOut(accessToken, "local");
   } catch {

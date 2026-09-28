@@ -25,14 +25,37 @@ async function origin() {
   return ALLOWED_ORIGINS.includes(o) ? o : DEFAULT_ORIGIN;
 }
 
-async function readSession() {
-  const { session } = await ext.storage.local.get("session");
-  return session && session.access_token ? session : null;
+// "Remember me" (2026-09-27). Remembered, the session lives in
+// storage.local and survives the browser closing. Not remembered, it lives
+// in storage.session (or memory, where that's missing) and goes when the
+// browser does — the same as the site's cookies with the box unticked.
+let memorySession = null;
+
+async function remembered() {
+  const { remember } = await ext.storage.local.get("remember");
+  return remember !== false;
 }
 
-async function writeSession(session) {
-  if (session) await ext.storage.local.set({ session });
-  else await ext.storage.local.remove("session");
+async function readSession() {
+  const { session } = await ext.storage.local.get("session");
+  if (session && session.access_token) return session;
+  const passing = (await ext.storage.session?.get("session"))?.session ?? memorySession;
+  return passing && passing.access_token ? passing : null;
+}
+
+/** Stores (or clears) the session. `remember` changes where it lives;
+ * left out, a refreshed session stays wherever the last one was. */
+async function writeSession(session, remember) {
+  if (typeof remember === "boolean") await ext.storage.local.set({ remember });
+  const keep = await remembered();
+  await ext.storage.local.remove("session");
+  await ext.storage.session?.remove("session");
+  memorySession = null;
+  if (session) {
+    if (keep) await ext.storage.local.set({ session });
+    else if (ext.storage.session) await ext.storage.session.set({ session });
+    else memorySession = session;
+  }
   await syncAction(session);
 }
 
@@ -346,13 +369,32 @@ async function takeCandidate(id) {
 // Messages from the popup, options page, panel and page script
 // ---------------------------------------------------------------------
 
+/** Only the script on the 04AM site the extension talks to may report
+ * the site's sign-in. */
+async function fromSite(sender) {
+  try {
+    return !!sender?.url && new URL(sender.url).origin === (await origin());
+  } catch {
+    return false;
+  }
+}
+
+/** Ends a session on the server. Superseded: replaced by a newer one, so
+ * the site session it may be paired with stays signed in. */
+async function endRemote(session, { superseded }) {
+  fetch(`${await origin()}/api/extension/session${superseded ? "?superseded=1" : ""}`, {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${session.access_token}` },
+  }).catch(() => {});
+}
+
 const handlers = {
   async "session:get"() {
     const s = await readSession();
-    return { signedIn: !!s, name: s?.curator?.name ?? null, origin: await origin() };
+    return { signedIn: !!s, name: s?.curator?.name ?? null, origin: await origin(), remember: await remembered() };
   },
 
-  async "session:signin"({ email, password }) {
+  async "session:signin"({ email, password, remember }) {
     try {
       const res = await fetch(`${await origin()}/api/extension/session`, {
         method: "POST",
@@ -361,7 +403,7 @@ const handlers = {
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok && body.access_token) {
-        await writeSession(body);
+        await writeSession(body, remember !== false);
         return { ok: true, name: body.curator.name };
       }
       return { ok: false, error: body.error ?? "Something went wrong. Try again.", code: body.code ?? null };
@@ -370,15 +412,72 @@ const handlers = {
     }
   },
 
+  // Signing out here signs the paired site session out too (the server
+  // ends both), so the next 04AM page is signed out as well.
   async "session:signout"() {
     const s = await readSession();
     await writeSession(null);
-    if (s) {
-      fetch(`${await origin()}/api/extension/session`, {
-        method: "DELETE",
-        headers: { authorization: `Bearer ${s.access_token}` },
-      }).catch(() => {});
+    await ext.storage.local.remove("siteUser");
+    if (s) endRemote(s, { superseded: false });
+    return { ok: true };
+  },
+
+  // -------------------------------------------------------------------
+  // One sign-in across the site and the extension (2026-09-27). The
+  // script on 04AM pages (site.js) reports who the site is signed in as;
+  // this decides what, if anything, should change.
+  //
+  //   site signed in, extension not (or as someone else) → pick up the
+  //     site's sign-in ("handoff");
+  //   extension signed in, site never was → sign the site in ("adopt");
+  //   site WAS signed in and now isn't → the curator signed out there, so
+  //     sign the extension out too.
+  //
+  // `siteUser` remembers who the site was last seen as; it is what tells
+  // "signed out on the site" apart from "never signed in on the site".
+  // -------------------------------------------------------------------
+
+  async "site:state"({ signedIn, curator, remember }, sender) {
+    if (!(await fromSite(sender))) return { do: null };
+    const { siteUser = null } = await ext.storage.local.get("siteUser");
+    const s = await freshSession();
+
+    if (curator && curator.userId) {
+      await ext.storage.local.set({ siteUser: curator.userId });
+      if (s && s.user_id === curator.userId) {
+        // Same person on both. Follow the site's "Remember me".
+        if (typeof remember === "boolean" && remember !== (await remembered())) await writeSession(s, remember);
+        return { do: null };
+      }
+      return { do: "handoff" };
     }
+
+    if (signedIn) return { do: null }; // a visitor account: leave the site alone
+
+    if (s && siteUser) {
+      // The site was signed in and now isn't: it signed out.
+      await writeSession(null);
+      await ext.storage.local.remove("siteUser");
+      endRemote(s, { superseded: false });
+      return { do: null };
+    }
+    if (s && s.user_id) return { do: "adopt", token: s.access_token, remember: await remembered() };
+    return { do: null };
+  },
+
+  async "site:handoff"({ session, remember }, sender) {
+    if (!(await fromSite(sender)) || !session?.access_token) return { ok: false };
+    const old = await readSession();
+    await writeSession(session, remember !== false);
+    await ext.storage.local.set({ siteUser: session.user_id ?? null });
+    if (old && old.access_token !== session.access_token) endRemote(old, { superseded: true });
+    return { ok: true };
+  },
+
+  async "site:adopted"(_msg, sender) {
+    if (!(await fromSite(sender))) return { ok: false };
+    const s = await readSession();
+    await ext.storage.local.set({ siteUser: s?.user_id ?? null });
     return { ok: true };
   },
 
@@ -388,6 +487,7 @@ const handlers = {
     if (value !== current) {
       // A session belongs to one site's account system.
       await writeSession(null);
+      await ext.storage.local.remove("siteUser");
       await ext.storage.local.set({ origin: value });
     }
     return { ok: true };
