@@ -1,6 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useTransition } from "react";
+import { hideClipperCard } from "@/app/clip/card-actions";
 
 // "Get the clipper" — shown on /clip, so only to an approved curator.
 //
@@ -11,15 +12,12 @@ import { useSyncExternalStore } from "react";
 // to the public, which the legal note puts behind a real repeat-infringer
 // policy and the paid consult. Keep it on the gated page until then.
 //
-// Dismissal is per browser on purpose: installing an extension is a
-// per-browser act, so a curator who installed it on the laptop should
-// still see this on the desktop. It is read through useSyncExternalStore
-// rather than an effect, so the server renders nothing and the card
-// appears after hydration instead of flashing and disappearing.
+// Every curator sees it on every sign-in, installed or not (Daniela,
+// 2026-09-28). "Hide this" puts it away until they sign out: the page
+// reads that from a cookie tied to the sign-in (lib/clipper-card.ts), so
+// the server simply doesn't render it, and nothing flashes.
 
-const DISMISSED = "04am_clipper_card_dismissed";
 const DOWNLOAD = "/clipper/04am-clipper-chrome.zip";
-const UNKNOWN = "\u0000server";
 
 const STEPS = [
   "Download the folder and unzip it.",
@@ -27,40 +25,17 @@ const STEPS = [
   "Click Load unpacked and choose the unzipped 04am-clipper folder.",
 ];
 
-const listeners = new Set<() => void>();
-
-function subscribe(onChange: () => void) {
-  listeners.add(onChange);
-  // Another tab dismissing it should settle this one too.
-  window.addEventListener("storage", onChange);
-  return () => {
-    listeners.delete(onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function read(): string | null {
-  try {
-    return localStorage.getItem(DISMISSED);
-  } catch {
-    // A private window has no store; the card simply always shows.
-    return null;
-  }
-}
-
 export function ClipperInstall({ version }: { version: string }) {
-  const dismissedFor = useSyncExternalStore(subscribe, read, () => UNKNOWN);
+  const [hidden, setHidden] = useState(false);
+  const [, startTransition] = useTransition();
 
   function dismiss() {
-    try {
-      localStorage.setItem(DISMISSED, version);
-    } catch {
-      // Nothing to remember it with; hiding it for this render is enough.
-    }
-    for (const l of listeners) l();
+    // Gone at once; the cookie keeps it gone for the rest of this sign-in.
+    setHidden(true);
+    startTransition(() => hideClipperCard());
   }
 
-  if (dismissedFor === UNKNOWN || dismissedFor === version) return null;
+  if (hidden) return null;
 
   return (
     <section className="border border-white/10 bg-ink-2 p-6">

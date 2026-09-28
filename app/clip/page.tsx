@@ -15,6 +15,8 @@ import { ProfileEditor } from "./profile-editor";
 import { getProfile } from "@/lib/profiles/queries";
 import { ClipperGrid, type ClipperClip } from "@/components/clipper-grid";
 import { ClipperInstall } from "@/components/clipper-install";
+import { cookies } from "next/headers";
+import { CLIPPER_CARD_COOKIE, cardHidden } from "@/lib/clipper-card";
 import { clipperRelease } from "@/lib/extension/release";
 import { SiteHeader } from "@/components/site-header";
 
@@ -127,6 +129,9 @@ export default async function ClipPage() {
   // when they are added; the queue, the batch button and anything about
   // cost show only to an admin.
   const isAdmin = session.isAdmin;
+  // Shown on every sign-in, installed or not; "Hide this" lasts until
+  // the next one (lib/clipper-card.ts).
+  const showClipperCard = !cardHidden((await cookies()).get(CLIPPER_CARD_COOKIE)?.value, session);
 
   // Archived clips are fetched alongside the library so the Archived view
   // can restore them — soft-delete is only a safety net if there is a way
@@ -230,7 +235,8 @@ export default async function ClipPage() {
           ))}
         </dl>
 
-        <div className="grid gap-x-12 gap-y-10 py-10 lg:grid-cols-12">
+        {(isAdmin || showClipperCard) && (
+          <div className="grid gap-x-12 gap-y-10 py-10 lg:grid-cols-12">
           {isAdmin && (
             <div className="lg:col-span-7">
               <ProcessButton
@@ -242,10 +248,13 @@ export default async function ClipPage() {
             </div>
           )}
 
-          <div className="lg:col-span-5">
-            <ClipperInstall version={clipperRelease.version} />
+          {showClipperCard && (
+            <div className="lg:col-span-5">
+              <ClipperInstall version={clipperRelease.version} />
+            </div>
+          )}
           </div>
-        </div>
+        )}
       </div>
 
       <div className="border-t border-white/10 px-4 pb-24 pt-10 sm:px-6">

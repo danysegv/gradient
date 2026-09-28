@@ -7,6 +7,7 @@ import { authServerClient } from "@/lib/supabase/auth-server";
 import { getSession } from "@/lib/clip-session";
 import { endPairedSessions } from "@/lib/auth/session-pairs";
 import { SESSION_ONLY_COOKIE } from "@/lib/auth/remember";
+import { CLIPPER_CARD_COOKIE } from "@/lib/clipper-card";
 
 // The counterpart to loginToClipper. Until 2026-09-03 there was no way out
 // of a clipper session at all: the cookie was set with a 30-day maxAge and
@@ -28,6 +29,8 @@ export async function logoutFromClipper(): Promise<void> {
   await endPairedSessions((await getSession())?.sessionId);
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_ONLY_COOKIE);
+  // The clipper card comes back with the next sign-in.
+  cookieStore.delete(CLIPPER_CARD_COOKIE);
   cookieStore.delete(CLIP_SESSION_COOKIE);
   try {
     await (await authServerClient()).auth.signOut();

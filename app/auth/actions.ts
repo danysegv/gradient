@@ -8,6 +8,7 @@ import { parseNewPassword } from "@/lib/auth/password";
 import { safeNext } from "@/lib/auth/next";
 import { ENTERED_COOKIE } from "@/lib/intro";
 import { SESSION_ONLY_COOKIE } from "@/lib/auth/remember";
+import { CLIPPER_CARD_COOKIE } from "@/lib/clipper-card";
 import { setRemember } from "@/lib/auth/remember-cookie";
 import { getSession } from "@/lib/clip-session";
 import { endPairedSessions } from "@/lib/auth/session-pairs";
@@ -157,6 +158,8 @@ export async function signOut() {
   const supabase = await authServerClient();
   await supabase.auth.signOut();
   (await cookies()).delete(SESSION_ONLY_COOKIE);
+  // The clipper card comes back with the next sign-in.
+  (await cookies()).delete(CLIPPER_CARD_COOKIE);
   redirect("/");
 }
 
