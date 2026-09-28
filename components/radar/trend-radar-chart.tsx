@@ -448,7 +448,7 @@ export function TrendRadarChart({
             Oxide is taking share, Slate is giving it back.
             {hasTrail && " The small ring is where each look sat a week ago, read the same way."}
             {market &&
-              " The hollow square is the same look's share of the market over the last 30 days, on the same scale: the dashed line between them is the gap."}
+              " The hollow square is the same look's share of the market over the last three months, on the same scale: the dashed line between them is the gap."}
           </p>
         </div>
 

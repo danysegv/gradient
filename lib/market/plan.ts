@@ -18,6 +18,22 @@ export const MARKET_WEEKLY_USD_DEFAULT = 7;
  */
 export const CLIP_RESERVE_USD_DEFAULT = 2;
 
+/**
+ * How old an article may be and still count as the market (Daniela,
+ * 2026-09-28: "not longer than 1–3 months"). Dated by when the
+ * publication published it, never by when 04AM read it. An item with no
+ * date can't prove it is recent, so it is left out.
+ */
+export const MARKET_MAX_AGE_DAYS = 90;
+
+export function isRecent(publishedAt: string | null, now: number, maxDays = MARKET_MAX_AGE_DAYS): boolean {
+  if (!publishedAt) return false;
+  const t = Date.parse(publishedAt);
+  if (Number.isNaN(t)) return false;
+  // A date more than a day in the future is a broken feed, not news.
+  return t >= now - maxDays * 86_400_000 && t <= now + 86_400_000;
+}
+
 export type Allowance = { items: number; reason: string };
 
 /** How many items today's run may classify for one series. */
@@ -48,6 +64,43 @@ export function dailyAllowance(input: {
         : items === byCount && byCount < perDay
           ? "weekly item count reached"
           : "daily share";
+  return { items, reason };
+}
+
+/**
+ * The market is kept the same size as the library (Daniela, 2026-09-28):
+ * as many recent market articles read as the library has active clips,
+ * so the comparison is like for like in weight as well as in method.
+ * Whatever is missing is read in catch-up runs, never more than one run
+ * can finish, and always inside the weekly dollar cap and the clip reserve.
+ */
+export const MARKET_MAX_PER_RUN = 60;
+
+export function matchAllowance(input: {
+  librarySize: number;
+  marketHave: number;
+  marketUsdLast7Days: number;
+  marketWeeklyUsd: number;
+  balanceLeftUsd: number | null;
+  clipReserveUsd: number;
+  usdPerItem: number;
+  maxPerRun?: number;
+}): Allowance {
+  if (input.balanceLeftUsd === null) return { items: 0, reason: "spend ledger unreadable" };
+  const fit = (usd: number) => Math.floor(Math.max(0, usd) / input.usdPerItem + 1e-9);
+  const need = Math.max(0, input.librarySize - input.marketHave);
+  const perRun = input.maxPerRun ?? MARKET_MAX_PER_RUN;
+  const byWeekUsd = fit(input.marketWeeklyUsd - input.marketUsdLast7Days);
+  const byReserve = fit(input.balanceLeftUsd - input.clipReserveUsd);
+  const items = Math.min(need, perRun, byWeekUsd, byReserve);
+  const reason =
+    need === 0
+      ? "the same size as the library"
+      : items === byReserve && byReserve < Math.min(need, perRun)
+        ? "holding the clip reserve"
+        : items === byWeekUsd && byWeekUsd < Math.min(need, perRun)
+          ? "weekly market budget reached"
+          : `catching up to the library (${need} to go)`;
   return { items, reason };
 }
 

@@ -122,7 +122,8 @@ export function parseFeed(xml: string, feedUrl: string): FeedItem[] {
       url,
       title: text(it, "title"),
       publishedAt: iso(text(it, "pubDate", "published", "updated", "dc:date")),
-      imageUrl: absolute(imageOf(it), url),
+      // Stored as HTTPS: the classifier's fetch accepts nothing else.
+      imageUrl: absolute(imageOf(it), url)?.replace(/^http:\/\//i, "https://") ?? null,
     });
   }
   return out;

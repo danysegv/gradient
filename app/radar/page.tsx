@@ -64,6 +64,8 @@ function renderNow(): number {
   return Date.now();
 }
 
+const MARKET_WINDOW_DAYS = 90;
+
 type RawMarketCount = { tag_id: string; recent_count: number | string };
 type RawMarketSource = {
   source_id: string;
@@ -75,6 +77,14 @@ type RawMarketSource = {
   last_polled_at: string | null;
   items_read: number | string;
 };
+
+// Local preview only, like RADAR_PREVIEW_AT: lets `next dev` draw the
+// market from its first few real items. Ignored in production, so the live
+// floor is always MARKET_FLOOR_ITEMS.
+function marketFloor(): number | undefined {
+  const n = Number(process.env.MARKET_PREVIEW_FLOOR);
+  return process.env.NODE_ENV !== "production" && Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
 type RawPanelRow = { person: string; base_count: number | string; recent_count: number | string };
 
@@ -102,16 +112,19 @@ export default async function RadarPage() {
   const now = renderNow();
   const weekAgoAt = new Date(now - TRAIL_DAYS * 86_400_000).toISOString();
 
-  const [tagRes, panelRes, frozenAxes, prevTagRes, prevPanelRes, marketRes, sourcesRes] = await Promise.all([
+  const [tagRes, panelRes, frozenAxes, prevTagRes, prevPanelRes, marketRes, sourcesRes, lib90Res] = await Promise.all([
     supabasePublic.rpc("tag_velocity_counts", { window_days: RECENT_WINDOW_DAYS }),
     supabasePublic.rpc("panel_composition", { window_days: RECENT_WINDOW_DAYS }),
     fetchFrozenAxes(supabasePublic),
     // The same two readings, as of a week ago — scripts/radar-week-ago.sql.
     supabasePublic.rpc("tag_velocity_counts_at", { window_days: RECENT_WINDOW_DAYS, as_of: weekAgoAt }),
     supabasePublic.rpc("panel_composition_at", { window_days: RECENT_WINDOW_DAYS, as_of: weekAgoAt }),
-    // The market series — scripts/market.sql. Aggregates only.
-    supabasePublic.rpc("market_tag_counts", { window_days: RECENT_WINDOW_DAYS }),
-    supabasePublic.rpc("market_status", { window_days: RECENT_WINDOW_DAYS }),
+    // The market series — scripts/market.sql. Aggregates only. Three
+    // months on both sides: the market is kept the same size as the
+    // library over the same span (lib/market/plan.ts).
+    supabasePublic.rpc("market_tag_counts", { window_days: MARKET_WINDOW_DAYS }),
+    supabasePublic.rpc("market_status", { window_days: MARKET_WINDOW_DAYS }),
+    supabasePublic.rpc("tag_velocity_counts", { window_days: MARKET_WINDOW_DAYS }),
   ]);
 
   const tagLoad = loaded<RawTagRow>("tag_velocity_counts", tagRes);
@@ -141,18 +154,19 @@ export default async function RadarPage() {
   // no overlay and says so; it never reads as a market with nothing in it.
   const marketLoad = loaded<RawMarketCount>("market_tag_counts", marketRes);
   const sourcesLoad = loaded<RawMarketSource>("market_status", sourcesRes);
+  const lib90Load = loaded<RawTagRow>("tag_velocity_counts (90 days)", lib90Res);
   const marketSources = sourcesLoad.rows.filter((s) => s.series === "market");
   const itemsRead = marketSources.reduce((n, s) => n + Number(s.items_read), 0);
   const overlay: MarketOverlay | null =
-    marketLoad.failed || sourcesLoad.failed || tagLoad.failed
+    marketLoad.failed || sourcesLoad.failed || lib90Load.failed
       ? null
       : computeMarketOverlay({
           marketCounts: new Map(marketLoad.rows.map((r) => [r.tag_id, Number(r.recent_count)])),
           itemsRead,
           libraryRecent: new Map(
-            tagLoad.rows.filter((t) => t.is_published).map((t) => [t.tag_id, Number(t.recent_count)])
+            lib90Load.rows.filter((t) => t.is_published).map((t) => [t.tag_id, Number(t.recent_count)])
           ),
-        });
+        }, marketFloor());
   const marketShare = overlay?.open ? Object.fromEntries(overlay.share) : null;
   const nameOf = new Map(tagLoad.rows.map((t) => [t.tag_id, t.editorial_name]));
 
@@ -391,16 +405,17 @@ function MarketSection({
         The market
       </p>
       <p className="mb-6 max-w-xl text-[13px] leading-relaxed text-bone/65">
-        The same looks, across what the design press published in the last 30 days.
+        The same looks, across what the design press published in the last three months,
+        read to the same size as the library.
       </p>
 
       {ahead.length + behind.length > 0 ? (
         <div className="mb-8 grid gap-x-10 gap-y-7 md:grid-cols-2">
-          <Gap nameOf={nameOf} rows={ahead} label="Ahead of the market" note="A bigger part of 04AM this month than of the press." />
+          <Gap nameOf={nameOf} rows={ahead} label="Ahead of the market" note="A bigger part of 04AM than of the press." />
           <Gap nameOf={nameOf} rows={behind} label="The market has more" note="Out there more than it is in here." />
         </div>
       ) : (
-        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree this month.</p>
+        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree, within two points on every look.</p>
       )}
 
       {read.length > 0 && (

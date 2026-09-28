@@ -167,3 +167,51 @@ insert into market_sources (id, name, kind, series, feed_url, homepage, terms_ur
 ('met', 'The Met', 'museum', 'archive', 'https://collectionapi.metmuseum.org/public/collection/v1', 'https://www.metmuseum.org', 'https://www.metmuseum.org/policies/image-resources', 'green',
  'Open Access API; public-domain works CC0. Archive baseline only.', true)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- Applied 2026-09-28 (migration market_window_by_published_date).
+-- The market's clock is the PUBLICATION's date, not 04AM's reading date:
+-- an article read today but published in June is not this month's market.
+-- The runner also refuses anything published more than 90 days ago, or
+-- undated (lib/market/plan.ts, MARKET_MAX_AGE_DAYS).
+-- ---------------------------------------------------------------------
+create or replace function market_tag_counts(window_days integer default 30)
+returns table(tag_id uuid, recent_count bigint)
+language sql stable security definer set search_path = public as $$
+  select t.id, count(mit.item_id)
+  from tags t
+  left join (
+    select mt.item_id, mt.tag_id
+    from market_item_tags mt
+    join market_items i on i.id = mt.item_id
+    join market_sources s on s.id = i.source_id
+    where s.series = 'market'
+      and i.status = 'classified'
+      and i.published_at > now() - make_interval(days => window_days)
+      and i.published_at <= now() + interval '1 day'
+  ) mit on mit.tag_id = t.id
+  where t.published_at is not null
+  group by t.id;
+$$;
+
+create or replace function market_status(window_days integer default 30)
+returns table(
+  source_id text, name text, homepage text, series text, enabled boolean,
+  paused_reason text, last_polled_at timestamptz, items_read bigint
+)
+language sql stable security definer set search_path = public as $$
+  select s.id, s.name, s.homepage, s.series, s.enabled, s.paused_reason, s.last_polled_at,
+    count(i.id) filter (
+      where i.status = 'classified'
+        and i.published_at > now() - make_interval(days => window_days)
+        and i.published_at <= now() + interval '1 day'
+    )
+  from market_sources s
+  left join market_items i on i.source_id = s.id
+  where s.verdict <> 'red'
+  group by s.id
+  order by s.series, s.name;
+$$;
+
+revoke all on function market_tag_counts(integer), market_status(integer) from public;
+grant execute on function market_tag_counts(integer), market_status(integer) to anon, authenticated;

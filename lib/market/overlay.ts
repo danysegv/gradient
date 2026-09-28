@@ -3,10 +3,9 @@
 // Like for like, or not at all:
 //   * Same classifier, same vocabulary — enforced upstream (lib/market/run.ts).
 //   * Same denominator rule: share of every PUBLISHED tag application.
-//   * Same window: the market's last 30 days against the library's last
-//     30 days. The radar's own x-axis is the library's all-time share;
-//     the gap list does not use it, because an all-time share against a
-//     30-day share would be a difference of windows, not of taste.
+//   * Same window and the same size: the market's last three months
+//     against the library's last three months, with the market read up to
+//     the library's clip count (lib/market/plan.ts, matchAllowance).
 //
 // And a floor, like every other figure in 04AM: no market mark is drawn
 // until the market has read MARKET_FLOOR_ITEMS items in the window. Below
@@ -45,9 +44,9 @@ const shares = (m: Map<string, number>) => {
   return new Map([...m].map(([k, v]) => [k, total > 0 ? v / total : 0]));
 };
 
-export function computeMarketOverlay(input: MarketInput): MarketOverlay {
-  if (input.itemsRead < MARKET_FLOOR_ITEMS) {
-    return { open: false, itemsRead: input.itemsRead, floor: MARKET_FLOOR_ITEMS };
+export function computeMarketOverlay(input: MarketInput, floor = MARKET_FLOOR_ITEMS): MarketOverlay {
+  if (input.itemsRead < floor) {
+    return { open: false, itemsRead: input.itemsRead, floor };
   }
   const market = shares(input.marketCounts);
   const library = shares(input.libraryRecent);

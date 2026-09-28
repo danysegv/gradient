@@ -1,6 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyAllowance, pickEvenly } from "./plan.ts";
+import { dailyAllowance, isRecent, matchAllowance, pickEvenly } from "./plan.ts";
+
+test("the market is read up to the library's size, a run at a time", () => {
+  const m = { marketUsdLast7Days: 0, marketWeeklyUsd: 7, balanceLeftUsd: 20, clipReserveUsd: 2, usdPerItem: 0.03 };
+  assert.deepEqual(matchAllowance({ ...m, librarySize: 259, marketHave: 18 }), {
+    items: 60,
+    reason: "catching up to the library (241 to go)",
+  });
+  assert.equal(matchAllowance({ ...m, librarySize: 259, marketHave: 250 }).items, 9);
+  assert.deepEqual(matchAllowance({ ...m, librarySize: 259, marketHave: 259 }), {
+    items: 0,
+    reason: "the same size as the library",
+  });
+  // The weekly cap and the clip reserve still win.
+  assert.equal(matchAllowance({ ...m, librarySize: 259, marketHave: 0, marketUsdLast7Days: 6.7 }).items, 10);
+  assert.equal(matchAllowance({ ...m, librarySize: 259, marketHave: 0, balanceLeftUsd: 2.3 }).items, 10);
+  assert.equal(matchAllowance({ ...m, librarySize: 259, marketHave: 0, balanceLeftUsd: null }).items, 0);
+});
+
+test("only articles published in the last three months count", () => {
+  const now = Date.parse("2026-09-28T12:00:00Z");
+  assert.equal(isRecent("2026-09-27T08:00:00Z", now), true);
+  assert.equal(isRecent("2026-07-01T00:00:00Z", now), true, "89 days");
+  assert.equal(isRecent("2026-06-29T00:00:00Z", now), false, "91 days");
+  assert.equal(isRecent("2024-05-01T00:00:00Z", now), false);
+  assert.equal(isRecent(null, now), false, "undated can't prove it is recent");
+  assert.equal(isRecent("not a date", now), false);
+  assert.equal(isRecent("2026-10-15T00:00:00Z", now), false, "a future date is a broken feed");
+});
 
 const base = {
   weeklyItems: 140,
