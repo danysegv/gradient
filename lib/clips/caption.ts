@@ -1,7 +1,7 @@
 // Editing a clip's caption (Daniela, 2026-09-28). Pure rules, tested.
 //
-// Who: the curator who clipped it, or an admin. The caption is the
-// clipper's own words about the reference, so nobody else rewrites it.
+// Who: only the curator who clipped it — admins included in "nobody else"
+// (Daniela, 2026-09-28). The caption is the clipper's own words.
 // What: plain text, trimmed, at most the same 4,000 characters the clip
 // form allows; an empty caption removes it rather than saving blank space.
 
@@ -21,9 +21,8 @@ export function parseCaption(raw: unknown): CaptionCheck {
 }
 
 export function canEditCaption(
-  session: { name: string; isAdmin: boolean } | null,
+  session: { name: string } | null,
   clippedBy: string | null
 ): boolean {
-  if (!session) return false;
-  return session.isAdmin || (clippedBy !== null && clippedBy === session.name);
+  return session !== null && clippedBy !== null && clippedBy === session.name;
 }

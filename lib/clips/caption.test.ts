@@ -12,12 +12,14 @@ test("a caption is trimmed text; empty removes it; too long is refused", () => {
   assert.equal(parseCaption(42).ok, false);
 });
 
-test("only the curator who clipped it, or an admin, may edit", () => {
+test("only the curator who clipped it may edit — admins too", () => {
   const vic = { name: "vicmarodin", isAdmin: false };
   assert.equal(canEditCaption(vic, "vicmarodin"), true);
   assert.equal(canEditCaption(vic, "danysegv"), false);
   assert.equal(canEditCaption(vic, null), false);
-  assert.equal(canEditCaption({ name: "danysegv", isAdmin: true }, "lumalhaes"), true);
+  const admin = { name: "danysegv", isAdmin: true };
+  assert.equal(canEditCaption(admin, "lumalhaes"), false);
+  assert.equal(canEditCaption(admin, "danysegv"), true);
   assert.equal(canEditCaption(null, "vicmarodin"), false);
 });
 
@@ -28,7 +30,8 @@ test("the server decides who may edit, and writes only the caption", () => {
   assert.doesNotMatch(src, /clip_tags/);
 });
 
-test("archiving and restoring are limited to your own clips unless admin", () => {
+test("archiving and restoring are limited to your own clips, for everyone", () => {
   const src = readFileSync("app/clip/archive-actions.ts", "utf8");
-  assert.equal((src.match(/if \(!isAdmin\) q = q\.eq\("clipped_by_name", curatorName\)/g) ?? []).length, 2);
+  assert.equal((src.match(/\.eq\("clipped_by_name", curatorName\)/g) ?? []).length, 3, "archive, restore, delete");
+  assert.doesNotMatch(src, /isAdmin/);
 });

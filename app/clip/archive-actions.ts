@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSession, getSessionCurator } from "@/lib/clip-session";
+import { getSessionCurator } from "@/lib/clip-session";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type ArchiveActionResult = { error: string } | { error?: never };
@@ -19,15 +19,14 @@ export async function archiveClip(clipId: string): Promise<ArchiveActionResult> 
     return { error: "Not authorized." };
   }
 
-  // Your own clips only, or an admin (2026-09-28, friends joining): the
-  // grid only ever showed your own, but the action took any id.
-  const isAdmin = (await getSession())?.isAdmin ?? false;
-  let q = supabaseAdmin
+  // Your own clips only, admins included (2026-09-28, friends joining):
+  // the grid only ever showed your own, but the action took any id.
+  const { data, error } = await supabaseAdmin
     .from("clips")
     .update({ archived_at: new Date().toISOString(), archived_by_name: curatorName })
-    .eq("id", clipId);
-  if (!isAdmin) q = q.eq("clipped_by_name", curatorName);
-  const { data, error } = await q.select("id");
+    .eq("id", clipId)
+    .eq("clipped_by_name", curatorName)
+    .select("id");
 
   if (error) return { error: error.message };
   if (!data || data.length === 0) return { error: "Only your own clips can be archived." };
@@ -47,13 +46,12 @@ export async function unarchiveClip(clipId: string): Promise<ArchiveActionResult
     return { error: "Not authorized." };
   }
 
-  const isAdmin = (await getSession())?.isAdmin ?? false;
-  let q = supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("clips")
     .update({ archived_at: null, archived_by_name: null })
-    .eq("id", clipId);
-  if (!isAdmin) q = q.eq("clipped_by_name", curatorName);
-  const { data, error } = await q.select("id");
+    .eq("id", clipId)
+    .eq("clipped_by_name", curatorName)
+    .select("id");
 
   if (error) return { error: error.message };
   if (!data || data.length === 0) return { error: "Only your own clips can be restored." };
