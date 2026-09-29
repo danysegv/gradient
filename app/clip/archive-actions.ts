@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSessionCurator } from "@/lib/clip-session";
+import { getSession, getSessionCurator } from "@/lib/clip-session";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type ArchiveActionResult = { error: string } | { error?: never };
@@ -19,12 +19,18 @@ export async function archiveClip(clipId: string): Promise<ArchiveActionResult> 
     return { error: "Not authorized." };
   }
 
-  const { error } = await supabaseAdmin
+  // Your own clips only, or an admin (2026-09-28, friends joining): the
+  // grid only ever showed your own, but the action took any id.
+  const isAdmin = (await getSession())?.isAdmin ?? false;
+  let q = supabaseAdmin
     .from("clips")
     .update({ archived_at: new Date().toISOString(), archived_by_name: curatorName })
     .eq("id", clipId);
+  if (!isAdmin) q = q.eq("clipped_by_name", curatorName);
+  const { data, error } = await q.select("id");
 
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Only your own clips can be archived." };
 
   revalidatePath("/clip");
   revalidatePath("/");
@@ -41,12 +47,16 @@ export async function unarchiveClip(clipId: string): Promise<ArchiveActionResult
     return { error: "Not authorized." };
   }
 
-  const { error } = await supabaseAdmin
+  const isAdmin = (await getSession())?.isAdmin ?? false;
+  let q = supabaseAdmin
     .from("clips")
     .update({ archived_at: null, archived_by_name: null })
     .eq("id", clipId);
+  if (!isAdmin) q = q.eq("clipped_by_name", curatorName);
+  const { data, error } = await q.select("id");
 
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Only your own clips can be restored." };
 
   revalidatePath("/clip");
   revalidatePath("/");

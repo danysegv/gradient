@@ -7,6 +7,8 @@ import { TagName } from "@/components/tag-name";
 import { SaveToBoards } from "@/components/boards/save-to-boards";
 import { AXES } from "@/lib/axes";
 import { getSession } from "@/lib/clip-session";
+import { canEditCaption } from "@/lib/clips/caption";
+import { CaptionEditor } from "@/components/caption-editor";
 import { LIKES_SLUG, LIKES_TITLE } from "@/lib/boards/likes";
 import { LikeButton } from "@/components/like-button";
 import { ClipNotes } from "@/components/clip-notes";
@@ -243,10 +245,14 @@ export default async function ClipDetailPage({
               {clip.title || clip.source || "Untitled"}
             </h1>
 
-            {clip.caption && (
-              <p className="mt-3 text-[14px] leading-relaxed text-bone/75">
-                {clip.caption}
-              </p>
+            {canEditCaption(session, clip.clipped_by_name) ? (
+              <CaptionEditor clipId={clip.id} initial={clip.caption} />
+            ) : (
+              clip.caption && (
+                <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-bone/75">
+                  {clip.caption}
+                </p>
+              )
             )}
 
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
