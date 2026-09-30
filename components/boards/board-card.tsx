@@ -17,9 +17,12 @@ import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 // still keeps its own shape and is never cropped. If this exception ever
 // spreads beyond this file the tripwire fires, which is the point.
 //
-// One clip fills the square, two split it, three give the first the full
-// height, four make a 2x2 — so every board card is the same shape whatever
-// it contains.
+// EVERY plate is the same square, always. The cover is a fixed
+// aspect-square grid whatever it holds: one clip fills it, two split it,
+// three give the first the full height, four make a 2x2. Nothing about a
+// plate's height depends on its neighbours — a cover is never stretched to
+// fill a row, so a longer title or a fuller plate somewhere in the row can
+// no longer make one cover taller than the rest.
 export function BoardCard({
   href,
   board,
@@ -43,20 +46,12 @@ export function BoardCard({
       href={href}
       className="group flex h-full flex-col gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-bone"
     >
-      {/* Only a full, four-cover plate sets how tall a row is, exactly as
-          before. A plate with fewer covers (Obsessions after a couple of
-          likes) is pinned inside its frame, so it can neither push the row
-          taller — which re-cropped its neighbours — nor sit short: it fills
-          whatever height the row already has, or a square if nothing sets
-          one. */}
-      <div
-        className={`relative flex flex-col overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90 ${
-          covers.length >= 4 ? "" : "flex-1"
-        }`}
-      >
-        {covers.length >= 4 ? (
-          <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-[6px]">
-            {covers.map((c, i) => (
+      {/* One shape, one branch. The square is set by the column width and
+          nothing else, so every plate in a row ends on the same line. */}
+      <div className="relative overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90">
+        <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-[6px]">
+          {covers.length > 0 ? (
+            covers.map((c, i) => (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
               <img
                 key={c.id}
@@ -66,32 +61,15 @@ export function BoardCard({
                 referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
                 className={`h-full w-full object-cover ${spanFor(covers.length, i)}`}
               />
-            ))}
-          </div>
-        ) : covers.length > 0 ? (
-          <>
-            <div aria-hidden className="aspect-square w-full flex-1" />
-            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-[6px]">
-              {covers.map((c, i) => (
-                // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
-                <img
-                  key={c.id}
-                  src={c.image_url!}
-                  alt=""
-                  loading="lazy"
-                  referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
-                  className={`h-full min-h-0 w-full object-cover ${spanFor(covers.length, i)}`}
-                />
-              ))}
+            ))
+          ) : (
+            // No clip to show yet — a card, not a photo, so a background is
+            // fine here same as ClipThumbnail's no-image fallback.
+            <div className="col-span-2 row-span-2 flex items-center justify-center bg-ink-2 text-center text-xs text-bone/60">
+              No clips yet
             </div>
-          </>
-        ) : (
-          // No clip to show yet — a card, not a photo, so a background is
-          // fine here same as ClipThumbnail's no-image fallback.
-          <div className="flex aspect-square w-full flex-1 items-center justify-center bg-ink-2 text-center text-xs text-bone/60">
-            No clips yet
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="flex flex-col gap-1">
         {/* Private sits beside the title, not under it, so a private plate's
