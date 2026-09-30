@@ -48,8 +48,14 @@ export function BoardCard({
     >
       {/* One shape, one branch. The square is set by the column width and
           nothing else, so every plate in a row ends on the same line. */}
-      <div className="relative overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90">
-        <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-[6px]">
+      {/* The square is the outer box; the grid is pinned inside it
+          (absolute, inset 0). Safari sizes a grid's rows from its images
+          when the grid itself carries the aspect ratio, so tall photos made
+          whole plates portrait there (2026-09-30) while Chrome drew them
+          square. A box with nothing in flow is exactly as tall as it is
+          wide in every browser, and the pinned grid can only fill it. */}
+      <div className="relative aspect-square overflow-hidden rounded-[3px] transition-opacity group-hover:opacity-90">
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-[6px]">
           {covers.length > 0 ? (
             covers.map((c, i) => (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary external hosts, same as ClipThumbnail
@@ -59,7 +65,7 @@ export function BoardCard({
                 alt=""
                 loading="lazy"
                 referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
-                className={`h-full w-full object-cover ${spanFor(covers.length, i)}`}
+                className={`h-full min-h-0 w-full min-w-0 object-cover ${spanFor(covers.length, i)}`}
               />
             ))
           ) : (

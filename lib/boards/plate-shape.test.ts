@@ -58,3 +58,12 @@ test("the cover markup does not branch its shape on how many covers there are", 
     `${PLATE} branches its layout on how many covers it has — every plate is one shape`
   );
 });
+
+test("the square is the outer box and the grid is pinned inside it (Safari)", () => {
+  // Safari let tall photos grow a grid that carried aspect-square itself,
+  // so plates came out portrait there. The square box holds nothing in
+  // flow; the grid is absolute inset-0 and can only fill it.
+  const c = code();
+  assert.match(c, /relative aspect-square overflow-hidden/);
+  assert.match(c, /absolute inset-0 grid grid-cols-2 grid-rows-2/);
+});
