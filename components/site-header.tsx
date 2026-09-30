@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Wordmark } from "@/components/wordmark";
 import { SearchOverlay } from "@/components/search-overlay";
 import { AccountButton } from "@/components/account-button";
+import { NotificationBell } from "@/components/notification-bell";
 
 // One header for every page, A24-simple: the pages on one side, the mark
 // dead centre, search alone on the other side. It replaced nine hand-copied
@@ -111,8 +112,12 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
           <Wordmark className="h-[20px] w-auto text-bone md:h-[26px]" />
         </Link>
 
-        <div className="flex items-center justify-end gap-1">
-          <AccountButton />
+        <div className="flex items-center justify-end">
+          {/* Search, notifications, profile — in that order, with the same
+              visible gap between each (Daniela, 2026-09-30). The search and
+              bell glyphs share one 17px outline inside 40px buttons; the
+              profile circle is wider, so it sits 6px further out to keep
+              the gap after the bell equal to the gap before it. */}
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
@@ -124,6 +129,10 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
               <path d="m15.6 15.6 5.4 5.4" strokeLinecap="round" />
             </svg>
           </button>
+          <NotificationBell />
+          <div className="ml-1.5">
+            <AccountButton />
+          </div>
         </div>
       </header>
 

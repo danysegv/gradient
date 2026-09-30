@@ -109,7 +109,7 @@ export function ClipNotes({
   }
 
   return (
-    <section className="mt-8 border-t border-white/10 pt-5">
+    <section id="thoughts" className="mt-8 scroll-mt-28 border-t border-white/10 pt-5">
       <h2 className="mb-3.5 text-[11px] font-semibold uppercase tracking-wide text-bone/70">Thoughts</h2>
       {top.length > 0 && (
         <ul className="mb-4 flex flex-col gap-4">

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { authServerClient } from "@/lib/supabase/auth-server";
+import { getSessionCurator } from "@/lib/clip-session";
+import { notify, unnotify } from "@/lib/notifications/server";
 
 export type FollowResult = { following: boolean } | { error: "signin" | string };
 
@@ -28,6 +30,12 @@ export async function setFollow(curatorName: string, follow: boolean): Promise<F
       .eq("curator_name", name);
     if (error) return { error: error.message };
   }
+
+  // The curator being followed hears about it; an unfollow before they've
+  // seen it takes the notification back.
+  const actor = await getSessionCurator();
+  if (follow) await notify({ kind: "follow", actor, recipient: name });
+  else await unnotify({ kind: "follow", actor, recipient: name });
 
   revalidatePath("/curators");
   revalidatePath(`/curator/${encodeURIComponent(name)}`);

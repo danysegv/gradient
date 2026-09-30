@@ -7,6 +7,8 @@ import { getSessionCurator } from "@/lib/clip-session";
 import { isUuid, parseBoardInput } from "@/lib/boards/input";
 import { uniqueSlug } from "@/lib/boards/slug";
 import { planMove, type OrderedClip } from "@/lib/boards/position";
+import { LIKES_SLUG } from "@/lib/boards/likes";
+import { notify, unnotify } from "@/lib/notifications/server";
 import { COVER_COUNT } from "@/lib/boards/cover";
 
 // Every board write. Server actions are reachable by direct POST, so each
@@ -36,10 +38,10 @@ async function ownedBoard(boardId: unknown, curator: string) {
   if (!isUuid(boardId)) return null;
   const { data } = await supabaseAdmin
     .from("boards")
-    .select("id, slug, owner_name")
+    .select("id, slug, owner_name, is_public")
     .eq("id", boardId)
     .maybeSingle();
-  const row = data as { id: string; slug: string; owner_name: string } | null;
+  const row = data as { id: string; slug: string; owner_name: string; is_public: boolean } | null;
   return row && row.owner_name === curator ? row : null;
 }
 
@@ -211,6 +213,15 @@ export async function setClipOnBoard(
     .from("boards")
     .update({ updated_at: new Date().toISOString() })
     .eq("id", board.id);
+
+  // The clip's curator hears when it is liked (the Obsessions plate) or put
+  // on a PUBLIC plate. A private plate is nobody's business but its owner's.
+  const kind = board.slug === LIKES_SLUG ? "like" : board.is_public ? "plate" : null;
+  if (kind) {
+    const n = { kind, actor: curator, clipId, boardId: board.id } as const;
+    if (on) await notify(n);
+    else await unnotify(n);
+  }
 
   revalidatePath(`/clip/${clipId}`);
   revalidatePath(profilePath(curator));
