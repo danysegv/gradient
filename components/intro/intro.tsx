@@ -15,7 +15,7 @@ import { SignUpForm } from "@/components/auth/auth-forms";
 //                 jeffkoons.com).
 //   1. Opening  — a query types itself, and real clips that carry that tag
 //                 float through a field taller than the screen (after flim.ai).
-//   2. How it works — five short steps, each with its own small animated
+//   2. How it works — six short steps, each with its own small animated
 //                 scene instead of a static sketch (after are.na / Cosmos).
 //   3. Sign-up  — a real account, email + password (app/auth/actions.ts),
 //                 with a link to /signin for returning people. There is no
@@ -430,11 +430,17 @@ function HowItWorks({
     {
       n: "04",
       title: "Numbers that wait",
-      body: "A tag gets a figure only once there is enough behind it. Under 15 references, or younger than 45 days, it reads Early Signal. No number is made up to fill the space.",
+      body: "A tag gets a figure only once there is enough behind it. Under 15 references, or younger than 30 days, it reads Early Signal. No number is made up to fill the space.",
       scene: <SceneSignal />,
     },
     {
       n: "05",
+      title: "Ahead of the market",
+      body: "The same looks, read the same way, across what the design press is publishing. See what 04AM is onto before everyone else, and what it is missing.",
+      scene: <SceneMarket />,
+    },
+    {
+      n: "06",
       title: `Read your ${BOARD.one} back`,
       body: `Save references to ${BOARD.many}, then read a ${BOARD.one} against the library: what it leans on, and what it is missing.`,
       scene: <SceneBoard clips={clips} onBroken={onBroken} />,
@@ -646,9 +652,107 @@ function SceneSignal() {
           </span>
         </div>
         <p className="mt-5 border-t border-white/10 pt-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-bone/80">
-          {early ? "Early Signal" : "Enough to measure · once 45 days old"}
+          {early ? "Early Signal" : "Enough to measure · once 30 days old"}
         </p>
       </div>
+    </div>
+  );
+}
+
+// The market comparison (2026-10-01). Illustrative only, like SceneSignal:
+// three unnamed looks and no figures, so nothing here can be read as a
+// result. Each look is a dot (04AM) and a hollow square (the market) on
+// one scale; the squares pull away from the dots, the dashed gap opens,
+// and every few seconds the market moves again, as it does week to week.
+const MARKET_FRAMES = [
+  [{ lib: 64, mkt: 30 }, { lib: 34, mkt: 62 }, { lib: 50, mkt: 47 }],
+  [{ lib: 68, mkt: 36 }, { lib: 38, mkt: 66 }, { lib: 54, mkt: 44 }],
+  [{ lib: 62, mkt: 42 }, { lib: 31, mkt: 56 }, { lib: 48, mkt: 53 }],
+];
+
+function SceneMarket() {
+  const [ref, seen] = useInView<HTMLDivElement>(0.4);
+  const reduced = useReducedMotion();
+  const [frame, setFrame] = useState(-1);
+  useEffect(() => {
+    if (!seen) return;
+    const first = setTimeout(() => setFrame(0), 500);
+    if (reduced) return () => clearTimeout(first);
+    let f = 0;
+    const iv = setInterval(() => {
+      f = (f + 1) % MARKET_FRAMES.length;
+      setFrame(f);
+    }, 2600);
+    return () => {
+      clearTimeout(first);
+      clearInterval(iv);
+    };
+  }, [seen, reduced]);
+  const rows = MARKET_FRAMES[Math.max(0, frame)].map((r) =>
+    frame < 0 ? { lib: r.lib, mkt: r.lib } : r
+  );
+  const verdict = (lib: number, mkt: number) =>
+    frame < 0 ? "" : lib - mkt > 6 ? "Ahead" : mkt - lib > 6 ? "Missing" : "Even";
+
+  return (
+    <div ref={ref} className="absolute inset-0 flex flex-col p-6 md:p-10">
+      <div className={`${LABEL} flex flex-none items-center gap-5 text-bone/70`}>
+        <span className="flex items-center gap-2">
+          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-oxide" />
+          04AM
+        </span>
+        <span className="flex items-center gap-2">
+          <span aria-hidden className="inline-block h-2.5 w-2.5 border border-bone/80" />
+          The market
+        </span>
+      </div>
+
+      <div className="relative mt-6 flex min-h-0 flex-1 flex-col justify-around">
+        {/* the even line, as on the radar */}
+        <span aria-hidden className="absolute inset-y-0 left-[48%] border-l border-dashed border-bone/20" />
+        {rows.map((r, i) => {
+          const left = Math.min(r.lib, r.mkt);
+          const width = Math.abs(r.lib - r.mkt);
+          const v = verdict(r.lib, r.mkt);
+          return (
+            <div key={i} className="relative h-8">
+              <span aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-white/[0.07]" />
+              <span className="absolute -top-1 left-0 text-[10px] uppercase tracking-[0.12em] text-bone/45">
+                Look {String.fromCharCode(65 + i)}
+              </span>
+              {/* the gap */}
+              <span
+                aria-hidden
+                className="absolute top-1/2 h-0 border-t border-dashed border-bone/50 transition-all duration-[1400ms] ease-out"
+                style={{ left: `${left}%`, width: `${width}%` }}
+              />
+              {/* the market */}
+              <span
+                aria-hidden
+                className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 border border-bone/90 bg-ink-2 transition-all duration-[1400ms] ease-out"
+                style={{ left: `${r.mkt}%` }}
+              />
+              {/* 04AM */}
+              <span
+                aria-hidden
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-oxide ring-2 ring-ink-2 transition-all duration-[1400ms] ease-out"
+                style={{ left: `${r.lib}%` }}
+              />
+              <span
+                className={`${LABEL} absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-opacity duration-500 ${
+                  v === "Ahead" ? "text-oxide" : "text-bone/55"
+                } ${v ? "opacity-100" : "opacity-0"}`}
+              >
+                {v}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-5 flex-none border-t border-white/10 pt-3 text-[12px] text-bone/60">
+        Same looks · the design press · the last three months
+      </p>
     </div>
   );
 }
