@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
 import {
@@ -41,12 +40,6 @@ type RawTagRow = {
   is_published: boolean;
 };
 
-type BreakdownRow = {
-  curator: string;
-  base_count: number | string;
-  recent_count: number | string;
-  curator_total: number | string;
-};
 
 type ClipTagRow = {
   confidence: number | null;
@@ -179,7 +172,7 @@ export default async function TrendPage({
     (r) => r.clip_id
   );
 
-  const [clipsRes, tagMetaRes, breakdownRes] = await Promise.all([
+  const [clipsRes, tagMetaRes] = await Promise.all([
     clipIds.length
       ? supabasePublic
           .from("clips")
@@ -195,10 +188,6 @@ export default async function TrendPage({
       .select("description")
       .eq("id", tag.tag_id)
       .single(),
-    supabasePublic.rpc("tag_curator_breakdown", {
-      p_tag_id: tag.tag_id,
-      window_days: RECENT_WINDOW_DAYS,
-    }),
   ]);
 
   const clips = (clipsRes.data ?? []) as unknown as ClipRow[];
@@ -206,14 +195,6 @@ export default async function TrendPage({
     (tagMetaRes.data as unknown as { description: string | null } | null)
       ?.description ?? null;
 
-  const breakdown = ((breakdownRes.data ?? []) as unknown as BreakdownRow[])
-    .map((b) => ({
-      curator: b.curator,
-      base: Number(b.base_count),
-      recent: Number(b.recent_count),
-      total: Number(b.curator_total),
-    }))
-    .sort((a, b) => b.base - a.base);
 
   const gridClips: GridClip[] = clips.map((c) => ({
     id: c.id,
@@ -257,7 +238,6 @@ export default async function TrendPage({
     },
   ];
   const holding = gates.filter((g) => !g.passed);
-  const topCurator = breakdown[0]?.base ?? 1;
   const movementUp = confidence.velocity !== null && confidence.velocity > 0;
 
   return (
@@ -285,11 +265,6 @@ export default async function TrendPage({
             { k: "References", v: String(tag.clip_count), cls: "" },
             { k: `Last ${RECENT_WINDOW_DAYS} days`, v: String(tag.recent_count), cls: "" },
             { k: "Movement", v: confidenceNoteText(confidence), cls: movementUp ? "text-oxide" : "" },
-            {
-              k: "First seen",
-              v: tag.earliest_reference_at ? fmt(tag.earliest_reference_at) : "—",
-              cls: "",
-            },
           ].map(({ k, v, cls }) => (
             <div key={k}>
               <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">{k}</dt>
@@ -317,36 +292,6 @@ export default async function TrendPage({
           {holding.length > 0 && "The number shows once all three clear."}
         </p>
 
-        {breakdown.length > 0 && (
-          <section className="mb-12">
-            <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">Who clips it</p>
-            <ul className="flex max-w-xl flex-col gap-2.5">
-              {breakdown.map((b) => (
-                <li
-                  key={b.curator}
-                  title={`${Math.round((b.base / tag.clip_count) * 100)}% of this look · ${Math.round(
-                    (b.base / b.total) * 100
-                  )}% of everything they clip`}
-                  className="grid grid-cols-[120px_minmax(0,1fr)_36px] items-center gap-3"
-                >
-                  <Link
-                    href={`/curator/${encodeURIComponent(b.curator)}`}
-                    className="truncate text-[13px] text-bone hover:underline hover:underline-offset-4"
-                  >
-                    {b.curator}
-                  </Link>
-                  <span className="h-1.5 bg-white/[0.06]">
-                    <span
-                      className="block h-full bg-bone/70"
-                      style={{ width: `${Math.max(3, (b.base / topCurator) * 100)}%` }}
-                    />
-                  </span>
-                  <span className="text-right text-[12px] tabular-nums text-bone/60">{b.base}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
           References <span className="font-normal tabular-nums text-bone/45">{clips.length}</span>
