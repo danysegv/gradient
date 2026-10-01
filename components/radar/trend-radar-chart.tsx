@@ -265,7 +265,7 @@ export function TrendRadarChart({
                 </span>
               </>
             ) : (
-              <span className="text-bone/50">Hover or tab to a look to read it.</span>
+              <span className="text-bone/50">Hover a look.</span>
             )}
           </p>
 
@@ -441,15 +441,33 @@ export function TrendRadarChart({
               ))}
             </svg>
           </figure>
-          <p className="mt-3 max-w-xl text-[11.5px] leading-relaxed text-bone/65">
-            Across: each look&rsquo;s share of every published reference. The dashed line is the
-            even split, one share per look; right of it, a look holds more than its fair part of
-            the library. Up and down: how that share moved in the last 30 days, in points.
-            Oxide is taking share, Slate is giving it back.
-            {hasTrail && " The small ring is where each look sat a week ago, read the same way."}
-            {market &&
-              " The hollow square is the same look's share of the market over the last three months, on the same scale: the dashed line between them is the gap."}
-          </p>
+          {/* The key, as marks rather than sentences. */}
+          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-bone/65">
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-oxide" />
+              Gaining
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-slate" />
+              Losing
+            </li>
+            <li className="flex items-center gap-1.5" title="One share per look. Right of it, a look holds more than its fair part.">
+              <span aria-hidden className="inline-block h-3 border-l border-dashed border-bone/50" />
+              Even split
+            </li>
+            {hasTrail && (
+              <li className="flex items-center gap-1.5">
+                <span aria-hidden className="inline-block h-2 w-2 rounded-full border border-bone/60" />
+                A week ago
+              </li>
+            )}
+            {market && (
+              <li className="flex items-center gap-1.5" title="The same look's share of the design press, last three months.">
+                <span aria-hidden className="inline-block h-2 w-2 border border-bone/70" />
+                The market
+              </li>
+            )}
+          </ul>
         </div>
 
         <div className="min-w-0">
@@ -458,10 +476,12 @@ export function TrendRadarChart({
             if (rows.length === 0) return null;
             return (
               <section key={q} className="mb-6">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-bone/75">
+                <p
+                  title={RADAR_QUADRANT_NOTE[q]}
+                  className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-bone/75"
+                >
                   {RADAR_QUADRANT_LABEL[q]}
                 </p>
-                <p className="mb-1 text-[11.5px] text-bone/50">{RADAR_QUADRANT_NOTE[q]}</p>
                 <ul className="divide-y divide-white/[.07]">
                   {rows.map((p) => (
                     <li

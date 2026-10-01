@@ -52,6 +52,17 @@ const REASON_NOTE: Record<WaitingReason, string> = {
   Incubating: "New vocabulary: applied to clips, outside every published figure until it graduates.",
 };
 
+// The reason in a few words, beside its name; the full sentence is on hover.
+const REASON_SHORT: Record<WaitingReason, string> = {
+  "Opens with the board": "not yet published",
+  Withheld: "held back",
+  "Panel Skew": "curator mix shifted",
+  "Thin window": "too quiet this month",
+  Cooling: "nothing new in 30 days",
+  "Early Signal": "too few or too new",
+  Incubating: "new vocabulary",
+};
+
 // Local preview only: lets `next dev` show the radar as it will read after
 // the board publishes. Ignored in production builds, so it can never open
 // the radar early on the live site.
@@ -184,17 +195,11 @@ export default async function RadarPage() {
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
-            Trend Radar — the last 30 days
+            Trend Radar · 30 days
           </p>
-          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
-            Where every look sits, and which way it&rsquo;s moving
-          </h1>
-          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
-            Each point is a published look. Across is how much of the library it already is;
-            up and down is whether its share grew or shrank this month. A look only appears once
-            it has earned a number: enough references, old enough, and a panel steady enough
-            to say it.
-          </p>
+          {/* Less said, more shown (Daniela, 2026-10-01): the chart's axes,
+              legend and quadrant names carry the explanation. */}
+          <h1 className="mb-9 text-[34px] font-bold leading-tight tracking-tight">What&rsquo;s moving</h1>
         </div>
 
         {tagLoad.failed ? (
@@ -206,9 +211,8 @@ export default async function RadarPage() {
             <dl className="mb-10 flex flex-wrap gap-x-14 gap-y-6 border-y border-white/10 py-6">
               {[
                 { k: "On the radar", v: String(radar.points.length) },
-                { k: "Taking share", v: String(rising) },
-                { k: "Published looks", v: String(radar.publishedLooks) },
-                { k: "Even split", v: formatRadarShare(radar.evenShare) },
+                { k: "Gaining", v: String(rising) },
+                { k: "Looks", v: String(radar.publishedLooks) },
               ].map(({ k, v }) => (
                 <div key={k}>
                   <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">{k}</dt>
@@ -233,9 +237,7 @@ export default async function RadarPage() {
                   {radar.open ? "Nothing to place yet" : "Opens with the board"}
                 </p>
                 <p className="max-w-md text-[13px] leading-relaxed text-bone/70">
-                  {radar.open
-                    ? "No look has cleared every gate this month. Each one is listed below with the reason."
-                    : "Saturday 26 September, 11:00 ET. Until the board publishes, no look carries a number, so there is nothing honest to place."}
+                  {radar.open ? "No look has enough this month yet." : "Opens with the board."}
                 </p>
               </div>
             )}
@@ -248,26 +250,29 @@ export default async function RadarPage() {
             />
 
             {radar.waiting.length > 0 && (
-              <section className="mt-14 mb-16 border-t border-white/10 pt-7">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
+              // Folded away: what is NOT on the chart is a footnote, not the
+              // page. Every look is still named, with a short reason and the
+              // full one on hover.
+              <details className="group mt-14 mb-16 border-t border-white/10 pt-6">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/70 hover:text-bone [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden className="inline-block transition-transform group-open:rotate-90">›</span>
                   Not on the radar
-                </p>
-                <p className="mb-6 max-w-xl text-[13px] leading-relaxed text-bone/65">
-                  Left off for a stated reason, never quietly. Each still has its page and its
-                  reference count.
-                </p>
-                <div className="grid gap-x-10 gap-y-7 md:grid-cols-2">
+                  <span className="font-normal tabular-nums text-bone/45">{radar.waiting.length}</span>
+                </summary>
+                <div className="mt-6 grid gap-x-10 gap-y-6 md:grid-cols-2">
                   {[...byReason.entries()].map(([reason, rows]) => (
                     <div key={reason} className="min-w-0">
                       <p
-                        className={`text-[10.5px] font-semibold uppercase tracking-wide ${
+                        title={REASON_NOTE[reason]}
+                        className={`mb-2 text-[10.5px] font-semibold uppercase tracking-wide ${
                           reason === "Cooling" ? "text-slate" : "text-bone/80"
                         }`}
                       >
-                        {reason}{" "}
-                        <span className="font-normal tabular-nums text-bone/45">{rows.length}</span>
+                        {reason}
+                        <span className="ml-2 font-normal normal-case tracking-normal text-bone/45">
+                          {REASON_SHORT[reason]}
+                        </span>
                       </p>
-                      <p className="mb-2 text-[11.5px] leading-relaxed text-bone/50">{REASON_NOTE[reason]}</p>
                       <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
                         {rows.map((w) => (
                           <li key={w.id} className="text-[12px]">
@@ -285,7 +290,7 @@ export default async function RadarPage() {
                     </div>
                   ))}
                 </div>
-              </section>
+              </details>
             )}
           </>
         )}
@@ -405,14 +410,13 @@ function MarketSection({
         The market
       </p>
       <p className="mb-6 max-w-xl text-[13px] leading-relaxed text-bone/65">
-        The same looks, across what the design press published in the last three months,
-        read to the same size as the library.
+        Same looks, the design press, last three months.
       </p>
 
       {ahead.length + behind.length > 0 ? (
         <div className="mb-8 grid gap-x-10 gap-y-7 md:grid-cols-2">
-          <Gap nameOf={nameOf} rows={ahead} label="Ahead of the market" note="A bigger part of 04AM than of the press." />
-          <Gap nameOf={nameOf} rows={behind} label="The market has more" note="Out there more than it is in here." />
+          <Gap nameOf={nameOf} rows={ahead} label="Ahead of the market" note="Bigger here than in the press." />
+          <Gap nameOf={nameOf} rows={behind} label="The market has more" note="Bigger in the press than here." />
         </div>
       ) : (
         <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree, within two points on every look.</p>

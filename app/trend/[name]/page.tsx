@@ -233,182 +233,128 @@ export default async function TrendPage({
   const ageDays = tag.earliest_reference_at
     ? daysBetween(tag.earliest_reference_at, now)
     : 0;
-  const quietDays = tag.latest_reference_at
-    ? daysBetween(tag.latest_reference_at, now)
-    : 0;
   const gateLiftsAt = tag.earliest_reference_at
     ? new Date(new Date(tag.earliest_reference_at).getTime() + AGE_GATE_DAYS * DAY_MS)
     : null;
 
-  const gates: {
-    label: string;
-    reading: string;
-    requirement: string;
-    passed: boolean;
-  }[] = [
+  // Three checks, each a word or two; the rule behind each is on hover.
+  const gates: { label: string; hint: string; passed: boolean }[] = [
     {
-      label: "Reference count",
-      reading: `${tag.clip_count} references`,
-      requirement: `${EARLY_SIGNAL_MAX + 1} to show velocity · ${FULL_STAT_MIN} for a full stat`,
+      label: tag.clip_count > EARLY_SIGNAL_MAX ? `${tag.clip_count} references` : `${tag.clip_count} of ${EARLY_SIGNAL_MAX + 1} references`,
+      hint: `A number needs ${EARLY_SIGNAL_MAX + 1} references; ${FULL_STAT_MIN} for a full stat.`,
       passed: tag.clip_count > EARLY_SIGNAL_MAX,
     },
     {
-      label: "Reference age",
-      reading: tag.earliest_reference_at
-        ? `${Math.floor(ageDays)} days since first reference`
-        : "no references yet",
-      requirement:
-        ageDays >= AGE_GATE_DAYS || !gateLiftsAt
-          ? `${AGE_GATE_DAYS} days required`
-          : `${AGE_GATE_DAYS} days required — lifts ${fmt(gateLiftsAt)}`,
+      label:
+        ageDays >= AGE_GATE_DAYS || !gateLiftsAt ? "Old enough" : `Ready ${fmt(gateLiftsAt)}`,
+      hint: `First seen at least ${AGE_GATE_DAYS} days ago.`,
       passed: ageDays >= AGE_GATE_DAYS,
     },
     {
-      label: "Still live",
-      reading: tag.latest_reference_at
-        ? `last reference ${Math.floor(quietDays)} days ago`
-        : "never referenced",
-      requirement: `flagged Cooling after ${COOLING_DAYS} days quiet`,
+      label: !confidence.cooling && tag.latest_reference_at !== null ? "Active" : "Quiet",
+      hint: `Clipped in the last ${COOLING_DAYS} days.`,
       passed: !confidence.cooling && tag.latest_reference_at !== null,
     },
   ];
   const holding = gates.filter((g) => !g.passed);
+  const topCurator = breakdown[0]?.base ?? 1;
+  const movementUp = confidence.velocity !== null && confidence.velocity > 0;
 
   return (
     <>
       <SiteHeader />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
+      {/* Less text, still self-explaining (Daniela, 2026-10-01): figures,
+          three checks and a bar per curator; every rule is on hover. */}
+      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 sm:px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
-            {AXIS_LABEL[tag.group] ?? tag.group} — trend detail
+            {AXIS_LABEL[tag.group] ?? tag.group}
           </p>
-          <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
-            {tag.editorial_name}
-          </h1>
-          <p className="mb-9 max-w-xl text-[15px] leading-relaxed text-bone/75">
-            {tag.universal_term}
-            {description ? ` — ${description}` : ""}
-          </p>
+          <h1 className="text-[34px] font-bold leading-tight tracking-tight">{tag.editorial_name}</h1>
+          <p className="mt-1.5 text-[15px] text-bone/75">{tag.universal_term}</p>
+          {description && (
+            <p className="mt-3 mb-9 max-w-xl text-[13px] leading-relaxed text-bone/55">{description}</p>
+          )}
+          {!description && <div className="mb-9" />}
         </div>
 
-        <dl className="mb-12 flex flex-wrap gap-x-14 gap-y-6 border-y border-white/10 py-6">
+        <dl className="mb-8 flex flex-wrap gap-x-14 gap-y-6 border-y border-white/10 py-6">
           {[
-            { k: "References", v: String(tag.clip_count) },
-            { k: `Last ${RECENT_WINDOW_DAYS} days`, v: String(tag.recent_count) },
-            { k: "Velocity", v: confidenceNoteText(confidence) },
+            { k: "References", v: String(tag.clip_count), cls: "" },
+            { k: `Last ${RECENT_WINDOW_DAYS} days`, v: String(tag.recent_count), cls: "" },
+            { k: "Movement", v: confidenceNoteText(confidence), cls: movementUp ? "text-oxide" : "" },
             {
               k: "First seen",
               v: tag.earliest_reference_at ? fmt(tag.earliest_reference_at) : "—",
+              cls: "",
             },
-            {
-              k: "Last seen",
-              v: tag.latest_reference_at ? fmt(tag.latest_reference_at) : "—",
-            },
-          ].map(({ k, v }) => (
+          ].map(({ k, v, cls }) => (
             <div key={k}>
-              <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-                {k}
-              </dt>
-              <dd className="text-[26px] font-normal leading-none">{v}</dd>
+              <dt className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-bone/70">{k}</dt>
+              <dd className={`text-[26px] font-normal leading-none tabular-nums ${cls}`}>{v}</dd>
             </div>
           ))}
         </dl>
 
-        {/* The page's actual argument: not "no data", but exactly which
-            gate is holding and when it lifts. */}
-        <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          Why this number reads the way it does
-        </p>
-        <div className="mb-4 rounded-lg border border-white/10 bg-ink-2">
-          {gates.map((g, i) => (
-            <div
-              key={g.label}
-              className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-4 ${
-                i > 0 ? "border-t border-white/10" : ""
-              }`}
+        <ul className="mb-2 flex flex-wrap gap-2.5" aria-label="Before a number is shown">
+          {gates.map((g) => (
+            <li
+              key={g.hint}
+              title={g.hint}
+              className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-[12px] text-bone/85"
             >
               <span
                 aria-hidden
-                className={`inline-block h-2.5 w-2.5 flex-none translate-y-px ${
-                  g.passed ? "bg-bone/30" : "bg-oxide"
-                }`}
+                className={`inline-block h-2 w-2 flex-none ${g.passed ? "bg-bone/35" : "bg-oxide"}`}
               />
-              <span className="w-[128px] flex-none text-[13px] font-semibold uppercase tracking-wide text-bone">
-                {g.label}
-              </span>
-              <span className="text-[15px] text-bone">{g.reading}</span>
-              <span className="ml-auto text-[13px] text-bone/70">
-                {g.requirement}
-              </span>
-              <span className="w-[68px] flex-none text-right text-[11px] font-semibold uppercase tracking-wide text-bone/70">
-                {g.passed ? "Clear" : "Holding"}
-              </span>
-            </div>
+              {g.label}
+            </li>
           ))}
-        </div>
-        <p className="mb-12 max-w-xl text-xs leading-relaxed text-bone/70">
-          {holding.length === 0
-            ? `All gates clear — the velocity figure above is the trailing ${RECENT_WINDOW_DAYS}-day share of references for this tag, minus its share of the library overall, in percentage points.`
-            : `${holding.length === 1 ? "One gate is" : `${holding.length} gates are`} still holding, so no velocity number is shown. 04AM would rather show nothing than a figure computed from too little.`}
+        </ul>
+        <p className="mb-12 min-h-[1em] text-[11.5px] text-bone/50">
+          {holding.length > 0 && "The number shows once all three clear."}
         </p>
 
         {breakdown.length > 0 && (
-          <>
-            <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-              Who is driving it
-            </p>
-            <div className="mb-12 rounded-lg border border-white/10 bg-ink-2">
-              {breakdown.map((b, i) => {
-                const shareOfTag = Math.round((b.base / tag.clip_count) * 100);
-                const shareOfTheirs = Math.round((b.base / b.total) * 100);
-                return (
-                  <div
-                    key={b.curator}
-                    className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-4 ${
-                      i > 0 ? "border-t border-white/10" : ""
-                    }`}
+          <section className="mb-12">
+            <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">Who clips it</p>
+            <ul className="flex max-w-xl flex-col gap-2.5">
+              {breakdown.map((b) => (
+                <li
+                  key={b.curator}
+                  title={`${Math.round((b.base / tag.clip_count) * 100)}% of this look · ${Math.round(
+                    (b.base / b.total) * 100
+                  )}% of everything they clip`}
+                  className="grid grid-cols-[120px_minmax(0,1fr)_36px] items-center gap-3"
+                >
+                  <Link
+                    href={`/curator/${encodeURIComponent(b.curator)}`}
+                    className="truncate text-[13px] text-bone hover:underline hover:underline-offset-4"
                   >
-                    <Link
-                      href={`/curator/${encodeURIComponent(b.curator)}`}
-                      className="w-[128px] flex-none text-[15px] font-bold underline decoration-bone/30 underline-offset-4 hover:decoration-bone"
-                    >
-                      {b.curator}
-                    </Link>
-                    <span className="text-[15px] text-bone">
-                      {b.base} references
-                    </span>
-                    <span className="text-[13px] text-bone/70">
-                      {shareOfTag}% of this tag
-                    </span>
-                    <span className="ml-auto text-[13px] text-bone/70">
-                      {shareOfTheirs}% of everything they clip
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
+                    {b.curator}
+                  </Link>
+                  <span className="h-1.5 bg-white/[0.06]">
+                    <span
+                      className="block h-full bg-bone/70"
+                      style={{ width: `${Math.max(3, (b.base / topCurator) * 100)}%` }}
+                    />
+                  </span>
+                  <span className="text-right text-[12px] tabular-nums text-bone/60">{b.base}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          References ({clips.length})
+          References <span className="font-normal tabular-nums text-bone/45">{clips.length}</span>
         </p>
       </div>
 
       <HomeGrid clips={gridClips} />
-
-      <div className="mx-auto w-full min-w-0 max-w-[1180px] px-8">
-        <footer className="border-t border-white/10 py-10">
-          <p className="max-w-xl text-xs leading-relaxed text-bone/70">
-            Every reference here was clipped by hand and classified against a
-            locked taxonomy. The gates above are deliberately conservative —
-            a tag reads Early Signal until its reference set is both deep
-            enough and old enough to mean anything.
-          </p>
-        </footer>
-      </div>
+      <div className="h-24" />
     </>
   );
 }
