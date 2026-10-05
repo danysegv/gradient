@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normaliseDescription } from "@/lib/search/describe-normalise";
 import { normaliseColors, type ClipColor } from "@/lib/color/normalise";
 import { withPrimary } from "@/lib/color/primary";
+import { altFromSummary } from "@/lib/clips/alt-text";
 
 // Search descriptors for one clip: a literal description of what is in the
 // image, plus the words a designer would type to find it. Written once per
@@ -19,6 +20,9 @@ import { withPrimary } from "@/lib/color/primary";
 //
 // Search-only (decided 2026-09-11): nothing in the app reads the text back.
 // lib/search/search.test.ts fails if anything but this file names the table.
+// One exception (Daniela, 2026-10-05): the summary's FIRST SENTENCE is
+// copied to clips.alt_text, here, at write time, so images can be read by
+// screen readers. The rest of the summary and the keywords stay private.
 
 // Cheapest current Haiku model, verified against Anthropic's model list 2026-09-11.
 // Descriptions are search-only text output (no vision reasoning depth needed).
@@ -232,6 +236,13 @@ export async function describeAndStoreClip(clip: {
     { onConflict: "clip_id" }
   );
   if (error) throw new Error(`Could not store description: ${error.message}`);
+  // Alt text for the image (lib/clips/alt-text.ts). A failure here is
+  // logged, never thrown: a missing alt falls back to the title.
+  const alt = altFromSummary(description.summary);
+  if (alt) {
+    const { error: altError } = await supabaseAdmin.from("clips").update({ alt_text: alt }).eq("id", clip.id);
+    if (altError) console.warn(`[04am] alt text not stored for ${clip.id}: ${altError.message}`);
+  }
   // Colours come from the same call, so a new clip is described and
   // coloured for the price of one request.
   await storeColors(clip.id, description.colors);

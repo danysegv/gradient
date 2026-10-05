@@ -13,6 +13,7 @@ const INTRO_CLIP_LIMIT = 90;
 type Row = {
   id: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   clipped_at: string;
@@ -31,7 +32,7 @@ export async function IntroScreen({
     supabasePublic
       .from("clips")
       .select(
-        `id, image_url, title, source, clipped_at,
+        `id, image_url, alt_text, title, source, clipped_at,
          clip_tags!inner ( confidence, tags ( editorial_name, group ) )`
       )
       .is("archived_at", null)
@@ -53,6 +54,7 @@ export async function IntroScreen({
     .map((r) => ({
       id: r.id,
       image_url: r.image_url!,
+      alt_text: r.alt_text,
       title: r.title,
       source: r.source,
       tags: (r.clip_tags ?? [])

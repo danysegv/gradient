@@ -199,8 +199,10 @@ export default function PrivacyPage() {
             read it in its robots.txt is left alone.
           </p>
           <p>
-            Those descriptions are used for search inside 04AM. They are not
-            published, and they are not used to train anything.
+            Those descriptions are used for search inside 04AM. The first
+            sentence of each is also published as the image&rsquo;s alt text,
+            so that screen readers can say what is pictured; the rest is never
+            shown. None of it is used to train anything.
           </p>
         </Section>
 

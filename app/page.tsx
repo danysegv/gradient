@@ -61,6 +61,7 @@ type ClipRow = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   clipped_at: string;
@@ -149,7 +150,7 @@ export default async function Home({
     supabasePublic
       .from("clips")
       .select(
-        `id, url, image_url, title, source, clipped_at,
+        `id, url, image_url, alt_text, title, source, clipped_at,
          clip_tags ( tag_id, confidence, tags ( editorial_name, group ) )`
       )
       .is("archived_at", null)
@@ -302,6 +303,7 @@ export default async function Home({
         id: c.id,
         url: c.url,
         image_url: c.image_url,
+        alt_text: c.alt_text,
         title: c.title,
         source: c.source,
         tags: (c.clip_tags ?? [])

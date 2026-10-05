@@ -39,6 +39,7 @@ type PoolClip = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   creator: string | null;
@@ -67,7 +68,7 @@ export default async function CuratorsPage() {
       ? supabasePublic
           .from("clips")
           .select(
-            `id, url, image_url, title, source, creator, rights_holder, clipped_by_name,
+            `id, url, image_url, alt_text, title, source, creator, rights_holder, clipped_by_name,
              clip_tags ( confidence, tags ( editorial_name ) )`
           )
           .in("clipped_by_name", names)
@@ -82,7 +83,7 @@ export default async function CuratorsPage() {
       ? supabasePublic
           .from("clips")
           .select(
-            `id, url, image_url, title, source, creator, rights_holder, clipped_by_name,
+            `id, url, image_url, alt_text, title, source, creator, rights_holder, clipped_by_name,
              clip_tags ( confidence, tags ( editorial_name ) )`
           )
           .in("clipped_by_name", followedNames)
@@ -116,6 +117,7 @@ export default async function CuratorsPage() {
     id: c.id,
     url: c.url,
     image_url: c.image_url,
+    alt_text: c.alt_text,
     title: c.title,
     source: c.creator ?? c.rights_holder ?? c.source,
     by: c.clipped_by_name,

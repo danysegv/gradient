@@ -9,11 +9,15 @@ import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 // missing entirely or just fails to load.
 export function ClipThumbnail({
   imageUrl,
+  alt,
   title,
   source,
   variant = "grid",
 }: {
   imageUrl: string | null;
+  /** What a screen reader says: lib/clips/alt-text.ts clipAlt(). Required —
+   * the image is the content, never decoration. */
+  alt: string;
   title: string | null;
   source: string | null;
   /** "grid" keeps the masonry behaviour below exactly as it was. "detail"
@@ -67,7 +71,7 @@ export function ClipThumbnail({
     <img
       ref={imgRef}
       src={imageUrl}
-      alt=""
+      alt={alt}
       loading="lazy"
       referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
       onError={() => setBroken(true)}

@@ -35,6 +35,7 @@ export type BoardClip = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   added_at: string;
@@ -142,6 +143,7 @@ type RawBoardClip = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   creator: string | null;
@@ -177,7 +179,7 @@ export async function getBoard(
     .select(
       `id, owner_name, slug, title, description, is_public, updated_at,
        cover_clip_ids,
-       board_clips ( added_at, position, clips ( id, url, image_url, title, source,
+       board_clips ( added_at, position, clips ( id, url, image_url, alt_text, title, source,
          creator, rights_holder, archived_at,
          clip_tags ( confidence, tags ( editorial_name, group, published_at ) ) ) )`
     )
@@ -199,6 +201,7 @@ export async function getBoard(
         id: c.id,
         url: c.url,
         image_url: c.image_url,
+        alt_text: c.alt_text,
         title: c.title,
         source: credit(c),
         added_at: bc.added_at,

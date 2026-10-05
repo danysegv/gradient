@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabasePublic } from "@/lib/supabase/public";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
+import { clipAlt } from "@/lib/clips/alt-text";
 import { TagName } from "@/components/tag-name";
 import { SaveToBoards } from "@/components/boards/save-to-boards";
 import { AXES } from "@/lib/axes";
@@ -62,6 +63,7 @@ type ClipRow = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   caption: string | null;
@@ -77,11 +79,12 @@ type ClipRow = {
 type RelatedRow = {
   id: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
 };
 
-const CLIP_FIELDS = `id, url, image_url, title, source, caption, clipped_at,
+const CLIP_FIELDS = `id, url, image_url, alt_text, title, source, caption, clipped_at,
    clipped_by_name, creator, rights_holder, found_via, source_year,
    clip_tags ( tag_id, confidence, tags ( editorial_name, universal_term, description, group ) )`;
 
@@ -200,7 +203,7 @@ export default async function ClipDetailPage({
     if (ranked.length > 0) {
       const { data: rc } = await supabasePublic
         .from("clips")
-        .select("id, image_url, title, source")
+        .select("id, image_url, alt_text, title, source")
         .in("id", ranked)
         .is("archived_at", null);
       const rank = new Map(ranked.map((cid, i) => [cid, i]));
@@ -234,6 +237,7 @@ export default async function ClipDetailPage({
           <div className="flex justify-center">
             <ClipThumbnail
               imageUrl={clip.image_url}
+              alt={clipAlt(clip)}
               title={clip.title}
               source={clip.source}
               variant="detail"
@@ -451,6 +455,7 @@ export default async function ClipDetailPage({
                 >
                   <ClipThumbnail
                     imageUrl={r.image_url}
+                    alt={clipAlt(r)}
                     title={r.title}
                     source={r.source}
                   />

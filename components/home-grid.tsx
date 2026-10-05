@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ClipThumbnail } from "./clip-thumbnail";
+import { clipAlt } from "@/lib/clips/alt-text";
 import { useColumnCount } from "@/lib/use-column-count";
 import { PUBLIC_TAG_CONFIDENCE as CHIP_CONFIDENCE_THRESHOLD } from "@/lib/tag-confidence";
 
@@ -14,6 +15,7 @@ export type GridClip = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   /** Who clipped it, shown on hover where the page is about curators. */
@@ -45,6 +47,7 @@ function ClipTile({ clip, dealt }: { clip: GridClip; dealt: boolean }) {
       <div className="transition-transform duration-300 ease-out group-hover:scale-[1.02]">
         <ClipThumbnail
           imageUrl={clip.image_url}
+          alt={clipAlt(clip)}
           title={clip.title}
           source={clip.source}
         />

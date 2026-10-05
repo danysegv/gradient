@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ClipThumbnail } from "./clip-thumbnail";
+import { clipAlt } from "@/lib/clips/alt-text";
 import { archiveClip, deleteClipPermanently, unarchiveClip } from "@/app/clip/archive-actions";
 import { AXES } from "@/lib/axes";
 import { PUBLIC_TAG_CONFIDENCE } from "@/lib/tag-confidence";
@@ -19,6 +20,7 @@ export type ClipperClip = {
   id: string;
   url: string;
   image_url: string | null;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   clipped_at: string;
@@ -68,6 +70,7 @@ function ClipCard({
       <Link href={`/clip/${clip.id}`} className="block">
         <ClipThumbnail
           imageUrl={clip.image_url}
+          alt={clipAlt(clip)}
           title={clip.title}
           source={clip.source}
         />

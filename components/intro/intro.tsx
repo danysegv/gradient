@@ -8,6 +8,7 @@ import { COLOR_BUCKETS } from "@/lib/color/buckets";
 import { spaceTagName } from "@/lib/intro";
 import Link from "next/link";
 import { SignUpForm } from "@/components/auth/auth-forms";
+import { clipAlt } from "@/lib/clips/alt-text";
 
 // The first-visit intro. Three movements on one scrolling page:
 //   0. The held mark — 04AM full bleed, held at the bottom of the screen
@@ -29,6 +30,7 @@ import { SignUpForm } from "@/components/auth/auth-forms";
 export type IntroClip = {
   id: string;
   image_url: string;
+  alt_text: string | null;
   title: string | null;
   source: string | null;
   tags: { name: string; axis: string }[];
@@ -123,7 +125,7 @@ function ClipImage({
     <img
       ref={ref}
       src={clip.image_url}
-      alt={clip.title ?? ""}
+      alt={clipAlt(clip)}
       referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
       onLoad={() => setLoaded(true)}
       onError={() => onBroken?.(clip.id)}

@@ -77,6 +77,7 @@ export default async function BoardPage({
     id: c.id,
     url: c.url,
     image_url: c.image_url,
+    alt_text: c.alt_text,
     title: c.title,
     source: c.source,
     tags: c.tags.map((t) => ({

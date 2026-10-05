@@ -4,6 +4,7 @@ import { useState } from "react";
 import { moveClipOnBoard, setBoardCover } from "@/app/boards/actions";
 import { HomeGrid, type GridClip } from "@/components/home-grid";
 import { ClipThumbnail } from "@/components/clip-thumbnail";
+import { clipAlt } from "@/lib/clips/alt-text";
 import { COVER_COUNT } from "@/lib/boards/cover";
 
 // A board's clips, with two owner-only modes.
@@ -196,6 +197,7 @@ export function BoardClipGrid({
                   >
                     <ClipThumbnail
                       imageUrl={clip.image_url}
+                      alt={clipAlt(clip)}
                       title={clip.title}
                       source={clip.source}
                     />
@@ -237,6 +239,7 @@ export function BoardClipGrid({
                 >
                   <ClipThumbnail
                     imageUrl={clip.image_url}
+                    alt={clipAlt(clip)}
                     title={clip.title}
                     source={clip.source}
                   />
