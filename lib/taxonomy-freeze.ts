@@ -28,6 +28,11 @@
  *   * curator_composition, tag_cooccurrence, tag_curator_breakdown,
  *     library_clip_stats and curator_clip_stats stay published-only.
  *     They produce figures and nothing else.
+ *   * The Visual Genome reads tag_cooccurrence_all (2026-10-01), which
+ *     includes incubating tags. Its cells are shares of one tag's OWN
+ *     references, not of the library-wide denominator, so they are not
+ *     radar figures. Incubating cells are drawn in Slate and never feed
+ *     the one-way pulls (lib/genome.ts).
  *   * The backfill writes ONLY incubating tags and never deletes, so no
  *     published clip_tags row is created, changed or removed.
  *

@@ -1,179 +1,289 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AXES, AXIS_LABEL } from "@/lib/axes";
+import { matrixOrder, oneWayCells, type GenomeLook, type GenomePair } from "@/lib/genome";
 
-export type GenomeTag = {
-  tagId: string;
-  name: string;
-  group: string;
-  total: number;
-  /** True when this row has too few references for its shares to mean anything. */
-  earlySignal: boolean;
-};
+// The genome matrix, kept — it is the page's personality — and organised
+// (Daniela, 2026-10-01):
+//
+//   * Grouped by axis. Rows and columns run axis by axis, densest first
+//     inside each, with a gap between axes, so the grid reads as blocks
+//     instead of one long alphabet.
+//   * Sized to its container. The cell is (width − label column) ÷ looks,
+//     so it fills a laptop and still fits a phone without a sideways scroll.
+//     Below a legible size the column names give way to axis codes and the
+//     readout carries the names.
+//   * Focus by axis. With a big vocabulary, pick an axis and only its rows
+//     show, against every column — the grid stays short at any size.
+//   * One readout, above the grid, instead of a floating tooltip: tap or
+//     hover a cell, its row and column light up, the sentence says what it
+//     means. Works the same with a finger.
+//   * An Oxide notch marks a one-way pull — a cell at 50%+ whose mirror is
+//     at least 25 points lower. That asymmetry is the genome's finding, so
+//     it gets the accent colour.
+//   * The whole vocabulary, incubating looks too. They sit at the tail of
+//     their axis and everything touching them is drawn in Slate, so the
+//     published genome reads first and the new vocabulary reads as new.
+//   * When the vocabulary outgrows the screen the cell stops shrinking at a
+//     tappable size and the grid scrolls sideways under pinned names,
+//     rather than turning into dust.
 
-export type GenomeCell = { from: string; to: string; both: number };
-
-const AXIS_SHORT: Record<string, string> = {
+const SHORT: Record<string, string> = {
   movement: "MOV",
   typography: "TYP",
   palette_light: "PAL",
   layout: "LAY",
-  format_motion: "FMT",
   treatment: "TRT",
+  medium: "MED",
+  subject: "SUB",
+  format_motion: "FMT",
 };
 
-// Sequential scale: one hue, light to dark. Bone at increasing opacity on
-// Ink — magnitude, so it must NOT borrow Oxide or Slate, which the
-// identity reserves for accelerating and cooling. Floor is high enough
-// that a real relationship never reads as an empty cell.
-function fill(share: number): string {
-  if (share <= 0) return "transparent";
-  return `rgba(231,227,216,${(0.06 + share * 0.72).toFixed(3)})`;
-}
+// Sequential: Bone on Ink, one hue, light = more. Floor high enough that a
+// real relationship never reads as an empty cell.
+// Incubating: the same ramp in Slate (#5C6B87), quieter by design.
+const fill = (share: number, incubating = false) =>
+  share <= 0
+    ? "rgba(231,227,216,0.025)"
+    : incubating
+      ? `rgba(92,107,135,${(0.14 + share * 0.86).toFixed(3)})`
+      : `rgba(231,227,216,${(0.08 + share * 0.82).toFixed(3)})`;
 
-export function GenomeMatrix({
-  tags,
-  cells,
-}: {
-  tags: GenomeTag[];
-  cells: GenomeCell[];
-}) {
-  const [hover, setHover] = useState<{
-    from: GenomeTag;
-    to: GenomeTag;
-    both: number;
-    share: number;
-    x: number;
-    y: number;
-  } | null>(null);
+const GAP = 4; // between axes
+const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-  const byPair = new Map(cells.map((c) => [`${c.from}|${c.to}`, c.both]));
+export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: GenomePair[] }) {
+  const [axis, setAxis] = useState<string | null>(null);
+  const [focus, setFocus] = useState<{ r: string; c: string } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(900);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const byId = useMemo(() => new Map(looks.map((l) => [l.id, l])), [looks]);
+  const both = useMemo(() => new Map(pairs.map((p) => [`${p.from}|${p.to}`, p.both])), [pairs]);
+  const share = (r: GenomeLook, c: GenomeLook) =>
+    r.id === c.id || r.total === 0 ? 0 : (both.get(`${r.id}|${c.id}`) ?? 0) / r.total;
+  const notches = useMemo(() => oneWayCells(byId, pairs), [byId, pairs]);
+
+  const cols = useMemo(() => matrixOrder(looks), [looks]);
+  const rows = axis ? cols.filter((l) => l.group === axis) : cols;
+  const groups = [...new Set(cols.map((l) => l.group))];
+  const axesPresent = AXES.filter((a) => groups.includes(a.key));
+
+  // Geometry from the container, not a fixed cell.
+  const narrow = width < 640;
+  const labelW = narrow ? 92 : 176;
+  const gaps = (groups.length - 1) * GAP;
+  const fit = Math.floor((width - labelW - gaps) / Math.max(1, cols.length));
+  // Never smaller than a fingertip can aim at; past that, scroll.
+  const cell = Math.max(narrow ? 14 : 12, Math.min(34, fit));
+  const scrolls = labelW + cols.length * cell + gaps > width + 1;
+  const steep = cell < 20; // names stand upright when columns are tight
+  const nameFont = cell < 16 ? 9.5 : 10.5;
+  const longest = Math.max(0, ...cols.map((c) => c.name.length));
+  const headerH = Math.min(150, Math.ceil(longest * nameFont * (steep ? 0.58 : 0.5))) + 10;
+  const xOf = new Map<string, number>();
+  {
+    let x = 0;
+    let last = "";
+    for (const c of cols) {
+      if (last && c.group !== last) x += GAP;
+      xOf.set(c.id, x);
+      x += cell;
+      last = c.group;
+    }
+  }
+  const gridW = cols.length * cell + gaps;
+
+  const fr = focus ? byId.get(focus.r) : null;
+  const fc = focus ? byId.get(focus.c) : null;
 
   return (
-    <div className="relative">
-      <div className="overflow-x-auto rounded-lg border border-white/10 bg-ink-2">
-        <table className="border-collapse" style={{ fontVariantNumeric: "tabular-nums" }}>
-          <caption className="sr-only">
-            Directed tag co-occurrence. Each row is a tag; each cell shows the
-            share of that tag&rsquo;s references that also carry the column tag.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col" className="sticky left-0 z-20 bg-ink-2 p-0" />
-              {tags.map((t) => (
-                <th
-                  key={t.tagId}
-                  scope="col"
-                  className="h-[132px] w-[34px] p-0 align-bottom"
-                >
-                  <div
-                    className="mx-auto pb-2 text-[11px] font-normal tracking-wide text-bone/70"
-                    style={{ writingMode: "vertical-rl", rotate: "180deg" }}
-                  >
-                    {t.name}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tags.map((from) => (
-              <tr key={from.tagId}>
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 whitespace-nowrap bg-ink-2 py-0 pl-4 pr-3 text-left"
-                >
-                  <span className="flex items-baseline gap-2">
-                    <span
-                      className={`text-[13px] font-semibold ${
-                        from.earlySignal ? "text-bone/45" : "text-bone"
-                      }`}
-                    >
-                      {from.name}
-                    </span>
-                    <span className="text-[10px] tracking-wide text-bone/40">
-                      {AXIS_SHORT[from.group] ?? from.group}
-                    </span>
-                    <span className="text-[11px] text-bone/50">{from.total}</span>
-                  </span>
-                </th>
-                {tags.map((to) => {
-                  const self = from.tagId === to.tagId;
-                  const both = byPair.get(`${from.tagId}|${to.tagId}`) ?? 0;
-                  const share = self || from.total === 0 ? 0 : both / from.total;
-                  return (
-                    <td
-                      key={to.tagId}
-                      className="h-[30px] w-[34px] border border-ink/60 p-0"
-                      style={{ background: self ? "rgba(231,227,216,0.03)" : fill(share) }}
-                      onMouseEnter={(e) =>
-                        !self &&
-                        both > 0 &&
-                        setHover({
-                          from,
-                          to,
-                          both,
-                          share,
-                          x: e.clientX,
-                          y: e.clientY,
-                        })
-                      }
-                      onMouseLeave={() => setHover(null)}
-                    >
-                      <span className="sr-only">
-                        {self
-                          ? `${from.name}, self`
-                          : `${Math.round(share * 100)} percent of ${from.name} references also carry ${to.name} (${both} of ${from.total})`}
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div>
+      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Rows by axis">
+        {[{ key: null as string | null, label: "All looks" }, ...axesPresent].map((a) => {
+          const on = axis === a.key;
+          return (
+            <button
+              key={a.key ?? "all"}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setAxis(a.key)}
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                on ? "border-bone bg-bone text-ink" : "border-white/15 text-bone/70 hover:border-white/35 hover:text-bone"
+              }`}
+            >
+              {a.label}
+            </button>
+          );
+        })}
       </div>
 
-      {hover && (
-        <div
-          role="status"
-          className="pointer-events-none fixed z-50 max-w-xs rounded border border-white/25 bg-ink-2 px-3.5 py-2.5 text-[13px] leading-snug shadow-[0_8px_26px_rgba(0,0,0,.6)]"
-          style={{
-            left: Math.min(hover.x + 14, 1100),
-            top: Math.max(hover.y - 70, 12),
-          }}
-        >
-          <span className="font-semibold text-bone">
-            {Math.round(hover.share * 100)}% of {hover.from.name}
-          </span>
-          <span className="block text-bone/70">
-            also carries {hover.to.name} — {hover.both} of {hover.from.total}
-          </span>
-          {hover.from.earlySignal && (
-            <span className="mt-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-bone/70">
-              <span aria-hidden className="inline-block h-2 w-2 flex-none bg-oxide" />
-              Early Signal — too few references to trust
+      {/* The readout. Always one line tall, so the grid never jumps. */}
+      <p className="mb-3 min-h-[40px] text-[13px] leading-snug text-bone/70 sm:min-h-[22px]" aria-live="polite">
+        {fr && fc ? (
+          <>
+            <span className="tabular-nums text-bone">{pct(share(fr, fc))}</span> of{" "}
+            <Link href={`/trend/${encodeURIComponent(fr.name)}`} className="font-semibold text-bone hover:underline">
+              {fr.name}
+            </Link>{" "}
+            also carries{" "}
+            <Link href={`/trend/${encodeURIComponent(fc.name)}`} className="font-semibold text-bone hover:underline">
+              {fc.name}
+            </Link>
+            <span className="text-bone/50">
+              {" "}
+              · {pct(share(fc, fr))} the other way · {both.get(`${fr.id}|${fc.id}`) ?? 0} of {fr.total}
+              {fr.early ? " · Early Signal" : ""}
             </span>
-          )}
-        </div>
-      )}
+            {(fr.incubating || fc.incubating) && <span className="text-slate"> · Incubating</span>}
+          </>
+        ) : (
+          <span className="text-bone/45">
+            Read across a row. {narrow ? "Tap a square" : "Hover or tap a square"}
+            {scrolls ? " · swipe for more." : "."}
+          </span>
+        )}
+      </p>
 
-      {/* Legend. A sequential scale needs its ends named, not a swatch per step. */}
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-bone/70">
-        <span>Share of the row tag that also carries the column tag</span>
-        <span className="flex items-center gap-1.5">
+      <div ref={box} className={`w-full ${scrolls ? "overflow-x-auto overscroll-x-contain pb-2" : ""}`}>
+        <div className="relative" style={{ width: labelW + gridW }} onMouseLeave={() => setFocus(null)}>
+          {/* Column header: names when they fit, axis codes always. */}
+          <div className="relative" style={{ height: headerH + 16, marginLeft: labelW }}>
+            {groups.map((g) => {
+              const inG = cols.filter((c) => c.group === g);
+              const x0 = xOf.get(inG[0].id)!;
+              return (
+                <span
+                  key={g}
+                  title={AXIS_LABEL[g] ?? g}
+                  className="absolute top-0 truncate border-t border-bone/30 pt-1 text-[9.5px] font-semibold tracking-[0.12em] text-bone/55"
+                  style={{ left: x0, width: inG.length * cell }}
+                >
+                  {SHORT[g] ?? g}
+                </span>
+              );
+            })}
+            {cols.map((c) => (
+              <span
+                key={c.id}
+                className={`absolute bottom-1 origin-bottom-left whitespace-nowrap leading-none transition-colors ${
+                  focus?.c === c.id
+                    ? "text-bone"
+                    : c.incubating
+                      ? c.early ? "text-slate/70" : "text-slate"
+                      : c.early ? "text-bone/35" : "text-bone/60"
+                }`}
+                style={{
+                  fontSize: nameFont,
+                  left: xOf.get(c.id)! + cell / 2 + (steep ? nameFont / 2 : 4),
+                  transform: steep ? "rotate(-90deg)" : "rotate(-60deg)",
+                }}
+              >
+                {c.name}
+              </span>
+            ))}
+          </div>
+
+          {rows.map((r, ri) => {
+            const newGroup = ri > 0 && rows[ri - 1].group !== r.group;
+            return (
+              <div key={r.id} className="flex items-center" style={{ height: cell, marginTop: newGroup ? GAP : 0 }}>
+                <span
+                  className={`sticky left-0 z-10 flex h-full shrink-0 items-center gap-1.5 overflow-hidden bg-ink pr-2 ${
+                    focus?.r === r.id
+                      ? "text-bone"
+                      : r.incubating
+                        ? r.early ? "text-slate/70" : "text-slate"
+                        : r.early ? "text-bone/35" : "text-bone/80"
+                  }`}
+                  style={{ width: labelW }}
+                  title={`${AXIS_LABEL[r.group] ?? r.group} · ${r.total} references${r.incubating ? " · Incubating" : ""}`}
+                >
+                  <span className={`truncate ${narrow ? "text-[10.5px]" : "text-[12px] font-semibold"}`}>{r.name}</span>
+                  {!narrow && <span className="text-[10px] tabular-nums text-bone/35">{r.total}</span>}
+                </span>
+                <div className="relative" style={{ width: gridW, height: cell }}>
+                  {cols.map((c) => {
+                    const self = r.id === c.id;
+                    const s = share(r, c);
+                    const lit = focus && (focus.r === r.id || focus.c === c.id);
+                    const on = focus?.r === r.id && focus?.c === c.id;
+                    const notch = notches.has(`${r.id}|${c.id}`);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        disabled={self}
+                        onMouseEnter={() => !self && setFocus({ r: r.id, c: c.id })}
+                        onFocus={() => !self && setFocus({ r: r.id, c: c.id })}
+                        onClick={() => !self && setFocus({ r: r.id, c: c.id })}
+                        aria-label={self ? `${r.name}` : `${pct(s)} of ${r.name} also carries ${c.name}`}
+                        className="absolute top-0 p-0 outline-none"
+                        style={{ left: xOf.get(c.id)!, width: cell, height: cell }}
+                      >
+                        <span
+                          className="absolute inset-[1px] block transition-opacity"
+                          style={{
+                            background: self ? "transparent" : fill(s, !!(r.incubating || c.incubating)),
+                            opacity: focus && !lit ? 0.45 : 1,
+                            outline: on ? "1.5px solid #E7E3D8" : undefined,
+                            outlineOffset: on ? "1px" : undefined,
+                            borderRadius: 1,
+                          }}
+                        />
+                        {self && (
+                          <span aria-hidden className="absolute inset-[30%] block rotate-45 border border-bone/15" />
+                        )}
+                        {notch && (
+                          <span
+                            aria-hidden
+                            className="absolute right-[1px] top-[1px] block bg-oxide"
+                            style={{ width: Math.max(3, cell * 0.28), height: Math.max(3, cell * 0.28) }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Key: marks, not sentences. */}
+      <ul className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-bone/60">
+        <li className="flex items-center gap-1.5">
           <span>0%</span>
-          {[0, 0.25, 0.5, 0.75, 1].map((s) => (
-            <span
-              key={s}
-              aria-hidden
-              className="inline-block h-3 w-6 border border-ink/60"
-              style={{ background: fill(s) }}
-            />
+          {[0.05, 0.25, 0.5, 0.75, 1].map((s) => (
+            <span key={s} aria-hidden className="inline-block h-3 w-5" style={{ background: fill(s) }} />
           ))}
           <span>100%</span>
-        </span>
-      </div>
+        </li>
+        <li className="flex items-center gap-1.5" title="At least half of the row look carries the column look, and at least 25 points less the other way.">
+          <span aria-hidden className="inline-block h-2 w-2 bg-oxide" />
+          One-way pull
+        </li>
+        <li className="flex items-center gap-1.5" title="New vocabulary: applied to clips, not yet in the published figures.">
+          {[0.25, 0.6, 1].map((s) => (
+            <span key={s} aria-hidden className="inline-block h-3 w-3" style={{ background: fill(s, true) }} />
+          ))}
+          Incubating
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2 w-2 rounded-[1px] bg-bone/30" />
+          Dimmed name: Early Signal
+        </li>
+      </ul>
     </div>
   );
 }
