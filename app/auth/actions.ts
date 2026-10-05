@@ -76,15 +76,26 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   });
   if (error) return { error: friendly(error) };
 
-  // Supabase answers an already-registered address with a user that has no
-  // identities, deliberately, so the form can't be used to probe who has
-  // an account. Say the same thing either way.
   if (data.session) {
     await markEntered();
     redirect("/");
   }
+  // Supabase answers an already-registered address with a user that has no
+  // identities and sends NOTHING (so the form can't probe who has an
+  // account). That left people waiting for an email that never came
+  // (2026-10-05). Now that case gets a sign-in/reset link instead, so every
+  // sign-up sends an email, and the answer below stays the same either way.
+  // lib/auth/repeat-signup.test.ts keeps this in place.
+  if (data.user && (data.user.identities?.length ?? 0) === 0) {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
+      redirectTo: `${await origin()}/auth/callback?next=/reset-password`,
+    });
+    if (resetError && (resetError.status === 429 || /rate/i.test(resetError.message))) {
+      return { error: friendly(resetError) };
+    }
+  }
   return {
-    notice: `Check ${email.value} — open the link to confirm your account.`,
+    notice: `Check ${email.value} — we've sent you a link. If you already had an account, it lets you sign in and set a new password.`,
   };
 }
 
