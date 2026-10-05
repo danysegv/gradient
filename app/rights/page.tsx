@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/site-header";
+import { RIGHTS_CONTACT } from "@/lib/legal";
 
 // DRAFT — approved by neither Daniela nor a lawyer as of 2026-09-12. Not
 // linked from anywhere yet, on purpose. See
@@ -11,7 +12,9 @@ import { SiteHeader } from "@/components/site-header";
 // and a counter-notice route. Claiming those before they're implemented is
 // worse than not claiming them.
 //
-// Set this before linking the page anywhere. Deliberately not defaulted to
+// RIGHTS_CONTACT lives in lib/legal.ts. Set it before linking the page
+// anywhere; links go through components/legal-link.tsx, which waits for it.
+// Deliberately not defaulted to
 // a personal address: putting an inbox on a public page is Daniela's call.
 //
 // The .example TLD is reserved by RFC 2606 and can never be registered, so
@@ -19,7 +22,6 @@ import { SiteHeader } from "@/components/site-header";
 // also the tripwire: lib/rights.test.ts fails the build if anything links
 // to /rights while this is still a placeholder, because a takedown route
 // that goes nowhere is worse than no page at all — it looks like a promise.
-const RIGHTS_CONTACT = "rights@04am.example";
 
 export const metadata = {
   title: "Rights & takedown — 04AM",

@@ -10,6 +10,7 @@ import {
   type AuthState,
 } from "@/app/auth/actions";
 import { PASSWORD_MIN } from "@/lib/auth/password";
+import { LegalLink } from "@/components/legal-link";
 
 const FIELD =
   "h-14 w-full rounded-[4px] border border-white/20 bg-ink px-5 text-[16px] text-bone placeholder:text-bone/45 focus:border-bone/70 focus:outline-none";
@@ -197,6 +198,14 @@ export function SignUpForm() {
           "Sign up"
         )}
       </button>
+      {/* Told at the point of sign-up (GDPR art. 13, LGPD art. 9). Appears
+          once /privacy has a real contact — components/legal-link.tsx. */}
+      <LegalLink
+        page="privacy"
+        className="mt-1 self-start text-[12px] text-bone/55 underline underline-offset-4 hover:text-bone"
+      >
+        How 04AM handles your email and password
+      </LegalLink>
       <div className="mt-2">
         <Message state={state} />
       </div>

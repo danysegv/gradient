@@ -3,6 +3,7 @@ import { Archivo } from "next/font/google";
 import "./globals.css";
 import { SessionKeeper } from "@/components/session-keeper";
 import { CookieNotice } from "@/components/cookie-notice";
+import { SiteFooter } from "@/components/site-footer";
 
 // Grotesk throughout, per CLAUDE.md — variable font covers the full
 // weight range in one download (quiet regular for stats/labels, 600 for
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <SessionKeeper />
         {children}
+        <SiteFooter />
         <CookieNotice />
       </body>
     </html>

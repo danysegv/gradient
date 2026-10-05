@@ -1,13 +1,18 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { LegalLink } from "@/components/legal-link";
 import { INTRO_SELECTOR, noticeCookie, shouldShowNotice } from "@/lib/cookie-notice";
 
 // One quiet line, bottom-left, once. Why it asks nothing: lib/cookie-notice.ts.
 //
-// No link to the privacy page yet: lib/privacy.test.ts forbids linking it
-// while PRIVACY_CONTACT is a placeholder. Once the domain and inbox exist,
-// add a "Privacy" link after the sentence.
+// Shaped to what the rules ask of a site with only essential cookies
+// (ePrivacy art. 5(3) / PECR exemption, ANPD's 2022 cookie guide): say
+// plainly what is stored and why, point to the full list, and don't dress
+// an acknowledgement up as consent — so "OK", never "Accept", and no
+// "Reject" that would change nothing. The full list is the table at
+// /privacy#cookies; the link appears once /privacy has a real contact
+// (components/legal-link.tsx), and the footer keeps it reachable after OK.
 //
 // Decided in the browser, not on the server: reading cookies() in the root
 // layout would make every page dynamic. The server snapshot is "hidden", so
@@ -44,11 +49,18 @@ export function CookieNotice() {
   return (
     <aside
       aria-label="Cookies"
-      className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex animate-[fade-in_400ms_ease-out_600ms_both] items-center gap-5 border border-white/10 bg-ink-2/95 px-5 py-4 backdrop-blur-sm sm:right-auto sm:bottom-6 sm:left-6 sm:max-w-[440px]"
+      className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex animate-[fade-in_400ms_ease-out_600ms_both] items-center gap-5 border border-white/10 bg-ink-2/95 px-5 py-4 backdrop-blur-sm sm:right-auto sm:bottom-6 sm:left-6 sm:max-w-[460px]"
     >
       <p className="text-[13px] leading-snug text-bone/75">
-        Cookies here only keep you signed in and remember what you&rsquo;ve
-        already seen. Nothing tracks you.
+        04AM uses only essential cookies, to keep you signed in and remember
+        what you&rsquo;ve already seen. No analytics, no ads, no tracking.{" "}
+        <LegalLink
+          page="privacy"
+          hash="cookies"
+          className="whitespace-nowrap text-bone underline underline-offset-4 hover:text-bone/70"
+        >
+          Cookie details
+        </LegalLink>
       </p>
       <button
         type="button"

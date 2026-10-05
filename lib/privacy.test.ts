@@ -28,9 +28,12 @@ function linksToPrivacy(): string[] {
 }
 
 function contactIsPlaceholder(): boolean {
-  const src = readFileSync(PRIVACY_PAGE, "utf8");
-  const m = src.match(/const PRIVACY_CONTACT = "([^"]+)"/);
-  assert.ok(m, "PRIVACY_CONTACT must be a string literal so this test can read it");
+  // The address lives in lib/legal.ts, shared with components/legal-link.tsx.
+  const src = readFileSync("lib/legal.ts", "utf8");
+  const m = src.match(/export const PRIVACY_CONTACT = "([^"]+)"/);
+  assert.ok(m, "PRIVACY_CONTACT must be a string literal in lib/legal.ts so this test can read it");
+  // RFC 2606 reserves .example/.test/.invalid/.localhost — they can never
+  // be registered, so an address there can never deliver.
   return /\.(example|test|invalid|localhost)$/i.test(m![1]);
 }
 
@@ -71,4 +74,15 @@ test("nothing in the extension talks to a third party", () => {
     ["http://localhost", "https://gradient-flax.vercel.app"],
     "background.js gained a new host — the privacy page names every one"
   );
+});
+
+test("links to /privacy wait for a real address", () => {
+  // components/legal-link.tsx is the one sanctioned door: it must keep
+  // gating on isPublished(), which reads the same literal as the test above.
+  const link = readFileSync("components/legal-link.tsx", "utf8");
+  assert.match(link, /if \(!isPublished\(page\)\) return/);
+  const legal = readFileSync("lib/legal.ts", "utf8");
+  assert.match(legal, /isPlaceholderAddress\(page === "privacy" \? PRIVACY_CONTACT : RIGHTS_CONTACT\)/);
+  // And the page itself no longer carries its own copy of the address.
+  assert.doesNotMatch(readFileSync("app/privacy/page.tsx", "utf8"), /const PRIVACY_CONTACT = "/);
 });

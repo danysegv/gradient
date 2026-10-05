@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/site-header";
+import { PRIVACY_CONTACT, PRIVACY_UPDATED } from "@/lib/legal";
 
 // DRAFT — written 2026-09-24, approved by neither Daniela nor a lawyer.
 // Not linked from anywhere yet, on purpose, and lib/privacy.test.ts fails
@@ -15,12 +16,50 @@ import { SiteHeader } from "@/components/site-header";
 // app/api/extension/*, lib/clip-session.ts and extension/. If any of those
 // change, this page is wrong and has to change with them.
 //
-// Set this before linking the page anywhere OR submitting to any store. A
+// PRIVACY_CONTACT lives in lib/legal.ts; links go through
+// components/legal-link.tsx, which waits for it.
+//
+// Set it before linking the page anywhere OR submitting to any store. A
 // privacy policy whose contact address can never receive mail is worse
 // than no page at all. The .example TLD is reserved by RFC 2606 and can
 // never be registered, which is what makes it a safe placeholder and a
 // reliable tripwire.
-const PRIVACY_CONTACT = "privacy@04am.example";
+
+// Every cookie the site sets, checked against the code on 2026-10-05.
+// lib/cookie-notice.test.ts fails if a cookie name in the code is missing
+// here, so this table can't quietly fall behind.
+const COOKIES = [
+  {
+    name: "sb-…-auth-token",
+    purpose: "Keeps you signed in. Set by Supabase, which runs sign-in.",
+    lasts: "400 days, or until you close the browser if “Remember me” is off. Removed when you sign out.",
+  },
+  {
+    name: "04am-session-only",
+    purpose: "Remembers that you turned “Remember me” off.",
+    lasts: "Until you close the browser",
+  },
+  {
+    name: "04am_entered",
+    purpose: "Remembers that you’ve been through the opening screen.",
+    lasts: "1 year",
+  },
+  {
+    name: "04am_cookie_notice",
+    purpose: "Remembers that you’ve seen the note about cookies.",
+    lasts: "1 year",
+  },
+  {
+    name: "04am_clip_session",
+    purpose: "Curators only: keeps the clipper signed in.",
+    lasts: "30 days, or until you sign out",
+  },
+  {
+    name: "04am_clipper_card_hidden",
+    purpose: "Curators only: keeps the clipper card hidden after “Hide this”.",
+    lasts: "Until you sign out (30 days at most)",
+  },
+];
 
 export const metadata = {
   title: "Privacy — 04AM",
@@ -30,13 +69,15 @@ export const metadata = {
 
 function Section({
   heading,
+  id,
   children,
 }: {
   heading: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-white/10 py-9">
+    <section id={id} className="scroll-mt-24 border-t border-white/10 py-9">
       <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-bone/55">
         {heading}
       </h2>
@@ -71,6 +112,17 @@ export default function PrivacyPage() {
           04AM is a reference library and a browser extension for putting
           references into it. This page covers both, and describes what the
           software actually does rather than what it might one day do.
+        </p>
+        <p className="mt-3 text-[12px] uppercase tracking-[0.08em] text-bone/45">
+          Last updated{" "}
+          <time dateTime={PRIVACY_UPDATED}>
+            {new Date(`${PRIVACY_UPDATED}T12:00:00Z`).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              timeZone: "UTC",
+            })}
+          </time>
         </p>
 
         <Section heading="Your account">
@@ -167,15 +219,54 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section heading="Cookies and local storage">
+        <Section heading="Cookies and local storage" id="cookies">
           <p>
-            The site sets a cookie to keep you signed in, and others that
-            remember what you have already seen: the opening screen, and the
-            note about cookies itself. Nothing here asks for consent because
-            none of them track you. The extension keeps
-            its session token, and your choice of which 04AM it talks to, in
-            the browser&rsquo;s extension storage. None of it follows you to
-            other sites.
+            04AM sets only its own cookies, and only ones the site needs to
+            work or that remember something you did. There are no analytics,
+            advertising or third-party cookies, so there is nothing to opt
+            into or out of. These are all of them:
+          </p>
+          {/* Name beside what it does from sm up (the text column is only
+              62ch, too narrow for three); on a phone each cookie stacks.
+              Nothing scrolls sideways. */}
+          <div className="text-[13px] leading-snug">
+            <div
+              aria-hidden
+              className="hidden border-b border-white/15 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/50 sm:grid sm:grid-cols-[11rem_1fr] sm:gap-5"
+            >
+              <span>Cookie</span>
+              <span>What it does, and for how long</span>
+            </div>
+            <dl>
+              {COOKIES.map((c) => (
+                <div
+                  key={c.name}
+                  className="grid gap-1 border-b border-white/10 py-3 sm:grid-cols-[11rem_1fr] sm:gap-x-5"
+                >
+                  <dt className="break-all font-mono text-[12px] text-bone/90 sm:row-span-2">{c.name}</dt>
+                  <dd className="text-bone/80">{c.purpose}</dd>
+                  <dd className="text-bone/55">Lasts: {c.lasts}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <p>
+            The extension keeps its session token, and your choice of which
+            04AM it talks to, in the browser&rsquo;s extension storage. None
+            of it follows you to other sites.
+          </p>
+          <p>
+            You can block or delete these cookies in your browser. Browsing
+            the library keeps working; staying signed in does not.
+          </p>
+        </Section>
+
+        <Section heading="Do Not Track">
+          <p>
+            04AM does not track you across other sites, and nothing on it
+            does, so a Do Not Track or Global Privacy Control signal from
+            your browser has nothing to switch off. It is respected by
+            default.
           </p>
         </Section>
 
@@ -191,6 +282,14 @@ export default function PrivacyPage() {
             ask for it to be removed, at the same address. If your work
             appears in the library and you would like it credited differently
             or taken down, that is a separate page and a separate route.
+          </p>
+        </Section>
+        <Section heading="Changes to this page">
+          <p>
+            The date at the top is when this page last changed in substance.
+            If a change affects what happens to your account&rsquo;s data, the
+            site will say so before it takes effect. Earlier versions are
+            available from <Contact />.
           </p>
         </Section>
       </main>
