@@ -169,8 +169,10 @@ export default function PrivacyPage() {
 
         <Section heading="Cookies and local storage">
           <p>
-            The site sets a cookie to keep you signed in, and one to remember
-            that you have already seen the opening screen. The extension keeps
+            The site sets a cookie to keep you signed in, and others that
+            remember what you have already seen: the opening screen, and the
+            note about cookies itself. Nothing here asks for consent because
+            none of them track you. The extension keeps
             its session token, and your choice of which 04AM it talks to, in
             the browser&rsquo;s extension storage. None of it follows you to
             other sites.
