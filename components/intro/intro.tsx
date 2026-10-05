@@ -164,6 +164,7 @@ export function Intro({
 
   return (
     <main
+      data-intro=""
       className="relative min-h-screen bg-ink text-bone"
       style={{ ["--mark-h" as string]: MARK_H }}
     >

@@ -3,25 +3,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { NOTICE_COOKIE, noticeCookie, shouldShowNotice } from "./cookie-notice.ts";
 
-const ENTERED = "04am_entered=1";
 const SEEN = `${NOTICE_COOKIE}=1`;
 
 test("shown once, then never again", () => {
-  assert.equal(shouldShowNotice("", "/curators", ""), true);
-  assert.equal(shouldShowNotice(SEEN, "/curators", ""), false);
-  assert.equal(shouldShowNotice(`${ENTERED}; ${SEEN}`, "/", ""), false);
+  assert.equal(shouldShowNotice("", false), true);
+  assert.equal(shouldShowNotice(SEEN, false), false);
+  assert.equal(shouldShowNotice(`a=b; ${SEEN}; c=d`, false), false);
 });
 
 test("never over the intro", () => {
-  assert.equal(shouldShowNotice("", "/", ""), false, "first visit to / is the intro");
-  assert.equal(shouldShowNotice(ENTERED, "/", "?intro"), false, "?intro replays it");
-  assert.equal(shouldShowNotice(ENTERED, "/", ""), true, "the library, once entered");
-  assert.equal(shouldShowNotice("", "/", "?q=chrome"), true, "a shared search skips the intro");
+  assert.equal(shouldShowNotice("", true), false);
 });
 
 test("matches cookie names exactly", () => {
-  assert.equal(shouldShowNotice(`x${NOTICE_COOKIE}=1`, "/privacy", ""), true);
-  assert.equal(shouldShowNotice(`a=b; ${SEEN}; c=d`, "/privacy", ""), false);
+  assert.equal(shouldShowNotice(`x${NOTICE_COOKIE}=1`, false), true);
 });
 
 test("the dismissal cookie is a plain preference record", () => {
@@ -32,8 +27,17 @@ test("the dismissal cookie is a plain preference record", () => {
   assert.doesNotMatch(noticeCookie(false), /Secure/);
 });
 
-test("the intro cookie name stays in step with lib/intro.ts", () => {
-  assert.match(readFileSync("lib/intro.ts", "utf8"), /ENTERED_COOKIE = "04am_entered"/);
+test("the intro marks itself, so the notice can see it", () => {
+  assert.match(readFileSync("components/intro/intro.tsx", "utf8"), /<main\s+data-intro=""/);
+});
+
+// The regression: 04am_entered is httpOnly, so document.cookie never holds it.
+// Anything the notice decides in the browser must not depend on it.
+test("the notice never reads the httpOnly intro cookie", () => {
+  for (const f of ["lib/cookie-notice.ts", "components/cookie-notice.tsx"]) {
+    const code = readFileSync(f, "utf8").replace(/\/\/.*$/gm, "");
+    assert.doesNotMatch(code, /04am_entered|ENTERED_COOKIE/, f);
+  }
 });
 
 // The notice asks nothing because nothing tracks. If that changes, the

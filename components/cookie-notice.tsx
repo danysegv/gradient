@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { noticeCookie, shouldShowNotice } from "@/lib/cookie-notice";
+import { INTRO_SELECTOR, noticeCookie, shouldShowNotice } from "@/lib/cookie-notice";
 
 // One quiet line, bottom-left, once. Why it asks nothing: lib/cookie-notice.ts.
 //
@@ -16,14 +16,20 @@ import { noticeCookie, shouldShowNotice } from "@/lib/cookie-notice";
 
 const listeners = new Set<() => void>();
 
+// Re-checks when OK is pressed, and whenever the page swaps what it shows
+// (client navigation into or out of the intro).
 function subscribe(on: () => void) {
   listeners.add(on);
-  return () => listeners.delete(on);
+  const watch = new MutationObserver(on);
+  watch.observe(document.body, { childList: true, subtree: true });
+  return () => {
+    listeners.delete(on);
+    watch.disconnect();
+  };
 }
 
 function visible() {
-  const { pathname, search } = window.location;
-  return shouldShowNotice(document.cookie, pathname, search);
+  return shouldShowNotice(document.cookie, document.querySelector(INTRO_SELECTOR) !== null);
 }
 
 function dismiss() {

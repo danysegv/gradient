@@ -10,11 +10,16 @@
 //
 // If a tracking or analytics script is ever added, this stops being
 // enough — that script needs real, prior, refusable consent, and the
-// notice has to become a choice. lib/cookie-notice.test.ts checks the
-// layout for the usual analytics packages so that can't happen quietly.
+// notice has to become a choice. lib/cookie-notice.test.ts checks
+// package.json for the usual analytics packages so that can't happen quietly.
+//
+// Never over the intro — and that is read from the page, not guessed from
+// cookies: the intro's root carries `data-intro` (components/intro/intro.tsx).
+// The first version inferred it from 04am_entered, which is httpOnly, so the
+// browser never saw it and the notice never showed on `/` (fixed 2026-10-05).
 
 export const NOTICE_COOKIE = "04am_cookie_notice";
-const ENTERED_COOKIE = "04am_entered"; // mirrors lib/intro.ts; checked in the test
+export const INTRO_SELECTOR = "[data-intro]";
 
 /** One year. A preference record, so it may outlive the session. */
 export const NOTICE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -23,19 +28,8 @@ function hasCookie(cookieHeader: string, name: string): boolean {
   return cookieHeader.split(/;\s*/).some((pair) => pair.split("=")[0] === name);
 }
 
-/**
- * Whether to show the notice. Never over the intro: on `/` the intro is
- * what a visitor sees until they've entered, or whenever ?intro replays
- * it — and a shared search link (?q= / ?color=) skips the intro, so the
- * notice shows there as on any other page.
- */
-export function shouldShowNotice(cookieHeader: string, pathname: string, search: string): boolean {
-  if (hasCookie(cookieHeader, NOTICE_COOKIE)) return false;
-  if (pathname !== "/") return true;
-  const params = new URLSearchParams(search);
-  if (params.has("q") || params.has("color")) return true;
-  if (params.has("intro")) return false;
-  return hasCookie(cookieHeader, ENTERED_COOKIE);
+export function shouldShowNotice(cookieHeader: string, introOnScreen: boolean): boolean {
+  return !introOnScreen && !hasCookie(cookieHeader, NOTICE_COOKIE);
 }
 
 export function noticeCookie(secure: boolean): string {
