@@ -22,6 +22,7 @@ import { withSpendContext } from "@/lib/claude/spend-context";
 import { BUDGET_USD, BudgetExceededError, spentSinceBudgetStart } from "@/lib/claude/spend";
 import { checkUrl, headerReservation, marketHeaders } from "./compliance.ts";
 import { parseFeed } from "./feeds.ts";
+import { httpsImage, originImage } from "./images.ts";
 import { sampleArtic, sampleMet, type ArchiveItem } from "./museums.ts";
 import {
   ARCHIVE_WEEKLY_ITEMS,
@@ -215,15 +216,9 @@ async function marketUsdLast7Days(): Promise<number | null> {
 
 type ReadOutcome = "classified" | "refused" | "failed";
 
-/**
- * The API fetches images over HTTPS only. Most hosts serve both, so an
- * http:// address is upgraded; one that can't be is a fact about that
- * image, never a reason to stop the run (it did, 2026-09-28: one BP&O
- * image halted all 22 reads).
- */
-export function httpsImage(url: string): string {
-  return url.replace(/^http:\/\//i, "https://");
-}
+// Image addresses: https, and the publisher's own file rather than a CDN
+// copy (lib/market/images.ts). Re-exported for the scripts that use them.
+export { httpsImage, originImage };
 
 /** Failures that belong to one item: park it and read the next. */
 export function isItemError(err: unknown): boolean {
@@ -233,7 +228,7 @@ export function isItemError(err: unknown): boolean {
 
 /** Gate, classify, store. Throws only for errors that should stop the run. */
 async function readItem(raw: { id: string; url: string; image_url: string; title: string | null }): Promise<ReadOutcome> {
-  const item = { ...raw, image_url: httpsImage(raw.image_url) };
+  const item = { ...raw, image_url: httpsImage(originImage(raw.image_url)) };
   for (const u of [item.url, item.image_url]) {
     const gate = await checkUrl(u);
     if (!gate.ok) {
@@ -271,8 +266,12 @@ async function readItem(raw: { id: string; url: string; image_url: string; title
 
 async function discoverArchive(sources: Source[], n: number): Promise<number> {
   let added = 0;
+  // Rotate the starting source by day. With a one-item allowance,
+  // `i % length` always picked the first source, so the Met was never
+  // tried after 2026-10-01 and its last answer (410) stood for two weeks.
+  const day = Math.floor(Date.now() / 86_400_000);
   for (let i = 0; i < n; i++) {
-    const s = sources[i % sources.length];
+    const s = sources[(i + day) % sources.length];
     let found: ArchiveItem[] = [];
     try {
       const gate = await checkUrl(s.feed_url);
@@ -283,7 +282,12 @@ async function discoverArchive(sources: Source[], n: number): Promise<number> {
       found = s.id === "artic" ? await sampleArtic(1) : s.id === "met" ? await sampleMet(1) : [];
       await setSource(s.id, { paused_reason: null, last_status: "ok", last_polled_at: new Date().toISOString() });
     } catch (err) {
-      await setSource(s.id, { last_status: String(err instanceof Error ? err.message : err).slice(0, 200) });
+      // Stamp the attempt too: without it a source failing daily reads as
+      // one that stopped being tried (the Met showed 10-01 for two weeks).
+      await setSource(s.id, {
+        last_status: String(err instanceof Error ? err.message : err).slice(0, 200),
+        last_polled_at: new Date().toISOString(),
+      });
       continue;
     }
     const { data } = await supabaseAdmin

@@ -59,7 +59,7 @@ test("the preview floor can never lower the live one", () => {
 
 test("an http:// image is upgraded, and one bad image never stops the run", () => {
   const run = read("lib/market/run.ts");
-  assert.match(run, /image_url: httpsImage\(raw\.image_url\)/);
+  assert.match(run, /image_url: httpsImage\(originImage\(raw\.image_url\)\)/);
   assert.match(run, /if \(isItemError\(err\)\)/);
   assert.match(run, /only https urls are supported/i);
 });
