@@ -10,6 +10,9 @@
 // - Share: a tag's references over every published reference, all-time.
 //   This is `baseShare` in lib/velocity.ts, the same denominator.
 // - Shift: velocityFromCounts, the one definition. Not recomputed here.
+//   When the panel gate is closed, the curator-balanced shift instead
+//   (resolveGlobalVelocity, lib/curator-velocity.ts) — and `reading` says
+//   which, so the page can say so.
 // - A point is plotted only when getConfidence clears its velocity for
 //   display AND publishedVelocities lets it through: nothing before the
 //   board publishes, never a withheld tag. Early Signal, Cooling,
@@ -25,6 +28,7 @@
 
 import { getConfidence } from "../confidence.ts";
 import { velocityFromCounts } from "../velocity.ts";
+import { resolveGlobalVelocity, type GlobalReading } from "../curator-velocity.ts";
 import {
   BOARD_PUBLISHES_AT,
   publishedVelocities,
@@ -97,6 +101,12 @@ export type RadarWaiting = {
 export type TrendRadar = {
   /** False until the board publishes. Nothing is plotted before. */
   open: boolean;
+  /**
+   * Which number the up-and-down axis is: the pooled share-shift, the
+   * curator-balanced one (the panel's mix moved, so each person's own move
+   * counts once), or nothing (no panel to balance).
+   */
+  reading: GlobalReading;
   /** 1 / published looks with any reference; the quadrant line. */
   evenShare: number;
   publishedLooks: number;
@@ -115,6 +125,12 @@ export function computeTrendRadar(input: {
   tags: RadarTagInput[];
   /** panelCompositionFromCounts(...).safeForGlobalVelocity, failing closed. */
   panelSafe: boolean;
+  /**
+   * balancedVelocitiesFromCounts(person_tag_counts_at), or null when that
+   * query failed. Read only when the panel gate is closed; see
+   * resolveGlobalVelocity in lib/curator-velocity.ts.
+   */
+  balanced?: ReadonlyMap<string, number | null> | null;
   frozenAxes: ReadonlySet<string>;
   now: number;
   /**
@@ -135,23 +151,33 @@ export function computeTrendRadar(input: {
   const recentTotal = published.reduce((n, t) => n + t.recentRefs, 0);
   const evenShare = published.length > 0 ? 1 / published.length : 0;
 
+  const pooled = new Map<string, number | null>(
+    published.map((t) => [
+      t.id,
+      velocityFromCounts({
+        baseRefs: t.refs,
+        recentRefs: t.recentRefs,
+        baseTotalRefs: baseTotal,
+        recentTotalRefs: recentTotal,
+      }),
+    ])
+  );
+  const global = resolveGlobalVelocity({
+    pooled,
+    panelSafe: input.panelSafe,
+    balanced: input.balanced ?? null,
+  });
+
   const cleared = new Map<string, number>();
   const labels = new Map<string, WaitingReason>();
   for (const t of tags) {
-    const raw = t.isPublished
-      ? velocityFromCounts({
-          baseRefs: t.refs,
-          recentRefs: t.recentRefs,
-          baseTotalRefs: baseTotal,
-          recentTotalRefs: recentTotal,
-        })
-      : null;
+    const raw = t.isPublished ? (global.velocities.get(t.id) ?? null) : null;
     const c = getConfidence({
       referenceCount: t.refs,
       earliestReferenceAt: t.earliestReferenceAt,
       latestReferenceAt: t.latestReferenceAt,
       velocity: raw,
-      panelSafeForGlobalVelocity: input.panelSafe,
+      panelSafeForGlobalVelocity: global.panelSafe,
       coolingSuspended: input.frozenAxes.has(t.group),
       isPublished: t.isPublished,
       now: new Date(input.now),
@@ -200,7 +226,7 @@ export function computeTrendRadar(input: {
       a.name.localeCompare(b.name)
   );
 
-  return { open, evenShare, publishedLooks: published.length, points, waiting };
+  return { open, reading: global.reading, evenShare, publishedLooks: published.length, points, waiting };
 }
 
 const WAITING_ORDER: WaitingReason[] = [
@@ -257,7 +283,11 @@ export type WeeklyRadar = {
 };
 
 export function attachTrail(current: TrendRadar, weekAgo: TrendRadar | null): WeeklyRadar {
-  const before = new Map((weekAgo?.points ?? []).map((p) => [p.id, p]));
+  // A pooled position last week and a balanced one this week are two
+  // different measurements; a line between them would draw the change of
+  // method as a move. No trail across a change of reading.
+  const comparable = weekAgo !== null && weekAgo.reading === current.reading;
+  const before = new Map((comparable ? weekAgo.points : []).map((p) => [p.id, p]));
   const points: TrailedPoint[] = current.points.map((p) => {
     const b = before.get(p.id);
     return { ...p, prior: b ? { share: b.share, shift: b.shift, quadrant: b.quadrant } : null };

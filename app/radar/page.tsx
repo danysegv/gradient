@@ -2,7 +2,7 @@ import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase/public";
 import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { RECENT_WINDOW_DAYS } from "@/lib/velocity";
-import { panelCompositionFromCounts } from "@/lib/curator-velocity";
+import { balancedVelocitiesFromCounts, panelCompositionFromCounts } from "@/lib/curator-velocity";
 import { loaded, LIBRARY_UNAVAILABLE } from "@/lib/query-result";
 import { AXIS_LABEL } from "@/lib/axes";
 import {
@@ -37,6 +37,12 @@ type RawTagRow = {
   latest_reference_at: string | null;
   is_published: boolean;
 };
+
+// On hover beside "curator by curator". The one place the page explains
+// why the reading changed; the rest is shown, not said.
+const READING_NOTE =
+  "This month's clipping came from a different mix of curators than the library as a whole. " +
+  "So each curator's move is read against their own past, and every curator counts once.";
 
 // Why a look is not on the chart, in one line each. Order follows the
 // waiting list, which puts the reasons that apply to everything first.
@@ -98,6 +104,12 @@ function marketFloor(): number | undefined {
 }
 
 type RawPanelRow = { person: string; base_count: number | string; recent_count: number | string };
+type RawPersonTagRow = {
+  person_ix: number;
+  tag_id: string;
+  base_count: number | string;
+  recent_count: number | string;
+};
 
 const toInput = (t: RawTagRow): RadarTagInput => ({
   id: t.tag_id,
@@ -119,11 +131,29 @@ function panelSafeFrom(label: string, res: { data: unknown; error: { message: st
   return !load.failed && panel.safeForGlobalVelocity;
 }
 
+// The curator-balanced reading, used only when the panel gate is closed
+// (resolveGlobalVelocity). A failed query is null, and null with the gate
+// closed means withheld: unknown is not safe.
+function balancedFrom(label: string, res: { data: unknown; error: { message: string } | null }) {
+  const load = loaded<RawPersonTagRow>(label, res);
+  if (load.failed) return null;
+  return balancedVelocitiesFromCounts(
+    load.rows.map((r) => ({
+      person: String(r.person_ix),
+      tagId: r.tag_id,
+      base: Number(r.base_count),
+      recent: Number(r.recent_count),
+    }))
+  );
+}
+
 export default async function RadarPage() {
   const now = renderNow();
   const weekAgoAt = new Date(now - TRAIL_DAYS * 86_400_000).toISOString();
 
-  const [tagRes, panelRes, frozenAxes, prevTagRes, prevPanelRes, marketRes, sourcesRes, lib90Res] = await Promise.all([
+  const [
+    tagRes, panelRes, frozenAxes, prevTagRes, prevPanelRes, marketRes, sourcesRes, lib90Res, personRes, prevPersonRes,
+  ] = await Promise.all([
     supabasePublic.rpc("tag_velocity_counts", { window_days: RECENT_WINDOW_DAYS }),
     supabasePublic.rpc("panel_composition", { window_days: RECENT_WINDOW_DAYS }),
     fetchFrozenAxes(supabasePublic),
@@ -136,12 +166,16 @@ export default async function RadarPage() {
     supabasePublic.rpc("market_tag_counts", { window_days: MARKET_WINDOW_DAYS }),
     supabasePublic.rpc("market_status", { window_days: MARKET_WINDOW_DAYS }),
     supabasePublic.rpc("tag_velocity_counts", { window_days: MARKET_WINDOW_DAYS }),
+    // Per person, per tag, no names — scripts/person-tag-counts.sql.
+    supabasePublic.rpc("person_tag_counts_at", { window_days: RECENT_WINDOW_DAYS, as_of: new Date(now).toISOString() }),
+    supabasePublic.rpc("person_tag_counts_at", { window_days: RECENT_WINDOW_DAYS, as_of: weekAgoAt }),
   ]);
 
   const tagLoad = loaded<RawTagRow>("tag_velocity_counts", tagRes);
   const radar = computeTrendRadar({
     tags: tagLoad.rows.map(toInput),
     panelSafe: panelSafeFrom("panel_composition", panelRes),
+    balanced: balancedFrom("person_tag_counts_at", personRes),
     frozenAxes,
     now,
   });
@@ -155,6 +189,7 @@ export default async function RadarPage() {
     : computeTrendRadar({
         tags: prevLoad.rows.map(toInput),
         panelSafe: panelSafeFrom("panel_composition_at", prevPanelRes),
+        balanced: balancedFrom("person_tag_counts_at (week ago)", prevPersonRes),
         frozenAxes,
         now: now - TRAIL_DAYS * 86_400_000,
         publicationNow: now,
@@ -196,6 +231,14 @@ export default async function RadarPage() {
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
             <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
             Trend Radar · 30 days
+            {radar.reading === "balanced" && (
+              <span
+                className="font-normal normal-case tracking-normal text-bone/55"
+                title={READING_NOTE}
+              >
+                · curator by curator
+              </span>
+            )}
           </p>
           {/* Less said, more shown (Daniela, 2026-10-01): the chart's axes,
               legend and quadrant names carry the explanation. */}
@@ -237,7 +280,11 @@ export default async function RadarPage() {
                   {radar.open ? "Nothing to place yet" : "Opens with the board"}
                 </p>
                 <p className="max-w-md text-[13px] leading-relaxed text-bone/70">
-                  {radar.open ? "No look has enough this month yet." : "Opens with the board."}
+                  {!radar.open
+                    ? "Opens with the board."
+                    : radar.reading === "withheld"
+                      ? "The mix of curators shifted this month, and too few have enough history of their own to read the move curator by curator."
+                      : "No look has enough this month yet."}
                 </p>
               </div>
             )}
@@ -398,7 +445,10 @@ function MarketSection({
    */
   onRadar: Set<string>;
 }) {
-  if (!overlay?.open) return null;
+  // Nothing on the radar means nothing has been compared: say nothing,
+  // rather than "agree on every look" over an empty set (live 2026-10-12,
+  // when the panel gate had emptied the radar and gaps were 10+ points).
+  if (!overlay?.open || onRadar.size === 0) return null;
   const ahead = overlay.ahead.filter((g) => onRadar.has(g.id));
   const behind = overlay.behind.filter((g) => onRadar.has(g.id));
   const read = sources.filter((s) => s.series === "market" && Number(s.items_read) > 0);
@@ -419,7 +469,7 @@ function MarketSection({
           <Gap nameOf={nameOf} rows={behind} label="The market has more" note="Bigger in the press than here." />
         </div>
       ) : (
-        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree, within two points on every look.</p>
+        <p className="mb-8 text-[13px] text-bone/60">04AM and the market agree, within two points on every look on the radar.</p>
       )}
 
       {read.length > 0 && (

@@ -353,3 +353,90 @@ test("an unmapped name is its own person, never a dropped row", () => {
   assert.ok(panel.baseShares.has("luma"));
   assert.ok(panel.baseShares.has("igorsurrealism"));
 });
+
+// ---------------------------------------------------------------------
+// Counts form, the prior floor, and which number publishes (2026-10-12)
+// ---------------------------------------------------------------------
+
+import {
+  balancedVelocitiesFromCounts,
+  resolveGlobalVelocity,
+  MIN_CURATOR_PRIOR_VOLUME,
+} from "./curator-velocity.ts";
+
+test("the counts form and the rows form are the same definition", () => {
+  const library: CuratorRow[] = [
+    ...rows("dany", "x", 24, OLD),
+    ...rows("dany", "other", 136, OLD),
+    ...rows("dany", "x", 10, RECENT),
+    ...rows("dany", "other", 30, RECENT),
+    ...rows("luma", "x", 2, OLD),
+    ...rows("luma", "other", 18, OLD),
+    ...rows("luma", "x", 4, RECENT),
+    ...rows("luma", "other", 76, RECENT),
+  ];
+  const fromRows = computeBalancedVelocities(library, SOLO, NOW);
+  const fromCounts = balancedVelocitiesFromCounts([
+    { person: "dany", tagId: "x", base: 34, recent: 10 },
+    { person: "dany", tagId: "other", base: 166, recent: 30 },
+    { person: "luma", tagId: "x", base: 6, recent: 4 },
+    { person: "luma", tagId: "other", base: 94, recent: 76 },
+  ]);
+  for (const id of ["x", "other"]) {
+    assert.ok(Math.abs(fromRows.get(id)! - fromCounts.get(id)!) < 1e-12);
+  }
+});
+
+test("a curator with no history before the window gets no vote", () => {
+  // Their shift is zero on every tag by construction (prior / base = 0),
+  // so letting them vote pulls every figure toward "nothing moved".
+  const twoReal = [
+    { person: "dany", tagId: "x", base: 100, recent: 40 },
+    { person: "dany", tagId: "other", base: 200, recent: 20 },
+    { person: "luma", tagId: "x", base: 50, recent: 30 },
+    { person: "luma", tagId: "other", base: 100, recent: 30 },
+  ];
+  const newcomer = [
+    { person: "new", tagId: "x", base: 10, recent: 10 },
+    { person: "new", tagId: "other", base: 27, recent: 27 },
+  ];
+  const without = balancedVelocitiesFromCounts(twoReal).get("x")!;
+  const withNew = balancedVelocitiesFromCounts([...twoReal, ...newcomer]).get("x")!;
+  assert.ok(without > 0);
+  assert.ok(Math.abs(withNew - without) < 1e-12, "the newcomer must not dilute the mean");
+  // And they join once they have a past to move against.
+  const later = [
+    { person: "new", tagId: "x", base: 10 + MIN_CURATOR_PRIOR_VOLUME, recent: 10 },
+    { person: "new", tagId: "other", base: 27, recent: 27 },
+  ];
+  assert.notEqual(balancedVelocitiesFromCounts([...twoReal, ...later]).get("x"), without);
+});
+
+test("gate open: pooled publishes, untouched", () => {
+  const pooled = new Map([["x", 0.01], ["y", null]]);
+  const r = resolveGlobalVelocity({ pooled, panelSafe: true, balanced: new Map([["x", 0.5]]) });
+  assert.equal(r.reading, "pooled");
+  assert.equal(r.panelSafe, true);
+  assert.deepEqual([...r.velocities], [["x", 0.01], ["y", null]]);
+});
+
+test("gate closed: balanced publishes, keyed by the published vocabulary", () => {
+  const pooled = new Map([["x", 0.01], ["y", -0.02]]);
+  const balanced = new Map([["x", 0.03], ["incubating", 0.9]]);
+  const r = resolveGlobalVelocity({ pooled, panelSafe: false, balanced });
+  assert.equal(r.reading, "balanced");
+  assert.equal(r.panelSafe, true);
+  assert.equal(r.velocities.get("x"), 0.03);
+  // y has no balanced figure: it gets none, never the pooled one.
+  assert.equal(r.velocities.get("y"), null);
+  assert.equal(r.velocities.has("incubating"), false);
+});
+
+test("gate closed and nothing to balance, or the query failed: withheld", () => {
+  const pooled = new Map([["x", 0.01]]);
+  for (const balanced of [null, new Map([["x", null]])]) {
+    const r = resolveGlobalVelocity({ pooled, panelSafe: false, balanced });
+    assert.equal(r.reading, "withheld");
+    assert.equal(r.panelSafe, false);
+  }
+});

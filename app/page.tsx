@@ -5,7 +5,11 @@ import { getConfidence } from "@/lib/confidence";
 import { fetchFrozenAxes } from "@/lib/taxonomy-freeze";
 import { confidenceNoteText } from "@/lib/confidence-display";
 import { velocityFromCounts, RECENT_WINDOW_DAYS } from "@/lib/velocity";
-import { panelCompositionFromCounts } from "@/lib/curator-velocity";
+import {
+  balancedVelocitiesFromCounts,
+  panelCompositionFromCounts,
+  resolveGlobalVelocity,
+} from "@/lib/curator-velocity";
 import { rankClips } from "@/lib/feed-order";
 import { onlyClassified } from "@/lib/clips/visibility";
 import { publishedVelocities } from "@/lib/publication";
@@ -134,7 +138,7 @@ export default async function Home({
       )
     : Promise.resolve(null);
 
-  const [tagCountsRes, clipsRes, panelRes, frozenAxes, search] =
+  const [tagCountsRes, clipsRes, panelRes, frozenAxes, search, personRes] =
     await Promise.all([
     // Per-tag counts, all-time and in the trailing window, aggregated in
     // Postgres. This replaced two unbounded full-table fetches on
@@ -174,6 +178,11 @@ export default async function Home({
     // so this changes nothing today. See lib/taxonomy-freeze.ts.
     fetchFrozenAxes(supabasePublic),
     searchPromise,
+    // Per person, per tag, no names: the curator-balanced reading that
+    // publishes when the panel gate is closed. scripts/person-tag-counts.sql.
+    supabasePublic.rpc("person_tag_counts_at", {
+      window_days: RECENT_WINDOW_DAYS,
+    }),
   ]);
 
   // The RPC returns every tag, including seeded ones with no references
@@ -210,7 +219,7 @@ export default async function Home({
   const baseTotalRefs = publishedTags.reduce((n, t) => n + t.clip_count, 0);
   const recentTotalRefs = publishedTags.reduce((n, t) => n + t.recent_count, 0);
 
-  const velocities = new Map<string, number | null>(
+  const pooledVelocities = new Map<string, number | null>(
     publishedTags.map((t) => [
       t.tag_id,
       velocityFromCounts({
@@ -241,7 +250,33 @@ export default async function Home({
   // the one circumstance in which the board would describe who clipped
   // rather than what moved, arriving precisely when the database is already
   // unwell. Unknown drift is not safe drift.
-  const panelSafe = !panelLoad.failed && panel.safeForGlobalVelocity;
+  const panelGateOpen = !panelLoad.failed && panel.safeForGlobalVelocity;
+
+  // Gate closed: publish the curator-balanced reading instead of nothing,
+  // exactly as /radar does — one rule, lib/curator-velocity.ts. A failed
+  // query is null, and null with the gate closed stays withheld.
+  const personLoad = loaded<{
+    person_ix: number;
+    tag_id: string;
+    base_count: number | string;
+    recent_count: number | string;
+  }>("person_tag_counts_at", personRes);
+  const global = resolveGlobalVelocity({
+    pooled: pooledVelocities,
+    panelSafe: panelGateOpen,
+    balanced: personLoad.failed
+      ? null
+      : balancedVelocitiesFromCounts(
+          personLoad.rows.map((r) => ({
+            person: String(r.person_ix),
+            tagId: r.tag_id,
+            base: Number(r.base_count),
+            recent: Number(r.recent_count),
+          }))
+        ),
+  });
+  const velocities = global.velocities;
+  const panelSafe = global.panelSafe;
 
   // The feed order's only inputs: a tag's velocity, but ONLY once
   // getConfidence has actually cleared it for display. An incubating tag,

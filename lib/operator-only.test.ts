@@ -45,6 +45,8 @@ test("no page quotes a price, a model or API credit", () => {
 test("the market section on /radar carries no pipeline status", () => {
   const page = read("app/radar/page.tsx");
   const section = page.slice(page.indexOf("function MarketSection"));
-  assert.match(section, /if \(!overlay\?\.open\) return null;/);
+  // Absent while gathering, and absent while nothing is on the radar to
+  // compare (2026-10-12: it said "agree on every look" over an empty set).
+  assert.match(section, /if \(!overlay\?\.open \|\| onRadar\.size === 0\) return null;/);
   assert.doesNotMatch(section, /waiting on permission|Paused|Gathering|items read|robots\.txt|classifier/);
 });

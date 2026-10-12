@@ -48,6 +48,24 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const MIN_CURATOR_RECENT_VOLUME = 30;
 export const MIN_CURATOR_BASE_VOLUME = 30;
 
+// ...and this many applications from BEFORE the window. Added 2026-10-12.
+//
+// The base includes the window, so a curator's shift is damped by exactly
+// the fraction of their history that predates it:
+//
+//   recentShare − baseShare = (prior / base) · (recentShare − priorShare)
+//
+// A curator whose whole history sits inside the window (prior = 0) shifts
+// by exactly zero on every tag. They carry no information, but in an
+// equal-weight mean they still cast a vote — for "nothing moved". On
+// 2026-10-12 one such curator (37 of 37 applications in the window) was
+// pulling every balanced figure a third of the way to zero. A newcomer
+// joins the average once they have a past to move against.
+//
+// 15, not 30: the regression shape below (a second curator with 20 prior
+// applications) is a real panel and must stay one. A starting point.
+export const MIN_CURATOR_PRIOR_VOLUME = 15;
+
 // Total-variation distance between the trailing window's curator mix and
 // the all-time curator mix, above which the GLOBAL number is withheld.
 //
@@ -301,56 +319,67 @@ export function computeBalancedVelocities(
 ): Map<string, number | null> {
   const at = now ?? new Date();
   const recentCutoff = cutoff(at);
-  const all = named(rows);
 
-  const byPerson = new Map<string, (CuratorRow & { curator: string })[]>();
-  for (const row of all) {
+  // Reduce to counts, then hand off to THE definition, the same way
+  // computePanelComposition hands off to panelCompositionFromCounts.
+  const cells = new Map<string, PersonTagCount>();
+  for (const row of named(rows)) {
     const person = personOf(row.curator, identities);
-    const list = byPerson.get(person) ?? [];
-    list.push(row);
-    byPerson.set(person, list);
+    const key = `${person}\u0000${row.tagId}`;
+    const cell = cells.get(key) ?? { person, tagId: row.tagId, base: 0, recent: 0 };
+    cell.base++;
+    if (toTime(row.createdAt) >= recentCutoff) cell.recent++;
+    cells.set(key, cell);
   }
+  return balancedVelocitiesFromCounts([...cells.values()]);
+}
+
+/** One person's applications of one tag: all-time, and inside the window. */
+export type PersonTagCount = { person: string; tagId: string; base: number; recent: number };
+
+/**
+ * Curator-balanced velocity from counts alone. THE definition —
+ * computeBalancedVelocities reduces rows to counts and calls this, and the
+ * live pages call it with person_tag_counts_at (scripts/person-tag-counts.sql),
+ * so Postgres does the counting and no curator name reaches the server.
+ *
+ * Grouped by PERSON, not by name — see computeBalancedVelocities above.
+ */
+export function balancedVelocitiesFromCounts(
+  counts: PersonTagCount[]
+): Map<string, number | null> {
+  const byPerson = new Map<string, PersonTagCount[]>();
+  for (const c of counts) {
+    byPerson.set(c.person, [...(byPerson.get(c.person) ?? []), c]);
+  }
+  const allTagIds = new Set(counts.map((c) => c.tagId));
 
   // Per-curator share-shift, only for curators with enough of their own
   // history on both sides of the comparison.
   const shiftsByTag = new Map<string, number[]>();
-  const allTagIds = new Set(all.map((r) => r.tagId));
   let qualifying = 0;
 
-  for (const theirRows of byPerson.values()) {
-    const baseTotal = theirRows.length;
-    const recentRows = theirRows.filter(
-      (r) => toTime(r.createdAt) >= recentCutoff
-    );
-    const recentTotal = recentRows.length;
+  for (const cells of byPerson.values()) {
+    const baseTotal = cells.reduce((n, c) => n + c.base, 0);
+    const recentTotal = cells.reduce((n, c) => n + c.recent, 0);
 
     if (
       baseTotal < MIN_CURATOR_BASE_VOLUME ||
-      recentTotal < MIN_CURATOR_RECENT_VOLUME
+      recentTotal < MIN_CURATOR_RECENT_VOLUME ||
+      baseTotal - recentTotal < MIN_CURATOR_PRIOR_VOLUME
     ) {
       continue;
     }
     qualifying++;
 
-    const baseByTag = new Map<string, number>();
-    for (const r of theirRows) {
-      baseByTag.set(r.tagId, (baseByTag.get(r.tagId) ?? 0) + 1);
-    }
-    const recentByTag = new Map<string, number>();
-    for (const r of recentRows) {
-      recentByTag.set(r.tagId, (recentByTag.get(r.tagId) ?? 0) + 1);
-    }
-
+    const mine = new Map(cells.map((c) => [c.tagId, c]));
     // Every tag in the library, not just the ones this curator touched —
     // a curator dropping a tag entirely is a real negative shift, and
     // skipping it would silently bias the mean upward.
     for (const tagId of allTagIds) {
-      const shift =
-        (recentByTag.get(tagId) ?? 0) / recentTotal -
-        (baseByTag.get(tagId) ?? 0) / baseTotal;
-      const list = shiftsByTag.get(tagId) ?? [];
-      list.push(shift);
-      shiftsByTag.set(tagId, list);
+      const c = mine.get(tagId);
+      const shift = (c?.recent ?? 0) / recentTotal - (c?.base ?? 0) / baseTotal;
+      shiftsByTag.set(tagId, [...(shiftsByTag.get(tagId) ?? []), shift]);
     }
   }
 
@@ -361,8 +390,57 @@ export function computeBalancedVelocities(
       continue;
     }
     const shifts = shiftsByTag.get(tagId) ?? [];
-    const mean = shifts.reduce((a, b) => a + b, 0) / shifts.length;
-    result.set(tagId, mean);
+    result.set(tagId, shifts.reduce((a, b) => a + b, 0) / shifts.length);
   }
   return result;
+}
+
+// ---------------------------------------------------------------------
+// WHICH GLOBAL NUMBER PUBLISHES — added 2026-10-12
+//
+// The drift gate was built as a blackout: drift over 20% and every global
+// figure is withheld. That was right for a two-person panel. It stops
+// being right once the community grows, because every newcomer lands 100%
+// inside the window and drift rises with every person who joins. On
+// 2026-10-12, seven people, drift 23.8%, the radar plotted nothing.
+//
+// The gate's job is to stop the POOLED number describing who clipped
+// rather than what moved. Balanced velocity is immune to exactly that
+// confound — each person is compared with their own past, one vote each.
+// So when the gate closes, the balanced reading publishes in its place.
+// Withheld is now only what happens when there is no panel to balance
+// (fewer than two people qualify) or a query failed.
+//
+// One rule, both surfaces: /radar and the Signals feed both call this.
+// ---------------------------------------------------------------------
+
+export type GlobalReading = "pooled" | "balanced" | "withheld";
+
+export function resolveGlobalVelocity(input: {
+  /** Pooled velocities from velocityFromCounts, published tags only. */
+  pooled: ReadonlyMap<string, number | null>;
+  /** panelCompositionFromCounts(...).safeForGlobalVelocity, failing closed. */
+  panelSafe: boolean;
+  /** balancedVelocitiesFromCounts(...), or null when its query failed. */
+  balanced: ReadonlyMap<string, number | null> | null;
+}): {
+  velocities: Map<string, number | null>;
+  /** What to pass getConfidence as panelSafeForGlobalVelocity. */
+  panelSafe: boolean;
+  reading: GlobalReading;
+} {
+  if (input.panelSafe) {
+    return { velocities: new Map(input.pooled), panelSafe: true, reading: "pooled" };
+  }
+  const usable =
+    input.balanced !== null && [...input.balanced.values()].some((v) => v !== null);
+  if (!usable) {
+    return { velocities: new Map(input.pooled), panelSafe: false, reading: "withheld" };
+  }
+  // Keyed by the pooled map: the published vocabulary decides which looks
+  // exist. A look the balanced read has no figure for gets none — never
+  // the pooled number by the back door.
+  const velocities = new Map<string, number | null>();
+  for (const id of input.pooled.keys()) velocities.set(id, input.balanced!.get(id) ?? null);
+  return { velocities, panelSafe: true, reading: "balanced" };
 }

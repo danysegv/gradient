@@ -149,3 +149,67 @@ test("no radar a week ago means no trail at all", () => {
   assert.equal(w.biggestMover, null);
   assert.deepEqual(w.crossings, []);
 });
+
+// --- the panel gate, closed: the balanced reading (2026-10-12) ------
+
+test("gate closed with a balanced reading: every look plots, by the balanced shift", () => {
+  // Balanced deliberately disagrees with pooled on every sign.
+  const balanced = new Map([["A", -0.02], ["B", 0.03], ["C", -0.01], ["D", 0.01]]);
+  const r = computeTrendRadar({ tags: LIB, panelSafe: false, balanced, frozenAxes: new Set(), now: AFTER });
+  assert.equal(r.reading, "balanced");
+  assert.equal(r.points.length, 4);
+  const shift = Object.fromEntries(r.points.map((p) => [p.id, p.shift]));
+  assert.deepEqual(shift, { A: -0.02, B: 0.03, C: -0.01, D: 0.01 });
+  // Share is still the library's, pooled: across is size, up is direction.
+  const q = Object.fromEntries(r.points.map((p) => [p.id, p.quadrant]));
+  assert.deepEqual(q, { A: "established", B: "leading", C: "receding", D: "emerging" });
+});
+
+test("gate open: the balanced reading is ignored, pooled publishes", () => {
+  const balanced = new Map([["A", -0.5], ["B", -0.5], ["C", -0.5], ["D", -0.5]]);
+  const a = computeTrendRadar({ tags: LIB, panelSafe: true, frozenAxes: new Set(), now: AFTER });
+  const b = computeTrendRadar({ tags: LIB, panelSafe: true, balanced, frozenAxes: new Set(), now: AFTER });
+  assert.equal(b.reading, "pooled");
+  assert.deepEqual(a.points, b.points);
+});
+
+test("gate closed and no panel to balance: withheld, as before", () => {
+  const allNull = new Map([["A", null], ["B", null], ["C", null], ["D", null]]);
+  for (const balanced of [null, allNull]) {
+    const r = computeTrendRadar({ tags: LIB, panelSafe: false, balanced, frozenAxes: new Set(), now: AFTER });
+    assert.equal(r.reading, "withheld");
+    assert.equal(r.points.length, 0);
+    assert.ok(r.waiting.every((w) => w.reason === "Panel Skew"));
+  }
+});
+
+test("the balanced reading never lets an incubating or young look through", () => {
+  const balanced = new Map([["A", 0.01], ["B", 0.01], ["C", 0.01], ["D", 0.01], ["X", 0.2], ["young", 0.2]]);
+  const r = computeTrendRadar({
+    tags: [...LIB, tag("X", 50, 40, { isPublished: false }), tag("young", 30, 30, { earliestReferenceAt: fresh })],
+    panelSafe: false,
+    balanced,
+    frozenAxes: new Set(),
+    now: AFTER,
+  });
+  const reasons = Object.fromEntries(r.waiting.map((w) => [w.id, w.reason]));
+  assert.equal(reasons.X, "Incubating");
+  assert.equal(reasons.young, "Early Signal");
+  assert.ok(!r.points.some((p) => p.id === "X" || p.id === "young"));
+});
+
+test("no trail across a change of reading: a change of method is not a move", () => {
+  const balanced = new Map([["A", 0.01], ["B", 0.01], ["C", 0.01], ["D", 0.01]]);
+  const current = computeTrendRadar({ tags: LIB, panelSafe: false, balanced, frozenAxes: new Set(), now: AFTER });
+  const weekAgo = computeTrendRadar({
+    tags: LIB,
+    panelSafe: true,
+    frozenAxes: new Set(),
+    now: AFTER - 7 * DAY,
+    publicationNow: AFTER,
+  });
+  assert.equal(weekAgo.points.length, 4);
+  const w = attachTrail(current, weekAgo);
+  assert.equal(w.hasTrail, false);
+  assert.ok(w.points.every((p) => p.prior === null));
+});
