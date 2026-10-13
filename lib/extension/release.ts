@@ -3,10 +3,10 @@
 // lib/extension/release.test.ts fails if this drifts from extension/.
 
 export const clipperRelease = {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "sources": {
     "background.js": "30e02b514f7fba8b9ff291a40c4c89b1fcdb9963d098d53280bce00e952b54bd",
-    "content.js": "64db1bccfbcbeab0af31c3362509b769f55b0ee69cd396d9335f1b52ebd3a97f",
+    "content.js": "702edbac466e72af8c8fae2b51a4b49d8b5e5e5584a906a79b29ebd8bcd2eda9",
     "fonts/OFL.txt": "c3c8402eec0e31dc9a76851235b1c02a0bb821488b2db8e35bcc2ab60ca8fc2b",
     "fonts/archivo.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
     "icons/icon-128.png": "756a7adbd7d7866d5f26c59100913a0f4d39c31d49d0654721a37df183f2e8f8",
@@ -21,11 +21,11 @@ export const clipperRelease = {
     "icons/toolbar-ink-32.png": "6ab78fd89bae57b20c65761ed516e3cfeee373d5f655186b7fb362c7fe417f33",
     "icons/toolbar-ink-48.png": "7f1bf562a32b32c50858a33d9e05c5045dcaa3d45dd6ce297887fc23f740b3b2",
     "icons/wordmark.svg": "a066016c641a6b53314a73c4d8a0b73f0a9bd14238056869e3220759e83e518b",
-    "manifest.json": "ca56dc75a1fc8850696bc0f1c5718a95966eb43e76396aefdeef16e8a58c4316",
-    "options.css": "a85086a04d61106d5ff93ef29fed54d9438d6d3d68617e390c34c709d7fa8937",
+    "manifest.json": "272d2376c878ee8462378708f4d76bf4f1a575eadc9bbfbf7c44a9992c3832b7",
+    "options.css": "c9044af30d4531296bd84631a2b6477e55900c3e6a9ba42c0c3fdc14270ad1b6",
     "options.html": "bd8ff1259571a991dc65d1036378dd5b293f8cb5e93a64e3ef6b773d2bffebe8",
     "options.js": "cfc1f6be358e2d86539ff01601c7aa74f50da7af19cfe60237aba16cc49656c1",
-    "panel.css": "df9194f4b554269f2332951812a68b127ecb1afba7fded7584bb83c34d03a15a",
+    "panel.css": "a7d85d99e99e5fe3e527e009c0f1e0885c99d2bc6abd0bc6784c5aa97f3bc005",
     "panel.html": "cbf7e3791a203f705981b49c5cc67241bf595b7d6e8a9ccd0067644779ed1107",
     "panel.js": "b5d77019db41811c194471c8af8fcd73314eb89670938ba590a6de9e83f802f0",
     "popup.css": "82fd7c1e7572e8c4c3fe30943122fe8cff87ea34d43c54761f720562f3893193",
@@ -34,7 +34,7 @@ export const clipperRelease = {
     "scheme.html": "f4653f91f5c7d2d45fe8a3b324718430fe9f540dfad96f9816e923b9ad98540e",
     "scheme.js": "836c980f2140db9756591a0f8045d00b4ace0f2f25ddf1487875dfd812cfa97c",
     "site.js": "9898053f0f607cf644ef7091d4c47629e74c74a65c96309b27cfc35efd4bb3b1",
-    "ui.css": "686e3396da9aba639bfb515764c2869ef272ff4d6c9755d2f4043571d180b7f4",
+    "ui.css": "de14a2ee742dde55439727bf78fe274e4b81d46ac5fd796e716167f51f8c7479",
     "ui.js": "9943c0d4fa1fa808be0c3656417bcaefbfa86bc26eaf1130b0aee2afe01b81ea"
   }
 } as const;

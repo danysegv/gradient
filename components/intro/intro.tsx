@@ -3,7 +3,6 @@
 import { BOARD } from "@/lib/boards/naming";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Wordmark } from "@/components/wordmark";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 import { COLOR_BUCKETS } from "@/lib/color/buckets";
 import { spaceTagName } from "@/lib/intro";
@@ -211,7 +210,6 @@ function TopBar() {
         </a>
       </div>
       <div className="flex items-center gap-5">
-        <ThemeToggle className="-mr-2" />
         <Link href="/signin" className={`${LABEL} text-bone/70 hover:text-bone`}>
           Sign in
         </Link>

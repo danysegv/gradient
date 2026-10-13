@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "04AM Clipper",
   "short_name": "04AM",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Clip design references to 04AM from any page. Links only, whole images, credited. For approved curators.",
   "homepage_url": "https://gradient-flax.vercel.app",
   "icons": {

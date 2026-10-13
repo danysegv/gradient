@@ -441,11 +441,30 @@
 
   const CSS = `
     :host { all: initial; }
+    /* The site's tokens, following the system setting like the popup and
+       the panel (ui.css). On the shadow host, so the page's own styles
+       can't reach them. */
+    :host {
+      --ink: #0b0a0e; --ink-2: #131218; --bone: #e7e3d8;
+      --veil: rgba(11,10,14,.965);
+      --bone-85: rgba(231,227,216,.85); --bone-72: rgba(231,227,216,.72); --bone-62: rgba(231,227,216,.62);
+      --rule: rgba(231,227,216,.10); --edge: rgba(231,227,216,.14);
+      --shade: rgba(0,0,0,.55);
+    }
+    @media (prefers-color-scheme: light) {
+      :host {
+        --ink: #f3f1eb; --ink-2: #e7e3d8; --bone: #0b0a0e;
+        --veil: rgba(243,241,235,.965);
+        --bone-85: rgba(11,10,14,.85); --bone-72: rgba(11,10,14,.72); --bone-62: rgba(11,10,14,.62);
+        --rule: rgba(11,10,14,.10); --edge: rgba(11,10,14,.14);
+        --shade: rgba(11,10,14,.22);
+      }
+    }
     * { box-sizing: border-box; }
     .picker, .panel { pointer-events: auto; }
     .picker {
       position: fixed; inset: 0; display: flex; flex-direction: column;
-      background: rgba(11,10,14,.965); color: #E7E3D8;
+      background: var(--veil); color: var(--bone);
       font: 400 14px/1.4 "04AM Archivo", Archivo, "Helvetica Neue", Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
       animation: fade-in 180ms ease-out;
@@ -453,21 +472,21 @@
     }
     header {
       flex: none; height: 64px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-      padding: 0 24px; border-bottom: 1px solid rgba(231,227,216,.10);
+      padding: 0 24px; border-bottom: 1px solid var(--rule);
     }
-    .mark { display: block; width: 64px; color: #E7E3D8; line-height: 0; }
+    .mark { display: block; width: 64px; color: var(--bone); line-height: 0; }
     .mark svg { width: 100%; height: auto; display: block; }
-    .kicker { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(231,227,216,.72); }
+    .kicker { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--bone-72); }
     /* No box: the X alone, quiet until you reach for it. The 34px target
        stays, it just isn't drawn. */
     .close {
       justify-self: end; display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
-      color: rgba(231,227,216,.72); background: none; border: 0; cursor: pointer;
+      color: var(--bone-72); background: none; border: 0; cursor: pointer;
       transition: color 120ms;
     }
     .close svg { display: block; width: 14px; height: 14px; }
-    .close:hover { color: #E7E3D8; }
-    .close:focus-visible, .tile:focus-visible { outline: 1px solid #E7E3D8; outline-offset: 3px; }
+    .close:hover { color: var(--bone); }
+    .close:focus-visible, .tile:focus-visible { outline: 1px solid var(--bone); outline-offset: 3px; }
     .scroll { flex: 1; overflow-y: auto; padding: 28px 24px 40px; overscroll-behavior: contain; }
     .grid { columns: 5 220px; column-gap: 18px; max-width: 1600px; margin: 0 auto; }
     .tile {
@@ -477,28 +496,29 @@
     }
     .tile img {
       display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain;
-      background: #131218; outline: 1px solid transparent; transition: outline-color 120ms, opacity 120ms;
+      background: var(--ink-2); outline: 1px solid transparent; transition: outline-color 120ms, opacity 120ms;
     }
-    .tile:hover img { outline-color: rgba(231,227,216,.85); }
+    .tile:hover img { outline-color: var(--bone-85); }
     .tile.off { cursor: not-allowed; }
     .tile.off img { opacity: .3; }
-    .meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 11px; color: rgba(231,227,216,.62); }
+    .meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 11px; color: var(--bone-62); }
     .meta span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .empty { margin: 18vh auto 0; max-width: 420px; text-align: center; font-size: 18px; line-height: 1.35; }
-    .empty span { display: block; margin-top: 10px; font-size: 14px; color: rgba(231,227,216,.62); }
+    .empty span { display: block; margin-top: 10px; font-size: 14px; color: var(--bone-62); }
     footer {
-      flex: none; padding: 14px 24px; border-top: 1px solid rgba(231,227,216,.10);
-      font-size: 12px; color: rgba(231,227,216,.62); text-align: center;
+      flex: none; padding: 14px 24px; border-top: 1px solid var(--rule);
+      font-size: 12px; color: var(--bone-62); text-align: center;
     }
     .panel {
       position: fixed; top: 12px; right: 12px; width: min(400px, calc(100vw - 24px));
       /* An iframe is a replaced element: top + bottom won't stretch it. */
       height: calc(100vh - 24px); height: calc(100dvh - 24px);
-      border: 1px solid rgba(231,227,216,.14); border-radius: 6px; background: #0B0A0E;
-      box-shadow: 0 24px 80px rgba(0,0,0,.55);
+      border: 1px solid var(--edge); border-radius: 6px; background: var(--ink);
+      box-shadow: 0 24px 80px var(--shade);
       animation: slide-in 280ms cubic-bezier(.2,.8,.2,1);
       color-scheme: dark;
     }
+    @media (prefers-color-scheme: light) { .panel { color-scheme: light; } }
     @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
     @keyframes float-in { from { opacity: 0; transform: translateY(24px) scale(.96) } to { opacity: 1; transform: none } }
     @keyframes slide-in { from { opacity: 0; transform: translateX(24px) } to { opacity: 1; transform: none } }

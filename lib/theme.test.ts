@@ -65,3 +65,11 @@ test("no brand colour is hard-coded in the UI; it would not follow the theme", (
   const offenders = UI.filter((f) => f !== "app/layout.tsx" && hex.test(readFileSync(f, "utf8")));
   assert.deepEqual(offenders, []);
 });
+
+test("the extension follows the system the same way: its pages and the in-page picker", () => {
+  for (const f of ["extension/ui.css", "extension/content.js"]) {
+    const src = readFileSync(f, "utf8");
+    assert.match(src, /@media \(prefers-color-scheme: light\)/, `${f} has no light scheme`);
+    assert.match(src, /--ink: #f3f1eb/, `${f} light ground is not the site's paper`);
+  }
+});

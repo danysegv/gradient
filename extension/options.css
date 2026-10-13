@@ -11,7 +11,7 @@ hr { border: 0; border-top: 1px solid var(--rule); margin: 32px 0; }
 kbd { font: inherit; font-size: 12px; border: 1px solid var(--field); border-radius: 3px; padding: 0 4px; }
 .choice { display: flex; align-items: baseline; gap: 10px; margin: 12px 0; cursor: pointer; }
 .choice .note { font-size: 12px; }
-.choice input { accent-color: #e7e3d8; }
+.choice input { accent-color: var(--bone); }
 .site summary { cursor: pointer; list-style: none; }
 .site summary::-webkit-details-marker { display: none; }
 .site summary::after { content: " +"; }

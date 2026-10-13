@@ -1,6 +1,6 @@
 /* 04AM Clipper — the extension's own pages (popup, options, panel).
-   Same system as the site: Ink ground, Bone type, Archivo, lots of
-   negative space. Oxide and Slate never at small sizes. */
+   Same system as the site: Ink ground, Bone type (or, when the system is
+   light, the site's light mode), Archivo, lots of negative space. Oxide and Slate never at small sizes. */
 
 @font-face {
   font-family: "04AM Archivo";
@@ -10,15 +10,41 @@
 }
 
 :root {
+  /* Roles, not paint, exactly as on the site (app/globals.css): --ink is
+     the ground, --ink-2 a surface, --bone the foreground. Light swaps
+     them, so every rule below follows the system setting. */
   --ink: #0b0a0e;
   --ink-2: #131218;
   --bone: #e7e3d8;
   --bone-72: rgba(231, 227, 216, 0.72);
+  --bone-70: rgba(231, 227, 216, 0.7);
   --bone-62: rgba(231, 227, 216, 0.62);
   --bone-45: rgba(231, 227, 216, 0.45);
+  --bone-32: rgba(231, 227, 216, 0.32);
   --rule: rgba(231, 227, 216, 0.12);
   --field: rgba(231, 227, 216, 0.2);
+  /* The primary button brightens on hover in dark, deepens in light. */
+  --button-hover: #ffffff;
   color-scheme: dark;
+}
+
+/* Light, when the system is light (Daniela, 2026-10-13): the same paper,
+   Bone surface and Ink type as the site's light mode. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink: #f3f1eb;
+    --ink-2: #e7e3d8;
+    --bone: #0b0a0e;
+    --bone-72: rgba(11, 10, 14, 0.72);
+    --bone-70: rgba(11, 10, 14, 0.7);
+    --bone-62: rgba(11, 10, 14, 0.62);
+    --bone-45: rgba(11, 10, 14, 0.45);
+    --bone-32: rgba(11, 10, 14, 0.32);
+    --rule: rgba(11, 10, 14, 0.12);
+    --field: rgba(11, 10, 14, 0.2);
+    --button-hover: #2a282f;
+    color-scheme: light;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -68,7 +94,7 @@ h1 {
 }
 textarea.field { height: auto; min-height: 72px; padding: 11px 14px; resize: vertical; line-height: 1.4; }
 .field::placeholder { color: var(--bone-45); }
-.field:focus { outline: none; border-color: rgba(231, 227, 216, 0.7); }
+.field:focus { outline: none; border-color: var(--bone-70); }
 
 .button {
   display: inline-flex;
@@ -89,10 +115,10 @@ textarea.field { height: auto; min-height: 72px; padding: 11px 14px; resize: ver
   cursor: pointer;
   transition: background 120ms;
 }
-.button:hover { background: #fff; }
+.button:hover { background: var(--button-hover); }
 .button:disabled { opacity: 0.55; cursor: default; }
 .button.quiet { background: none; color: var(--bone); border: 1px solid var(--field); }
-.button.quiet:hover { border-color: rgba(231, 227, 216, 0.7); background: none; }
+.button.quiet:hover { border-color: var(--bone-70); background: none; }
 
 .link {
   background: none;
