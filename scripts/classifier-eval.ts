@@ -129,11 +129,11 @@ type ClipRow = {
   image_url: string | null;
   title: string | null;
   caption: string | null;
-  clip_tags: { tag_id: string; confidence: number | null }[] | null;
+  clip_tags: { tag_id: string; confidence: number | null; source: string | null }[] | null;
 };
 const { data: clipData, error: clipErr } = await supabaseAdmin
   .from("clips")
-  .select("id, image_url, title, caption, clip_tags ( tag_id, confidence )")
+  .select("id, image_url, title, caption, clip_tags ( tag_id, confidence, source )")
   .is("archived_at", null)
   .not("image_url", "is", null);
 if (clipErr) throw clipErr;
@@ -163,6 +163,12 @@ console.log(`WRITES       none — this script only reads\n`);
 function referenceByAxis(c: ClipRow): Map<string, string> {
   const best = new Map<string, { name: string; conf: number }>();
   for (const ct of c.clip_tags ?? []) {
+    // A curator's tag is not the instrument. The 09-17 sweep rejected 31
+    // model tags across 27 clips and added eight by hand at 0.80, which
+    // outranks most model confidences — scoring a cheap model against
+    // those would be measuring it against Daniela, not against Opus.
+    // clip_tags.source (added 2026-09-18) is what makes them separable.
+    if (ct.source === "curator") continue;
     const axis = axisById.get(ct.tag_id);
     const name = nameById.get(ct.tag_id);
     if (!axis || !name) continue;
@@ -173,37 +179,61 @@ function referenceByAxis(c: ClipRow): Map<string, string> {
   return new Map([...best].map(([axis, v]) => [axis, v.name]));
 }
 
+// Some OpenAI-compatible endpoints (Anthropic's included) 400 on
+// response_format: { type: "json_object" } — Anthropic's wants
+// "json_schema" instead. Rather than special-case a backend, ask once with
+// it, and if that specific field is what the server objects to, drop it
+// and remember not to send it again: every remaining clip pays no retry,
+// only the first one does. The parser below already salvages prose out of
+// an unstructured reply, so dropping the field costs nothing but that one
+// extra round trip.
+let sendResponseFormat = true;
+
 async function askModel(b64: string, context: string): Promise<Map<string, string>> {
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(API_KEY ? { authorization: `Bearer ${API_KEY}` } : {}),
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0,
-      max_tokens: 1024,
-      // Honoured by most servers, ignored by the rest — the parser below
-      // salvages prose either way, so this is an optimisation, not a
-      // dependency.
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: context },
-            {
-              type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${b64}` },
-            },
-          ],
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(180000),
-  });
+  const call = async () => {
+    const res = await fetch(`${BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(API_KEY ? { authorization: `Bearer ${API_KEY}` } : {}),
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        temperature: 0,
+        max_tokens: 1024,
+        // Honoured by most servers, ignored by the rest — the parser below
+        // salvages prose either way, so this is an optimisation, not a
+        // dependency.
+        ...(sendResponseFormat ? { response_format: { type: "json_object" } } : {}),
+        messages: [
+          { role: "system", content: SYSTEM },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: context },
+              {
+                type: "image_url",
+                image_url: { url: `data:image/jpeg;base64,${b64}` },
+              },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(180000),
+    });
+    return res;
+  };
+
+  let res = await call();
+  if (!res.ok && sendResponseFormat && res.status === 400) {
+    const text = await res.text();
+    if (/response_format/.test(text)) {
+      sendResponseFormat = false;
+      res = await call();
+    } else {
+      throw new Error(`${res.status}: ${text.slice(0, 300)}`);
+    }
+  }
   if (!res.ok) {
     throw new Error(`${res.status}: ${(await res.text()).slice(0, 300)}`);
   }
