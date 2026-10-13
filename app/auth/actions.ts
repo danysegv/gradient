@@ -12,6 +12,9 @@ import { CLIPPER_CARD_COOKIE } from "@/lib/clipper-card";
 import { setRemember } from "@/lib/auth/remember-cookie";
 import { getSession } from "@/lib/clip-session";
 import { endPairedSessions } from "@/lib/auth/session-pairs";
+import { allowAttempt, requestIp, rulesFor } from "@/lib/auth/attempts";
+import { TOO_MANY } from "@/lib/auth/attempt-rules";
+import { BREACHED, isBreachedPassword } from "@/lib/auth/breached";
 
 // Accounts (2026-09-21): email + password through Supabase Auth, for
 // everyone. A curator is an account an admin has linked to a curator
@@ -68,6 +71,11 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   );
   if (!password.ok) return { error: password.error };
 
+  if (!(await allowAttempt(rulesFor(await requestIp(), "signUpPerIp")))) {
+    return { error: TOO_MANY };
+  }
+  if (await isBreachedPassword(password.value)) return { error: BREACHED };
+
   const supabase = await authServerClient();
   const { data, error } = await supabase.auth.signUp({
     email: email.value,
@@ -107,6 +115,11 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     return { error: "Enter your password." };
   }
 
+  const allowed = await allowAttempt(
+    rulesFor(await requestIp(), "signInPerIp", { value: email.value, limit: "signInPerEmail" })
+  );
+  if (!allowed) return { error: TOO_MANY };
+
   // "Remember me" (on unless unticked). Off: this sign-in, and the
   // extension's when it picks it up, end when the browser closes.
   const remember = formData.get("remember") === "on";
@@ -129,6 +142,11 @@ export async function requestPasswordReset(
 ): Promise<AuthState> {
   const email = parseEmail(formData.get("email"));
   if (!email.ok) return { error: email.error };
+
+  const allowed = await allowAttempt(
+    rulesFor(await requestIp(), "resetPerIp", { value: email.value, limit: "resetPerEmail" })
+  );
+  if (!allowed) return { error: TOO_MANY };
 
   const supabase = await authServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
@@ -156,6 +174,7 @@ export async function updatePassword(
   if (!data.user) {
     return { error: "That reset link has expired. Ask for a new one." };
   }
+  if (await isBreachedPassword(password.value)) return { error: BREACHED };
   const { error } = await supabase.auth.updateUser({ password: password.value });
   if (error) return { error: friendly(error) };
 

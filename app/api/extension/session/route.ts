@@ -2,6 +2,8 @@ import { parseEmail } from "@/lib/auth/email";
 import { refreshExtension, signInExtension, signOutExtension } from "@/lib/auth/extension-session";
 import { bearerToken } from "@/lib/clip-session";
 import { json, preflight, readJsonObject } from "@/lib/extension/cors";
+import { allowAttempt, requestIp, rulesFor } from "@/lib/auth/attempts";
+import { TOO_MANY } from "@/lib/auth/attempt-rules";
 
 // The browser extension's sign-in. POST { email, password } signs in;
 // POST { refresh_token } renews; DELETE (with the bearer token) signs out.
@@ -30,6 +32,12 @@ export async function POST(request: Request) {
   if (typeof password !== "string" || password.length === 0 || password.length > 200) {
     return json(request, { error: "Enter your password.", code: "invalid" }, 400);
   }
+
+  // Same limits as signing in on the site (lib/auth/attempt-rules.ts).
+  const allowed = await allowAttempt(
+    rulesFor(await requestIp(request), "signInPerIp", { value: email.value, limit: "signInPerEmail" })
+  );
+  if (!allowed) return json(request, { error: TOO_MANY, code: "rate_limited" }, 429);
 
   const result = await signInExtension(email.value, password);
   return result.ok

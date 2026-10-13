@@ -7,6 +7,8 @@ import {
   expectedSessionToken,
   resolveCurator,
 } from "@/lib/clip-auth";
+import { allowAttempt, requestIp, rulesFor } from "@/lib/auth/attempts";
+import { TOO_MANY } from "@/lib/auth/attempt-rules";
 
 export type LoginState = { error: string } | undefined;
 
@@ -14,6 +16,12 @@ export async function loginToClipper(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  // The old shared password had no limit at all (security review
+  // 2026-10-13, #3). Counted before the comparison, right or wrong.
+  if (!(await allowAttempt(rulesFor(await requestIp(), "curatorPasswordPerIp")))) {
+    return { error: TOO_MANY };
+  }
+
   const password = formData.get("password");
   const curatorName =
     typeof password === "string" ? resolveCurator(password) : null;

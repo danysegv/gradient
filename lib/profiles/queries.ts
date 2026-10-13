@@ -1,5 +1,10 @@
 import "server-only";
-import { supabasePublic } from "@/lib/supabase/public";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+// Read with the service role (security review 2026-10-13, #9): login_key,
+// is_admin and user_id are no longer readable by the public key, and
+// these reads need the first two. Nothing here leaves the server whole —
+// pages render display_name and bio only.
 
 // What a curator writes about themselves. The username is still the
 // identity — it comes from the clip data, not from here — and display_name
@@ -21,7 +26,7 @@ export type CuratorProfile = {
 const SELECT = "name, display_name, bio, login_key, name_changed_at, is_admin";
 
 export async function getProfile(name: string): Promise<CuratorProfile | null> {
-  const { data, error } = await supabasePublic
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select(SELECT)
     .eq("name", name.toLowerCase())
@@ -35,7 +40,7 @@ export async function getProfiles(
   names: readonly string[]
 ): Promise<Map<string, CuratorProfile>> {
   if (names.length === 0) return new Map();
-  const { data, error } = await supabasePublic
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select(SELECT)
     .in("name", names.map((n) => n.toLowerCase()));
@@ -47,7 +52,7 @@ export async function getProfiles(
 
 /** The current name of the profile that signs in with this key. */
 export async function nameForLoginKey(loginKey: string): Promise<string | null> {
-  const { data, error } = await supabasePublic
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("name")
     .eq("login_key", loginKey)
@@ -64,7 +69,7 @@ export async function nameForLoginKey(loginKey: string): Promise<string | null> 
 export async function currentNameForOldName(
   oldName: string
 ): Promise<string | null> {
-  const { data, error } = await supabasePublic
+  const { data, error } = await supabaseAdmin
     .from("profile_name_history")
     .select("login_key")
     .eq("old_name", oldName.toLowerCase())
