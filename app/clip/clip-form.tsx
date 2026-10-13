@@ -193,7 +193,7 @@ function Preview({ draft }: { draft: Draft }) {
           be sticky and follow the scroll; same look, no following. */}
       <div>
         <p className={`${LABEL} mb-3`}>As it will be kept</p>
-        <div className="flex min-h-[260px] items-center justify-center border border-white/10 bg-ink-2 p-5 [background-image:linear-gradient(rgba(231,227,216,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(231,227,216,0.04)_1px,transparent_1px)] [background-size:32px_32px]">
+        <div className="flex min-h-[260px] items-center justify-center border border-white/10 bg-ink-2 p-5 [background-image:linear-gradient(color-mix(in_srgb,var(--bone)_4%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--bone)_4%,transparent)_1px,transparent_1px)] [background-size:32px_32px]">
           {src && !broken ? (
             // eslint-disable-next-line @next/next/no-img-element -- rights holder's own server, shown whole
             <img

@@ -5,7 +5,7 @@ import { Wordmark } from "@/components/wordmark";
 // one form. Same ground as the intro's sign-up, so moving between them
 // feels like one place.
 const GRID_PAPER =
-  "bg-[linear-gradient(rgba(231,227,216,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(231,227,216,0.055)_1px,transparent_1px)] bg-[size:44px_44px]";
+  "bg-[linear-gradient(color-mix(in_srgb,var(--bone)_5.5%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--bone)_5.5%,transparent)_1px,transparent_1px)] bg-[size:44px_44px]";
 
 export function AuthShell({
   title,

@@ -14,7 +14,7 @@ import { PUBLIC_TAG_CONFIDENCE } from "@/lib/tag-confidence";
 const UNDO_WINDOW_MS = 15000;
 
 const SCRIM =
-  "linear-gradient(to top, rgba(11,10,14,0.97) 0%, rgba(11,10,14,0.88) 32%, rgba(11,10,14,0.55) 62%, rgba(11,10,14,0) 92%)";
+  "linear-gradient(to top, color-mix(in srgb, var(--ink) 97%, transparent) 0%, color-mix(in srgb, var(--ink) 88%, transparent) 32%, color-mix(in srgb, var(--ink) 55%, transparent) 62%, color-mix(in srgb, var(--ink) 0%, transparent) 92%)";
 
 export type ClipperClip = {
   id: string;

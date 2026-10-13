@@ -71,7 +71,7 @@ export function AccountButton() {
         </span>
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-64 rounded-[6px] border border-white/10 bg-ink-2 p-4 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] [animation:drop-in_200ms_cubic-bezier(.2,.8,.2,1)]">
+        <div className="absolute right-0 top-12 z-50 w-64 rounded-[6px] border border-white/10 bg-ink-2 p-4 shadow-[0_24px_60px_-20px_var(--shade)] [animation:drop-in_200ms_cubic-bezier(.2,.8,.2,1)]">
           <p className="truncate text-[13px] text-bone/70">{email}</p>
           {profile && (
             <Link

@@ -3,6 +3,7 @@
 import { BOARD } from "@/lib/boards/naming";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Wordmark } from "@/components/wordmark";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 import { COLOR_BUCKETS } from "@/lib/color/buckets";
 import { spaceTagName } from "@/lib/intro";
@@ -135,7 +136,7 @@ function ClipImage({
 }
 
 const GRID_PAPER =
-  "bg-[linear-gradient(rgba(231,227,216,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(231,227,216,0.055)_1px,transparent_1px)] bg-[size:44px_44px]";
+  "bg-[linear-gradient(color-mix(in_srgb,var(--bone)_5.5%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--bone)_5.5%,transparent)_1px,transparent_1px)] bg-[size:44px_44px]";
 
 const LABEL = "text-[12px] font-semibold uppercase tracking-[0.08em]";
 
@@ -210,6 +211,7 @@ function TopBar() {
         </a>
       </div>
       <div className="flex items-center gap-5">
+        <ThemeToggle className="-mr-2" />
         <Link href="/signin" className={`${LABEL} text-bone/70 hover:text-bone`}>
           Sign in
         </Link>
@@ -323,9 +325,10 @@ function Opening({
     return [...hits, ...rest].slice(0, SLOTS.length);
   }, [clips, query]);
 
-  const line1 = useTyped("A library of design references,", ready, 30, 700);
-  const line2 = useTyped("read by what they look like.", ready, 30, 1700);
-  const line3 = useTyped("Every one credited to its source.", ready, 30, 2650);
+  // The claim, then the proof (Daniela, 2026-10-13).
+  const line1 = useTyped("Made for the visual obsessive.", ready, 30, 700);
+  const line2 = useTyped("Every piece sourced,", ready, 30, 1700);
+  const line3 = useTyped("every trend measured.", ready, 30, 2400);
 
   return (
     <section className={`relative overflow-hidden ${GRID_PAPER}`} style={{ height: `${FIELD_SVH}svh` }}>
@@ -364,30 +367,28 @@ function Opening({
             <span className="sr-only">04AM. </span>
             <span
               className="block min-h-[3.6em] text-[20px] font-semibold leading-[1.2] tracking-tight md:text-[28px]"
-              aria-label="A library of design references, read by what they look like. Every one credited to its source."
+              aria-label="Made for the visual obsessive. Every piece sourced, every trend measured."
             >
               <span aria-hidden>
                 {line1}
                 <br />
-                {line2}
-                <br />
-                <span className="text-bone/60">{line3}</span>
+                <span className="text-bone/60">
+                  {line2}
+                  <br />
+                  {line3}
+                </span>
                 <span className="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[0.1em] bg-oxide [animation:blink_1s_steps(1)_infinite]" />
               </span>
             </span>
           </h1>
-          <a
-            href="#join"
-            className="group flex w-fit flex-none items-center gap-4 rounded-[4px] bg-bone py-2 pl-2 pr-5 text-ink transition-transform [animation:fade-in_700ms_ease-out_3200ms_both] hover:-translate-y-0.5"
-          >
-            <span aria-hidden className="h-9 w-9 bg-oxide transition-transform group-hover:rotate-90" />
-            <span className={LABEL}>Sign up</span>
-          </a>
+          {/* No second Sign up here (Daniela, 2026-10-13): the bar above
+              already carries one, and the first screen is the line and the
+              query. */}
         </div>
 
         {/* The query, centred in what is left of the first screen. */}
         <div className="pointer-events-none flex flex-1 items-center justify-center py-4">
-          <div className="flex h-14 w-full max-w-[720px] items-center justify-between rounded-full bg-bone pl-7 pr-2 text-ink shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] md:h-16">
+          <div className="flex h-14 w-full max-w-[720px] items-center justify-between rounded-full bg-bone pl-7 pr-2 text-ink shadow-[0_30px_80px_-20px_var(--shade)] md:h-16">
             <span className="truncate text-[15px] font-semibold uppercase tracking-[0.08em] md:text-[17px]">
               {typedQuery}
               <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[0.15em] bg-ink [animation:blink_1s_steps(1)_infinite]" />
@@ -519,7 +520,7 @@ function SceneClip({ clips, onBroken }: { clips: IntroClip[]; onBroken: (id: str
       <div
         className={`flex w-[82%] items-center gap-3 rounded-full border border-white/15 bg-ink px-4 py-2.5 opacity-0 transition-all duration-500 group-data-[play=1]/scene:opacity-100`}
       >
-        <span className={`${LABEL} rounded-full bg-oxide px-2.5 py-1 text-bone`}>Clip</span>
+        <span className={`${LABEL} rounded-full bg-oxide px-2.5 py-1 text-on-accent`}>Clip</span>
         <span className="truncate text-[13px] text-bone/70">
           <span className={`inline-block max-w-0 overflow-hidden whitespace-nowrap align-bottom transition-[max-width] delay-300 duration-[1400ms] ease-linear group-data-[play=1]/scene:max-w-[40ch]`}>
             https://{a.source ?? "source.example"}/…

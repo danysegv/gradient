@@ -50,6 +50,11 @@ const COOKIES = [
     lasts: "1 year",
   },
   {
+    name: "04am_theme",
+    purpose: "Remembers light or dark, if you chose one. Not set while you follow your device.",
+    lasts: "1 year",
+  },
+  {
     name: "04am_clip_session",
     purpose: "Curators only: keeps the clipper signed in.",
     lasts: "30 days, or until you sign out",

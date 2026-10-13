@@ -66,7 +66,7 @@ export function SaveToBoards({
                   type="checkbox"
                   checked={b.has}
                   onChange={() => toggle(b)}
-                  className="h-4 w-4 translate-y-[2px] accent-[#E7E3D8]"
+                  className="h-4 w-4 translate-y-[2px] accent-bone"
                 />
                 <span className="text-bone">{b.title}</span>
                 {!b.is_public && (

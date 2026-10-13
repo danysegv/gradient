@@ -113,7 +113,7 @@ function Chart({ radar }: { radar: Radar }) {
               x2={W - M.r}
               y1={y(v)}
               y2={y(v)}
-              stroke="#E7E3D8"
+              stroke="var(--bone)"
               strokeOpacity={v === 0 ? 0.35 : 0.06}
               strokeWidth={1}
             />
@@ -134,7 +134,7 @@ function Chart({ radar }: { radar: Radar }) {
               x2={x(v)}
               y1={M.t}
               y2={H - M.b}
-              stroke="#E7E3D8"
+              stroke="var(--bone)"
               strokeOpacity={0.06}
               strokeWidth={1}
             />
@@ -155,7 +155,7 @@ function Chart({ radar }: { radar: Radar }) {
           x2={x(CORE_SHARE)}
           y1={M.t}
           y2={H - M.b}
-          stroke="#E7E3D8"
+          stroke="var(--bone)"
           strokeOpacity={0.28}
           strokeDasharray="3 4"
           strokeWidth={1}
@@ -213,9 +213,9 @@ function Chart({ radar }: { radar: Radar }) {
                 cx={cx}
                 cy={cy}
                 r={5}
-                fill={t.lean! > 0 ? "#B4453A" : t.lean! < 0 ? "#5C6B87" : "#E7E3D8"}
+                fill={t.lean! > 0 ? "#B4453A" : t.lean! < 0 ? "#5C6B87" : "var(--bone)"}
                 fillOpacity={t.lean === 0 ? 0.6 : 1}
-                stroke="#0B0A0E"
+                stroke="var(--ink)"
                 strokeWidth={2}
                 className="group-hover:stroke-bone"
               />

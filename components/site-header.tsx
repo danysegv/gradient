@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/wordmark";
 import { SearchOverlay } from "@/components/search-overlay";
 import { AccountButton } from "@/components/account-button";
 import { NotificationBell } from "@/components/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // One header for every page, A24-simple: the pages on one side, the mark
 // dead centre, search alone on the other side. It replaced nine hand-copied
@@ -118,6 +119,7 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
               bell glyphs share one 17px outline inside 40px buttons; the
               profile circle is wider, so it sits 6px further out to keep
               the gap after the bell equal to the gap before it. */}
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => setSearchOpen(true)}

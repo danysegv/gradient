@@ -55,7 +55,7 @@ export function BoardFields({
           name="is_public"
           type="checkbox"
           defaultChecked={defaults?.isPublic ?? false}
-          className="mt-[3px] h-4 w-4 accent-[#E7E3D8]"
+          className="mt-[3px] h-4 w-4 accent-bone"
         />
         <span>
           Show on my profile

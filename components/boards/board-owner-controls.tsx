@@ -61,7 +61,7 @@ export function BoardOwnerControls({
           <button
             type="submit"
             disabled={pending}
-            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-bone disabled:opacity-60"
+            className="rounded bg-oxide px-4 py-2 text-[13px] font-semibold tracking-wide text-on-accent disabled:opacity-60"
           >
             {pending ? "Saving…" : "Save"}
           </button>

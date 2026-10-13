@@ -30,8 +30,10 @@ function dimsFor(width: number): Dims {
 
 const OXIDE = "#B4453A";
 const SLATE = "#5C6B87";
-const BONE = "#E7E3D8";
-const INK = "#0B0A0E";
+// The foreground and the ground follow the theme (app/globals.css);
+// Oxide and Slate are the same in both.
+const BONE = "var(--bone)";
+const INK = "var(--ink)";
 
 const QUADRANT_ORDER: RadarQuadrant[] = ["leading", "emerging", "established", "receding"];
 

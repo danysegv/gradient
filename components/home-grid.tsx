@@ -33,7 +33,7 @@ const SCRIM =
   // Bottom-anchored rather than washing the whole tile — the image stays
   // the hero. The generous pt keeps the fade zone above the text, so no
   // line ever sits in the transparent part of the ramp.
-  "linear-gradient(to top, rgba(11,10,14,0.97) 0%, rgba(11,10,14,0.95) 45%, rgba(11,10,14,0.85) 68%, rgba(11,10,14,0.45) 86%, rgba(11,10,14,0) 100%)";
+  "linear-gradient(to top, color-mix(in srgb, var(--ink) 97%, transparent) 0%, color-mix(in srgb, var(--ink) 95%, transparent) 45%, color-mix(in srgb, var(--ink) 85%, transparent) 68%, color-mix(in srgb, var(--ink) 45%, transparent) 86%, color-mix(in srgb, var(--ink) 0%, transparent) 100%)";
 
 function ClipTile({ clip, dealt }: { clip: GridClip; dealt: boolean }) {
   const chips = displayableTags(clip).slice(0, CHIPS_PER_CARD);
@@ -70,7 +70,7 @@ function ClipTile({ clip, dealt }: { clip: GridClip; dealt: boolean }) {
             <span
               key={chip.editorial_name}
               className={`rounded px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                i === 0 ? "bg-oxide text-bone" : "bg-white/[.12] text-bone"
+                i === 0 ? "bg-oxide text-on-accent" : "bg-white/[.12] text-bone"
               }`}
             >
               {chip.editorial_name}

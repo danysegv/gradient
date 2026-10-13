@@ -80,7 +80,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             e.preventDefault();
             go(value, color);
           }}
-          className="flex h-[60px] items-center gap-3 rounded-full bg-bone pl-6 pr-2.5 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)]"
+          className="flex h-[60px] items-center gap-3 rounded-full bg-bone pl-6 pr-2.5 text-ink shadow-[0_24px_60px_-20px_var(--shade)]"
         >
           <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5 flex-none text-ink/60" fill="none" stroke="currentColor" strokeWidth={1.6}>
             <circle cx="10.5" cy="10.5" r="6.75" />

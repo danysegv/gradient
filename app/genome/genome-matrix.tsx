@@ -46,10 +46,10 @@ const SHORT: Record<string, string> = {
 // Incubating: the same ramp in Slate (#5C6B87), quieter by design.
 const fill = (share: number, incubating = false) =>
   share <= 0
-    ? "rgba(231,227,216,0.025)"
+    ? "color-mix(in srgb, var(--bone) 2.5%, transparent)"
     : incubating
-      ? `rgba(92,107,135,${(0.14 + share * 0.86).toFixed(3)})`
-      : `rgba(231,227,216,${(0.08 + share * 0.82).toFixed(3)})`;
+      ? `color-mix(in srgb, var(--slate) ${((0.14 + share * 0.86) * 100).toFixed(1)}%, transparent)`
+      : `color-mix(in srgb, var(--bone) ${((0.08 + share * 0.82) * 100).toFixed(1)}%, transparent)`;
 
 const GAP = 4; // between axes
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -235,7 +235,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
                           style={{
                             background: self ? "transparent" : fill(s, !!(r.incubating || c.incubating)),
                             opacity: focus && !lit ? 0.45 : 1,
-                            outline: on ? "1.5px solid #E7E3D8" : undefined,
+                            outline: on ? "1.5px solid var(--bone)" : undefined,
                             outlineOffset: on ? "1px" : undefined,
                             borderRadius: 1,
                           }}

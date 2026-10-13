@@ -264,7 +264,7 @@ export default async function ClipDetailPage({
                 href={clip.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-block rounded bg-oxide px-4 py-2.5 text-[13px] font-semibold tracking-wide text-bone"
+                className="inline-block rounded bg-oxide px-4 py-2.5 text-[13px] font-semibold tracking-wide text-on-accent"
               >
                 View source {"↗\uFE0E"}
               </a>
