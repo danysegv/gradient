@@ -8,6 +8,8 @@ import {
   robotsAllows,
   sniffImageType,
   checkImageReadable,
+  isDecodable,
+  fetchImageForClassifier,
 } from "./image-bytes.ts";
 
 test("only a failed download is worth refetching ourselves", () => {
@@ -141,4 +143,38 @@ test("the door never waits on sharp", () => {
   const create = readFileSync(new URL("./create.ts", import.meta.url), "utf8");
   assert.match(create, /checkImageReadable/);
   assert.doesNotMatch(create, /fetchImageForClassifier/);
+});
+
+// Security review 2026-10-13, #2: bytes from anywhere on the web reach
+// sharp, so only an allowlist of formats is ever decoded.
+test("only raster formats the web actually serves are handed to sharp", () => {
+  const b = (...xs: number[]) => new Uint8Array([...xs, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const t = (s: string) => new TextEncoder().encode(s);
+  assert.equal(isDecodable(b(0xff, 0xd8, 0xff, 0xe0)), true);
+  assert.equal(isDecodable(b(0x89, 0x50, 0x4e, 0x47)), true);
+  assert.equal(isDecodable(t("GIF89a......")), true);
+  assert.equal(isDecodable(t("RIFF\0\0\0\0WEBPVP8 ")), true);
+  assert.equal(isDecodable(t("\0\0\0\x1cftypavif")), true);
+  assert.equal(isDecodable(t('<svg xmlns="http://www.w3.org/2000/svg">')), false);
+  assert.equal(isDecodable(t("\0\0\0\x1cftypheic")), false);
+  assert.equal(isDecodable(b(0x49, 0x49, 0x2a, 0x00)), false); // TIFF
+  assert.equal(isDecodable(t("BM......")), false);
+  assert.equal(isDecodable(t("<!DOCTYPE html>")), false);
+});
+
+test("an SVG from the web is refused before any decoder sees it", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) =>
+    String(input).endsWith("/robots.txt")
+      ? new Response("", { status: 404 })
+      : new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
+          headers: { "content-type": "image/svg+xml" },
+        })) as typeof fetch;
+  try {
+    const r = await fetchImageForClassifier("https://img.example/a.svg", "https://example.com/p");
+    assert.equal(r.image, null);
+    assert.match(r.note, /not decoded: image\/svg\+xml/);
+  } finally {
+    globalThis.fetch = real;
+  }
 });

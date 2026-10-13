@@ -34,6 +34,25 @@ const MAX_RAW_BYTES = 5 * 1024 * 1024;
 const SUPPORTED = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 export type SupportedMediaType = (typeof SUPPORTED)[number];
 
+/**
+ * The only formats ever handed to sharp to decode (security review
+ * 2026-10-13, #2). These bytes come from anywhere on the web — a curator's
+ * clip, or the market cron with nobody watching — and every decoder sharp
+ * carries is attack surface: librsvg (SVG), libheif (HEIC), TIFF, BMP have
+ * all shipped CVEs. The four the model takes, plus AVIF because CDNs serve
+ * it widely. Decided by the bytes, never by what the host claims.
+ */
+export const DECODABLE = [...SUPPORTED, "image/avif"] as const;
+
+/** Pixel ceiling for one decode (sharp's default is 268M): a small file
+ * that claims enormous dimensions is refused before it is expanded. */
+export const MAX_INPUT_PIXELS = 50_000_000;
+
+export function isDecodable(bytes: Uint8Array): boolean {
+  const type = sniffImageType(bytes);
+  return type !== null && (DECODABLE as readonly string[]).includes(type);
+}
+
 export const CLASSIFIER_USER_AGENT =
   "Mozilla/5.0 (compatible; 04AM/1.0; +https://gradient-flax.vercel.app)";
 
@@ -203,9 +222,15 @@ async function asJpeg(
   buf: Buffer,
   contentType: string | null
 ): Promise<FallbackResult> {
+  if (!isDecodable(buf)) {
+    return {
+      image: null,
+      note: `fetched ${buf.byteLength}B ${contentType ?? "?"}, not decoded: ${sniffImageType(buf) ?? "unrecognised bytes"}`,
+    };
+  }
   try {
     const sharp = (await import("sharp")).default;
-    const image = sharp(buf);
+    const image = sharp(buf, { limitInputPixels: MAX_INPUT_PIXELS });
     const meta = await image.metadata();
     const jpeg = await image
       .resize(MAX_IMAGE_EDGE, MAX_IMAGE_EDGE, {
