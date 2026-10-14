@@ -23,6 +23,20 @@ const SHIP = [
 
 const base = JSON.parse(readFileSync(join(here, "manifest.json"), "utf8"));
 
+// What a curator installs talks to the live site only. The source manifest
+// also lists http://localhost:3000 so an unpacked copy can sync sign-in with
+// a dev server; a downloaded or store build has no business running a
+// script on whatever happens to be on someone's port 3000 (security
+// review 2026-10-13, #11).
+function liveOnly(m) {
+  const remote = (p) => !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(p);
+  m.content_scripts = (m.content_scripts ?? [])
+    .map((cs) => ({ ...cs, matches: cs.matches.filter(remote) }))
+    .filter((cs) => cs.matches.length > 0);
+  if (m.host_permissions) m.host_permissions = m.host_permissions.filter(remote);
+  return m;
+}
+
 const flavours = {
   chrome(m) {
     delete m.browser_specific_settings;
@@ -129,7 +143,7 @@ for (const [browser, flavour] of Object.entries(flavours)) {
   const out = join(dist, browser);
   mkdirSync(out, { recursive: true });
   for (const f of SHIP) if (f !== "manifest.json") cpSync(join(here, f), join(out, f), { recursive: true });
-  const manifest = flavour(structuredClone(base));
+  const manifest = flavour(liveOnly(structuredClone(base)));
   writeFileSync(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   const zipPath = join(dist, `04am-clipper-${browser}-${base.version}.zip`);
   zip(out, zipPath);

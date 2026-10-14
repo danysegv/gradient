@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { inflateRawSync } from "node:zlib";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { clipperRelease } from "./release.ts";
 
@@ -44,4 +45,32 @@ test("every shipped file is accounted for, so a new one can't be left out", () =
 test("the version on the card is the manifest's own", () => {
   const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
   assert.equal(clipperRelease.version, manifest.version);
+});
+
+// Security review 2026-10-13, #11: what curators install talks to the live
+// site only. The unpacked source keeps localhost for development; the
+// committed download must not.
+function manifestInZip(path: string): { content_scripts?: { matches: string[] }[]; host_permissions?: string[] } {
+  const zip = readFileSync(path);
+  for (let at = 0; zip.readUInt32LE(at) === 0x04034b50; ) {
+    const method = zip.readUInt16LE(at + 8);
+    const size = zip.readUInt32LE(at + 18);
+    const nameLength = zip.readUInt16LE(at + 26);
+    const extraLength = zip.readUInt16LE(at + 28);
+    const name = zip.subarray(at + 30, at + 30 + nameLength).toString();
+    const start = at + 30 + nameLength + extraLength;
+    const body = zip.subarray(start, start + size);
+    if (name.endsWith("/manifest.json") || name === "manifest.json") {
+      return JSON.parse((method === 8 ? inflateRawSync(body) : body).toString());
+    }
+    at = start + size;
+  }
+  throw new Error("no manifest.json in the zip");
+}
+
+test("the downloadable clipper never runs on localhost", () => {
+  const m = manifestInZip("public/clipper/04am-clipper-chrome.zip");
+  const everywhere = [...(m.content_scripts ?? []).flatMap((c) => c.matches), ...(m.host_permissions ?? [])];
+  assert.ok(everywhere.length > 0);
+  for (const p of everywhere) assert.doesNotMatch(p, /localhost|127\.0\.0\.1/, p);
 });

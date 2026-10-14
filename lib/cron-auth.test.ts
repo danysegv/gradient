@@ -16,3 +16,12 @@ test("only the exact bearer secret runs it", () => {
   assert.equal(checkCron(req()).ok, false);
   delete process.env.CRON_SECRET;
 });
+
+test("near misses and different lengths are refused too (constant-time check)", () => {
+  process.env.CRON_SECRET = "s3cret";
+  assert.equal(checkCron(req("Bearer s3cre")).ok, false);
+  assert.equal(checkCron(req("Bearer s3cretX")).ok, false);
+  assert.equal(checkCron(req("bearer s3cret")).ok, false);
+  assert.equal(checkCron(req("Bearer s3cret")).ok, true);
+  delete process.env.CRON_SECRET;
+});

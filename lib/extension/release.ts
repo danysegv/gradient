@@ -3,7 +3,7 @@
 // lib/extension/release.test.ts fails if this drifts from extension/.
 
 export const clipperRelease = {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "sources": {
     "background.js": "30e02b514f7fba8b9ff291a40c4c89b1fcdb9963d098d53280bce00e952b54bd",
     "content.js": "702edbac466e72af8c8fae2b51a4b49d8b5e5e5584a906a79b29ebd8bcd2eda9",
@@ -21,7 +21,7 @@ export const clipperRelease = {
     "icons/toolbar-ink-32.png": "6ab78fd89bae57b20c65761ed516e3cfeee373d5f655186b7fb362c7fe417f33",
     "icons/toolbar-ink-48.png": "7f1bf562a32b32c50858a33d9e05c5045dcaa3d45dd6ce297887fc23f740b3b2",
     "icons/wordmark.svg": "a066016c641a6b53314a73c4d8a0b73f0a9bd14238056869e3220759e83e518b",
-    "manifest.json": "272d2376c878ee8462378708f4d76bf4f1a575eadc9bbfbf7c44a9992c3832b7",
+    "manifest.json": "ef7e2dbf04869fd12e53f3b9e7cace9cb056bf221fa9281e0c3bcc710554b6d2",
     "options.css": "c9044af30d4531296bd84631a2b6477e55900c3e6a9ba42c0c3fdc14270ad1b6",
     "options.html": "bd8ff1259571a991dc65d1036378dd5b293f8cb5e93a64e3ef6b773d2bffebe8",
     "options.js": "cfc1f6be358e2d86539ff01601c7aa74f50da7af19cfe60237aba16cc49656c1",

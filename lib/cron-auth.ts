@@ -6,12 +6,19 @@
 // Without CRON_SECRET set the answer is always no — the jobs behind this
 // spend money, so they are never open by default.
 
+import { createHash, timingSafeEqual } from "node:crypto";
+
 export type CronCheck = { ok: true } | { ok: false; status: 401 | 503; error: string };
 
 export function checkCron(request: Request): CronCheck {
   const secret = process.env.CRON_SECRET;
   if (!secret) return { ok: false, status: 503, error: "CRON_SECRET is not set." };
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  // Compared in constant time (security review #11): hashing both sides
+  // first makes them equal length, so the comparison never leaks how much
+  // of a guess was right, or the secret's length.
+  const given = createHash("sha256").update(request.headers.get("authorization") ?? "").digest();
+  const wanted = createHash("sha256").update(`Bearer ${secret}`).digest();
+  if (!timingSafeEqual(given, wanted)) {
     return { ok: false, status: 401, error: "Unauthorized." };
   }
   return { ok: true };
