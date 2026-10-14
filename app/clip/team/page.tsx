@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SiteHeader } from "@/components/site-header";
 import { ApproveForm } from "./approve-form";
 
+// A private tool page: titled, but kept out of search results.
+export const metadata = { title: "Curators team — 04AM", robots: { index: false, follow: false } };
+
 // The curator panel: who can clip, and approving new curators. Admins only.
 // Not covered by proxy.ts (its matcher is exactly "/clip"), so this page
 // checks the session itself — and 404s for everyone else, so it doesn't

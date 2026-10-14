@@ -2,6 +2,9 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "./login-form";
 
+// A private tool page: titled, but kept out of search results.
+export const metadata = { title: "Curator sign-in — 04AM", robots: { index: false, follow: false } };
+
 // Curators sign in with their account now (/signin). The old per-curator
 // password stays here as a fallback until every curator has linked an
 // account on /clip/team, after which CLIP_CURATORS can be removed.

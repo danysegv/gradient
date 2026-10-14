@@ -20,6 +20,9 @@ import { CLIPPER_CARD_COOKIE, cardHidden } from "@/lib/clipper-card";
 import { clipperRelease } from "@/lib/extension/release";
 import { SiteHeader } from "@/components/site-header";
 
+// A private tool page: titled, but kept out of search results.
+export const metadata = { title: "Clipper — 04AM", robots: { index: false, follow: false } };
+
 // Classification can process several clips sequentially in the
 // background (after()) — give the route more room than the default.
 export const maxDuration = 300;

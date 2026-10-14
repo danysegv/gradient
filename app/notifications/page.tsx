@@ -10,7 +10,7 @@ import { SiteHeader } from "@/components/site-header";
 // marked seen, and the ones that were new keep their dot until you leave.
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Notifications — 04AM" };
+export const metadata = { title: "Notifications — 04AM", robots: { index: false, follow: false } };
 
 export default async function NotificationsPage() {
   const session = await getSession();

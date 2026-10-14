@@ -14,6 +14,19 @@
 
 type Env = Record<string, string | undefined>;
 
+/**
+ * The site's address with no request to go on (metadata, sitemap,
+ * robots.txt): NEXT_PUBLIC_SITE_URL, else Vercel's production address,
+ * else local dev.
+ */
+export function configuredSiteOrigin(env: Env): string {
+  const explicit = env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return new URL(explicit).origin;
+  const production = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (production) return `https://${production}`;
+  return "http://localhost:3000";
+}
+
 export function siteOrigin(
   env: Env,
   request: { host: string | null; proto: string | null }
