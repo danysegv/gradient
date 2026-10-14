@@ -15,6 +15,7 @@ import { endPairedSessions } from "@/lib/auth/session-pairs";
 import { allowAttempt, requestIp, rulesFor } from "@/lib/auth/attempts";
 import { TOO_MANY } from "@/lib/auth/attempt-rules";
 import { BREACHED, isBreachedPassword } from "@/lib/auth/breached";
+import { siteOrigin } from "@/lib/site-url";
 
 // Accounts (2026-09-21): email + password through Supabase Auth, for
 // everyone. A curator is an account an admin has linked to a curator
@@ -26,12 +27,13 @@ export type AuthState =
   | { notice: string; error?: never }
   | undefined;
 
+// Fixed in production; only dev and previews read the request (lib/site-url.ts).
 async function origin(): Promise<string> {
   const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto =
-    h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
+  return siteOrigin(process.env, {
+    host: h.get("x-forwarded-host") ?? h.get("host"),
+    proto: h.get("x-forwarded-proto"),
+  });
 }
 
 async function markEntered() {
