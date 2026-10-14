@@ -59,6 +59,9 @@ export function securityHeaders(opts: { supabaseUrl?: string; dev?: boolean }): 
       value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
     },
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-    ...(opts.dev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000" }]),
+    // Browsers that have seen 04AM once never use plain http for it again,
+    // for two years, subdomains included (Vercel already redirects http to
+    // https; this stops the first request being sent unencrypted at all).
+    ...(opts.dev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]),
   ];
 }

@@ -28,7 +28,10 @@ export async function authServerClient(opts: { sessionOnly?: boolean } = {}) {
         setAll: (list) => {
           try {
             for (const { name, value, options } of list) {
-              store.set(name, value, forget ? sessionOnly(options) : options);
+              // HTTPS-only in production: the session never travels over
+              // plain http (the browser side already does this).
+              const o = { ...options, secure: Boolean(options?.secure) || process.env.NODE_ENV === "production" };
+              store.set(name, value, forget ? sessionOnly(o) : o);
             }
           } catch {
             // Called from a server component render, where cookies are
