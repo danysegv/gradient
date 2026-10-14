@@ -54,7 +54,7 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
   const items = NAV.map((item) => {
     const on = item.key === active;
     // The one action in the bar, in Oxide. DELIBERATE EXCEPTION (Daniela,
-    // 2026-09-19) to "Oxide never as small text": ~3.6:1 on Ink, below the
+    // 2026-09-19) to "Oxide never as small text": ~4.1:1 on Ink, below the
     // 4.5:1 small text needs. Revisit if it reads too faint.
     if (item.key === "clip") {
       return (

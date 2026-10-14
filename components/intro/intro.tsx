@@ -556,7 +556,7 @@ function SceneRead({ clip, onBroken }: { clip: IntroClip | null; onBroken: (id: 
         {/* A scan line passes once over the image as it is "read". */}
         <span
           aria-hidden
-          className={`absolute inset-x-0 top-0 h-px bg-oxide opacity-0 shadow-[0_0_18px_2px_rgba(180,69,58,0.7)] group-data-[play=1]/scene:[animation:scan_1.6s_ease-in-out_300ms_1_both]`}
+          className={`absolute inset-x-0 top-0 h-px bg-oxide opacity-0 shadow-[0_0_18px_2px_rgba(218,41,28,0.7)] group-data-[play=1]/scene:[animation:scan_1.6s_ease-in-out_300ms_1_both]`}
         />
         </div>
       </div>

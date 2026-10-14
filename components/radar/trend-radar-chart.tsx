@@ -28,7 +28,7 @@ function dimsFor(width: number): Dims {
   return { W, H: W >= 560 ? WIDE.H : Math.round(Math.max(340, W * 0.95)) };
 }
 
-const OXIDE = "#B4453A";
+const OXIDE = "#DA291C";
 const SLATE = "#5C6B87";
 // The foreground and the ground follow the theme (app/globals.css);
 // Oxide and Slate are the same in both.

@@ -22,7 +22,8 @@
    anywhere; lib/theme.test.ts keeps it that way.
 
    --on-accent is the type on Oxide or Slate fills. It stays Bone in both
-   modes: Ink on Oxide is 3.2:1, Bone on Oxide 4.3:1.
+   modes. Oxide is #da291c (Pantone 485) since 2026-10-14, was #b4453a:
+   as type 4.1:1 on Ink and 4.3:1 on light paper; Bone on it 3.8:1.
 
    --shade is the colour of drop shadows: a deep shadow on Ink, a soft one
    on paper.
@@ -35,7 +36,7 @@
   --ink-2: #131218;
   --bone: #e7e3d8;
   --slate: #5c6b87;
-  --oxide: #b4453a;
+  --oxide: #da291c;
   --on-accent: #e7e3d8;
   --shade: rgba(0, 0, 0, 0.8);
   color-scheme: dark;

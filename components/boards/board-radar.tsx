@@ -213,7 +213,7 @@ function Chart({ radar }: { radar: Radar }) {
                 cx={cx}
                 cy={cy}
                 r={5}
-                fill={t.lean! > 0 ? "#B4453A" : t.lean! < 0 ? "#5C6B87" : "var(--bone)"}
+                fill={t.lean! > 0 ? "#DA291C" : t.lean! < 0 ? "#5C6B87" : "var(--bone)"}
                 fillOpacity={t.lean === 0 ? 0.6 : 1}
                 stroke="var(--ink)"
                 strokeWidth={2}

@@ -76,7 +76,7 @@ Wired into code as of the Signals Feed build (2026-08-21): `app/globals.css` def
 | Ink | `#0B0A0E` | Base surface |
 | Bone | `#E7E3D8` | Text, dim mark body, all small-scale numbers/labels |
 | Slate | `#5C6B87` | Fading state — large numerals + mark's bright body only |
-| Oxide | `#B4453A` | Accelerating state — large numerals + mark's bright body only |
+| Oxide | `#DA291C` (Pantone 485; was `#B4453A` until 2026-10-14) | Accelerating state — large numerals + mark's bright body only |
 
 **Typography**: wordmark is "04AM", Archivo weight 600, grotesk throughout. Bold/larger cut for wordmark, trend names, and headlines; quiet regular cut for every stat, label, and confidence note. Never a serif. Bold weight never touches a number.
 
