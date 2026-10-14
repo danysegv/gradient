@@ -15,6 +15,7 @@
 // or a network failure means "assume disallowed" — so a site that is down
 // is never read by accident.
 
+import { safeFetch } from "../net/safe-fetch.ts";
 import { aiReservations, parseRobots, readableBy, crawlDelay, MARKET_USER_AGENT, MARKET_USER_AGENT_TOKEN, type Robots } from "./robots.ts";
 
 export type Verdict = { ok: true; crawlDelay: number | null } | { ok: false; reason: string };
@@ -67,7 +68,7 @@ function robotsOf(origin: string): Promise<RobotsRead> {
   if (!p) {
     p = (async (): Promise<RobotsRead> => {
       try {
-        const res = await fetch(`${origin}/robots.txt`, { headers: marketHeaders, signal: AbortSignal.timeout(8000) });
+        const res = await safeFetch(`${origin}/robots.txt`, { headers: marketHeaders, signal: AbortSignal.timeout(8000) });
         if (res.ok) return { robots: parseRobots(await res.text()) };
         if (res.status >= 400 && res.status < 500) return { robots: parseRobots("") };
         return { unavailable: `robots.txt answered ${res.status}` };
@@ -85,7 +86,7 @@ function tdmOf(origin: string): Promise<TdmRule[]> {
   if (!p) {
     p = (async () => {
       try {
-        const res = await fetch(`${origin}/.well-known/tdmrep.json`, { headers: marketHeaders, signal: AbortSignal.timeout(8000) });
+        const res = await safeFetch(`${origin}/.well-known/tdmrep.json`, { headers: marketHeaders, signal: AbortSignal.timeout(8000) });
         if (!res.ok) return [];
         return parseTdmRep(await res.json());
       } catch {

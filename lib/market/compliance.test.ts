@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkUrl, headerReservation, parseTdmRep, resetComplianceCache, tdmReserved } from "./compliance.ts";
+import { setResolverForTests } from "../net/safe-fetch.ts";
+
+// These tests fake their hosts with a stubbed fetch; answer DNS the same way.
+setResolverForTests(async () => ["93.184.216.34"]);
 
 test("TDMRep: the most specific location decides", () => {
   const rules = parseTdmRep([

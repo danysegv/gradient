@@ -1,3 +1,4 @@
+import { isInternalHostname } from "../net/safe-fetch.ts";
 // What a new clip is allowed to carry, checked once for every way in: the
 // /clip form (FormData) and the browser extension (JSON). Pure, so the
 // rules are tested rather than assumed, and so the two doors can never
@@ -33,12 +34,16 @@ const MAX_URL = 4096;
 const MAX_SHORT = 500;
 const MAX_CAPTION = 4000;
 
-/** A public web address: http or https, nothing else. */
+/** A public web address: http or https, on a host that isn't obviously
+ * inside a network (localhost, 10.x, 169.254.169.254…), nothing else.
+ * The full check, with DNS and redirects, runs at fetch time
+ * (lib/net/safe-fetch.ts); this one refuses the clip at the door. */
 export function isPublicWebUrl(value: string): boolean {
   if (value.length > MAX_URL) return false;
   try {
     const u = new URL(value);
-    return u.protocol === "https:" || u.protocol === "http:";
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    return !isInternalHostname(u.hostname);
   } catch {
     return false;
   }

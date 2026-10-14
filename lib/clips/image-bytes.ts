@@ -1,3 +1,4 @@
+import { BlockedAddressError, readBytesLimited, safeFetch } from "../net/safe-fetch.ts";
 /**
  * Fetching a clip's image ourselves, for the classifier — and, since
  * 2026-09-25, once at the door (lib/clips/create.ts), to refuse a clip
@@ -121,7 +122,7 @@ async function robotsFor(origin: string): Promise<string | null> {
   if (cached) return cached;
   const pending = (async () => {
     try {
-      const res = await fetch(`${origin}/robots.txt`, {
+      const res = await safeFetch(`${origin}/robots.txt`, {
         headers: { "user-agent": CLASSIFIER_USER_AGENT },
         signal: AbortSignal.timeout(5000),
       });
@@ -171,7 +172,8 @@ export async function fetchImageForClassifier(
   }
 
   try {
-    const res = await fetch(imageUrl, {
+    // Public addresses only, every redirect checked (security review #6).
+    const res = await safeFetch(imageUrl, {
       // What a browser on the clip's own page would send. The referer is
       // the part that matters: hotlink protection is checking whether
       // this request belongs to a page view of theirs.
@@ -180,7 +182,6 @@ export async function fetchImageForClassifier(
         accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         referer: pageUrl,
       },
-      redirect: "follow",
       signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) return { image: null, note: `host answered ${res.status}` };
@@ -192,10 +193,9 @@ export async function fetchImageForClassifier(
     if (declared > MAX_IMAGE_BYTES) {
       return { image: null, note: `${declared} bytes, over the limit` };
     }
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength > MAX_IMAGE_BYTES) {
-      return { image: null, note: `${buf.byteLength} bytes, over the limit` };
-    }
+    // Read no further than the limit, whatever the host declared.
+    const buf = await readBytesLimited(res, MAX_IMAGE_BYTES);
+    if (!buf) return { image: null, note: `over ${MAX_IMAGE_BYTES} bytes, not read further` };
     return await asJpeg(buf, contentType);
   } catch (err) {
     return {
@@ -327,13 +327,12 @@ export async function checkImageReadable(
     return { readable: false, note: `protocol ${parsed.protocol}` };
   }
   try {
-    const res = await fetch(imageUrl, {
+    const res = await safeFetch(imageUrl, {
       headers: {
         "user-agent": BROWSER_USER_AGENT,
         accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         referer: pageUrl,
       },
-      redirect: "follow",
       signal: AbortSignal.timeout(8000),
     });
     if (res.status === 404 || res.status === 410) {
@@ -357,6 +356,8 @@ export async function checkImageReadable(
     if (isImageContentType(contentType)) return { readable: true, note: `${contentType}` };
     return { readable: false, note: `host served ${contentType ?? "no type"}` };
   } catch (err) {
+    // An address inside a network is never a real clip image (review #6).
+    if (err instanceof BlockedAddressError) return { readable: false, note: "not a public web address" };
     return {
       readable: true,
       note: `could not check (${err instanceof Error ? err.message : String(err)}); let through`,

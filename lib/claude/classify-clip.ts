@@ -2,9 +2,14 @@ import "server-only";
 import { z } from "zod";
 import {
   fetchImageForClassifier,
+  isDecodable,
   isDownloadRefusal,
+  MAX_IMAGE_BYTES,
+  MAX_INPUT_PIXELS,
+  sniffImageType,
   type SupportedMediaType,
 } from "@/lib/clips/image-bytes";
+import { readBytesLimited, safeFetch } from "@/lib/net/safe-fetch";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropic } from "./admin";
 import { effortFor } from "./effort.ts";
@@ -144,10 +149,16 @@ async function imageBlock(imageUrl: string) {
     return { type: "image" as const, source: { type: "url" as const, url: imageUrl } };
   }
   try {
-    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
+    // The same three guards as lib/clips/image-bytes.ts (security review
+    // #2 and #6): public addresses only, a size ceiling, and only web
+    // raster formats ever reach sharp's decoders.
+    const res = await safeFetch(imageUrl, { signal: AbortSignal.timeout(20000) });
     if (!res.ok) throw new Error(String(res.status));
+    const bytes = await readBytesLimited(res, MAX_IMAGE_BYTES);
+    if (!bytes) throw new Error(`over ${MAX_IMAGE_BYTES} bytes`);
+    if (!isDecodable(bytes)) throw new Error(`not decoded: ${sniffImageType(bytes) ?? "unrecognised bytes"}`);
     const sharp = (await import("sharp")).default;
-    const buf = await sharp(Buffer.from(await res.arrayBuffer()))
+    const buf = await sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS })
       .resize(CLASSIFIER_IMAGE_EDGE, CLASSIFIER_IMAGE_EDGE, {
         fit: "inside",
         withoutEnlargement: true,

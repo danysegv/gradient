@@ -21,6 +21,7 @@ import { classifyClip, isUnreadableImageError } from "@/lib/claude/classify-clip
 import { withSpendContext } from "@/lib/claude/spend-context";
 import { BUDGET_USD, BudgetExceededError, spentSinceBudgetStart } from "@/lib/claude/spend";
 import { checkUrl, headerReservation, marketHeaders } from "./compliance.ts";
+import { safeFetch } from "../net/safe-fetch.ts";
 import { parseFeed } from "./feeds.ts";
 import { httpsImage, originImage } from "./images.ts";
 import { sampleArtic, sampleMet, type ArchiveItem } from "./museums.ts";
@@ -106,7 +107,7 @@ async function pollFeed(s: Source, backfill: boolean): Promise<string> {
   for (let n = 1; n <= maxPages; n++) {
     const url = feedPage(s.feed_url, n);
     if (n > 1 && !(await checkUrl(url)).ok) break;
-    const res = await fetch(url, { headers: marketHeaders, signal: AbortSignal.timeout(15000) });
+    const res = await safeFetch(url, { headers: marketHeaders, signal: AbortSignal.timeout(15000) });
     const reserved = headerReservation(res.headers);
     if (reserved) {
       await setSource(s.id, { paused_reason: reserved, last_status: "paused", last_polled_at: new Date().toISOString() });

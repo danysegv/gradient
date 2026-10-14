@@ -1,4 +1,9 @@
 import "server-only";
+import { readTextLimited, safeFetch } from "./net/safe-fetch.ts";
+
+// A page is read only for its og:image tag, which sits in <head>: the first
+// 2 MB is plenty, and a huge or endless page can't tie the function up.
+const MAX_PAGE_BYTES = 2 * 1024 * 1024;
 
 function matchMetaContent(html: string, property: string): string | null {
   const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -23,7 +28,8 @@ function matchMetaContent(html: string, property: string): string | null {
 // unclassified rather than block on a flaky external fetch.
 export async function fetchOgImage(pageUrl: string): Promise<string | null> {
   try {
-    const res = await fetch(pageUrl, {
+    // Public addresses only, at every redirect (security review #6).
+    const res = await safeFetch(pageUrl, {
       signal: AbortSignal.timeout(8000),
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; 04AMClipper/1.0)",
@@ -31,7 +37,7 @@ export async function fetchOgImage(pageUrl: string): Promise<string | null> {
     });
     if (!res.ok) return null;
 
-    const html = await res.text();
+    const html = await readTextLimited(res, MAX_PAGE_BYTES);
     const found =
       matchMetaContent(html, "og:image") ??
       matchMetaContent(html, "twitter:image");

@@ -11,6 +11,10 @@ import {
   isDecodable,
   fetchImageForClassifier,
 } from "./image-bytes.ts";
+import { setResolverForTests } from "../net/safe-fetch.ts";
+
+// These tests fake their hosts with a stubbed fetch; answer DNS the same way.
+setResolverForTests(async () => ["93.184.216.34"]);
 
 test("only a failed download is worth refetching ourselves", () => {
   assert.equal(

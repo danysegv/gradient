@@ -40,7 +40,7 @@ test("public pages see aggregates, never an image address", () => {
 test("every source is checked by the compliance gate before its feed is fetched", () => {
   const run = read("lib/market/run.ts");
   const poll = run.slice(run.indexOf("async function pollFeed"), run.indexOf("async function readCounts"));
-  assert.ok(poll.indexOf("checkUrl(") > -1 && poll.indexOf("checkUrl(") < poll.indexOf("fetch(url"));
+  assert.ok(poll.indexOf("checkUrl(") > -1 && poll.indexOf("checkUrl(") < poll.indexOf("safeFetch(url"));
   const item = run.slice(run.indexOf("async function readItem"), run.indexOf("async function discoverArchive"));
   assert.ok(item.indexOf("checkUrl(") < item.indexOf("classifyClip("), "page and image host are checked before the read");
 });
