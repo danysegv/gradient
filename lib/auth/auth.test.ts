@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { safeNext } from "./next.ts";
-import { parsePassword, parseNewPassword, PASSWORD_MIN } from "./password.ts";
+import { parsePassword, parseNewPassword, PASSWORD_MIN, PASSWORD_SYMBOLS, passwordMissing } from "./password.ts";
 
 test("after sign-in, only a path on this site is followed", () => {
   assert.equal(safeNext("/clip"), "/clip");
@@ -14,15 +14,15 @@ test("after sign-in, only a path on this site is followed", () => {
 
 test("passwords: long enough, not too long", () => {
   assert.equal(parsePassword("short").ok, false);
-  assert.equal(parsePassword("x".repeat(PASSWORD_MIN)).ok, true);
+  assert.equal(parsePassword("Xx1!".repeat(PASSWORD_MIN / 4)).ok, true);
   assert.equal(parsePassword("x".repeat(100)).ok, false);
   assert.equal(parsePassword(undefined).ok, false);
 });
 
 test("a new password must be confirmed, and match", () => {
-  const pw = "correct horse";
+  const pw = "Correct horse 9!";
   assert.equal(parseNewPassword(pw, pw).ok, true);
-  assert.deepEqual(parseNewPassword(pw, "correct hors"), { ok: false, error: "The passwords don't match." });
+  assert.deepEqual(parseNewPassword(pw, "Correct horse 9"), { ok: false, error: "The passwords don't match." });
   assert.deepEqual(parseNewPassword(pw, ""), { ok: false, error: "Confirm your password." });
   assert.deepEqual(parseNewPassword(pw, undefined), { ok: false, error: "Confirm your password." });
   // Length is still checked first.
@@ -74,4 +74,16 @@ test("every extension endpoint that touches the library checks the bearer sessio
     assert.match(src, /getBearerSession\(request\)/, f);
     assert.match(src, /if \(!session\) return json\(request, \{ error: "Signed out\." \}, 401\)/, f);
   }
+});
+
+test("a new password needs upper and lowercase, a number and a symbol (2026-10-14)", () => {
+  assert.deepEqual(parsePassword("password12"), { ok: false, error: "Add an uppercase letter and a symbol." });
+  assert.deepEqual(parsePassword("Password12"), { ok: false, error: "Add a symbol." });
+  assert.deepEqual(parsePassword("Abcdefg!"), { ok: false, error: "Add a number." });
+  assert.equal(parsePassword("Password12!").ok, true);
+  assert.deepEqual(passwordMissing(""), [`${PASSWORD_MIN}+ characters`, "a lowercase letter", "an uppercase letter", "a number", "a symbol"]);
+  // Supabase's own symbol list, so the site and Supabase agree on every character.
+  for (const c of PASSWORD_SYMBOLS) assert.equal(parsePassword(`Abcdefg1${c}`).ok, true, c);
+  // A space is not one of them, on either side.
+  assert.equal(parsePassword("Abcdefg1 ").ok, false);
 });

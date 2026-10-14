@@ -9,7 +9,7 @@ import {
   updatePassword,
   type AuthState,
 } from "@/app/auth/actions";
-import { PASSWORD_MIN } from "@/lib/auth/password";
+import { PASSWORD_MIN, missingSentence, passwordMissing } from "@/lib/auth/password";
 import { LegalLink } from "@/components/legal-link";
 
 const FIELD =
@@ -67,6 +67,9 @@ function NewPassword({ placeholder }: { placeholder: string }) {
   const [first, setFirst] = useState("");
   const [second, setSecond] = useState("");
   const mismatch = second.length > 0 && second !== first;
+  // What the password still needs (lib/auth/password.ts), shown as you type
+  // and enforced by the browser before the form can be sent.
+  const lacking = first.length > 0 ? missingSentence(passwordMissing(first)) : "";
   return (
     <>
       <label htmlFor="auth-password" className="sr-only">
@@ -82,8 +85,10 @@ function NewPassword({ placeholder }: { placeholder: string }) {
         placeholder={placeholder}
         style={{ animation: "field-in 420ms cubic-bezier(.2,.8,.2,1) 80ms both" }}
         value={first}
+        aria-describedby="auth-password-rule"
         onChange={(e) => {
           setFirst(e.target.value);
+          e.target.setCustomValidity(missingSentence(passwordMissing(e.target.value)));
           // Editing the first field can fix — or break — a match already typed.
           const confirm = e.target.form?.elements.namedItem("confirm_password");
           if (confirm instanceof HTMLInputElement) {
@@ -94,6 +99,9 @@ function NewPassword({ placeholder }: { placeholder: string }) {
         }}
         className={FIELD}
       />
+      <p id="auth-password-rule" className="px-1 text-left text-[13px] text-bone/80" aria-live="polite">
+        {lacking || (first.length === 0 ? "Upper and lowercase letters, a number and a symbol." : "")}
+      </p>
       <label htmlFor="auth-confirm" className="sr-only">
         Confirm password
       </label>
