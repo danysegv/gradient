@@ -229,7 +229,7 @@ export default async function RadarPage() {
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 sm:px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
+            <span aria-hidden className="inline-block rounded-full h-2.5 w-2.5 flex-none bg-oxide" />
             Trend Radar · 30 days
             {radar.reading === "balanced" && (
               <span

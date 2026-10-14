@@ -408,7 +408,7 @@ export default async function ClipDetailPage({
                   <p className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-bone/70">
                     <span
                       aria-hidden
-                      className="inline-block h-2 w-2 flex-none bg-oxide"
+                      className="inline-block rounded-full h-2 w-2 flex-none bg-oxide"
                     />
                     {axis.label}
                   </p>

@@ -60,7 +60,7 @@ export default async function GenomePage() {
       <div className="mx-auto w-full min-w-0 max-w-[1180px] px-4 sm:px-8">
         <div className="pt-11 pb-2">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
+            <span aria-hidden className="inline-block rounded-full h-2.5 w-2.5 flex-none bg-oxide" />
             Visual Genome · what travels with what
           </p>
           <h1 className="mb-9 text-[34px] font-bold leading-tight tracking-tight">
@@ -91,7 +91,7 @@ export default async function GenomePage() {
             {pulls.length > 0 && (
               <section className="mt-14 mb-20 border-t border-white/10 pt-7">
                 <p className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/70">
-                  <span aria-hidden className="inline-block h-2 w-2 bg-oxide" />
+                  <span aria-hidden className="inline-block rounded-full h-2 w-2 bg-oxide" />
                   The strongest one-way pulls
                 </p>
                 <ul className="divide-y divide-white/[.07] border-y border-white/[.07]">

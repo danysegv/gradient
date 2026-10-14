@@ -82,13 +82,13 @@ function ClipCard({
         <div className="pointer-events-none absolute left-1.5 top-1.5 flex flex-col gap-1">
           {clip.needsImage && (
             <span className="flex items-center gap-1.5 rounded-[2px] bg-ink/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bone">
-              <span aria-hidden className="h-1.5 w-1.5 bg-oxide" />
+              <span aria-hidden className="rounded-full h-1.5 w-1.5 bg-oxide" />
               Needs image
             </span>
           )}
           {clip.badImageUrl && (
             <span className="flex items-center gap-1.5 rounded-[2px] bg-ink/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bone">
-              <span aria-hidden className="h-1.5 w-1.5 bg-oxide" />
+              <span aria-hidden className="rounded-full h-1.5 w-1.5 bg-oxide" />
               Bad image URL
             </span>
           )}
@@ -109,7 +109,7 @@ function ClipCard({
             onClick={() => setConfirming(true)}
             className="flex items-center gap-1.5 rounded-[2px] bg-ink/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-bone hover:bg-bone hover:text-ink"
           >
-            <span aria-hidden className="h-1.5 w-1.5 bg-oxide" />
+            <span aria-hidden className="rounded-full h-1.5 w-1.5 bg-oxide" />
             Delete permanently
           </button>
         )}
@@ -292,7 +292,7 @@ export function ClipperGrid({
 
       {error && (
         <p role="alert" className="mb-3 flex items-center gap-2 px-2 text-sm text-bone">
-          <span aria-hidden className="h-2 w-2 flex-none bg-oxide" />
+          <span aria-hidden className="rounded-full h-2 w-2 flex-none bg-oxide" />
           {error}
         </p>
       )}

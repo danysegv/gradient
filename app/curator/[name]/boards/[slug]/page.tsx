@@ -140,7 +140,7 @@ export default async function BoardPage({
 
         <div className="pt-8 pb-10">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-slate" />
+            <span aria-hidden className="inline-block rounded-full h-2.5 w-2.5 flex-none bg-slate" />
             {board.is_public ? BOARD.One : `Private ${BOARD.one} — only you can see it`}
           </p>
           <h1 className="mb-3 max-w-3xl text-[34px] font-bold leading-tight tracking-tight [text-wrap:balance]">

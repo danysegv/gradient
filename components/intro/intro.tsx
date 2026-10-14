@@ -204,7 +204,7 @@ function TopBar() {
       }`}
     >
       <div className="flex items-center gap-6">
-        <span aria-hidden className="h-2 w-2 bg-oxide" />
+        <span aria-hidden className="rounded-full h-2 w-2 bg-oxide" />
         <a href="#how" className={`${LABEL} text-bone/70 hover:text-bone`}>
           How it works
         </a>

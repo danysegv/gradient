@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
       <div className="mx-auto w-full min-w-0 max-w-[720px] px-4 pb-24 sm:px-8">
         <div className="pb-8 pt-11">
           <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
+            <span aria-hidden className="inline-block rounded-full h-2.5 w-2.5 flex-none bg-oxide" />
             Notifications
           </p>
           <h1 className="text-[34px] font-bold leading-tight tracking-tight">What happened to your work</h1>

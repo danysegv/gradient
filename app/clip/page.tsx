@@ -197,7 +197,7 @@ export default async function ClipPage() {
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-10 pt-11">
           <div>
             <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-              <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
+              <span aria-hidden className="inline-block rounded-full h-2.5 w-2.5 flex-none bg-oxide" />
               Clipper
             </p>
             <h1 className="text-[34px] font-bold leading-tight tracking-tight">Clip a reference</h1>

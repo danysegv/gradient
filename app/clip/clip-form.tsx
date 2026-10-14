@@ -137,7 +137,7 @@ export function ClipForm() {
           <p role={state?.error ? "alert" : "status"} className="flex items-center gap-2 text-[14px] text-bone/80">
             {state?.error && (
               <>
-                <span aria-hidden className="h-2 w-2 flex-none bg-oxide" />
+                <span aria-hidden className="rounded-full h-2 w-2 flex-none bg-oxide" />
                 <span className="text-bone">{state.error}</span>
               </>
             )}

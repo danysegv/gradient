@@ -246,7 +246,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
                         {notch && (
                           <span
                             aria-hidden
-                            className="absolute right-[1px] top-[1px] block bg-oxide"
+                            className="absolute right-[2px] top-[2px] block rounded-full bg-oxide"
                             style={{ width: Math.max(3, cell * 0.28), height: Math.max(3, cell * 0.28) }}
                           />
                         )}
@@ -270,7 +270,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
           <span>100%</span>
         </li>
         <li className="flex items-center gap-1.5" title="At least half of the row look carries the column look, and at least 25 points less the other way.">
-          <span aria-hidden className="inline-block h-2 w-2 bg-oxide" />
+          <span aria-hidden className="inline-block rounded-full h-2 w-2 bg-oxide" />
           One-way pull
         </li>
         <li className="flex items-center gap-1.5" title="New vocabulary: applied to clips, not yet in the published figures.">
@@ -280,7 +280,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
           Incubating
         </li>
         <li className="flex items-center gap-1.5">
-          <span aria-hidden className="inline-block h-2 w-2 rounded-[1px] bg-bone/30" />
+          <span aria-hidden className="inline-block rounded-full h-2 w-2 bg-bone/30" />
           Dimmed name: Early Signal
         </li>
       </ul>

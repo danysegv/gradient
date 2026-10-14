@@ -16,7 +16,7 @@ export default function NotFound() {
 
       <main className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-center px-8 py-24">
         <p className="mb-3.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/75">
-          <span aria-hidden className="inline-block h-2.5 w-2.5 flex-none bg-oxide" />
+          <span aria-hidden className="inline-block rounded-full h-2.5 w-2.5 flex-none bg-oxide" />
           404 — no signal
         </p>
         <h1 className="mb-2.5 text-[34px] font-bold leading-tight tracking-tight">
