@@ -248,7 +248,7 @@ function Row({ t }: { t: RadarTag }) {
         >
           {t.name}
         </Link>
-        <span className="ml-2 text-[10.5px] text-bone/55">
+        <span className="ml-2 text-[10.5px] text-bone/60">
           {AXIS_LABEL[t.group] ?? t.group}
         </span>
       </div>

@@ -168,7 +168,7 @@ export default async function CuratorsPage() {
         <HomeGrid clips={grid} emptyText="Nothing from the curators you follow yet." />
       ) : (
         !compLoad.failed && (
-          <p className="mx-auto w-full max-w-[1180px] px-4 pb-24 text-[13px] text-bone/55 sm:px-8">
+          <p className="mx-auto w-full max-w-[1180px] px-4 pb-24 text-[13px] text-bone/60 sm:px-8">
             Follow a curator and their clips gather here.
           </p>
         )

@@ -36,14 +36,14 @@ export default async function TeamPage() {
         <h1 className="mb-10 text-[30px] font-bold tracking-tight md:text-[40px]">Curators</h1>
 
         <section className="mb-14">
-          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/55">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/60">
             Approve an account
           </p>
           <ApproveForm />
         </section>
 
         <section>
-          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/55">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/60">
             Everyone who can clip
           </p>
           <ul className="border-t border-white/10">
@@ -51,10 +51,10 @@ export default async function TeamPage() {
               <li key={c.name} className="flex items-baseline justify-between gap-4 border-b border-white/10 py-4">
                 <span>
                   <span className="text-[15px] font-semibold">{c.display_name ?? c.name}</span>
-                  <span className="ml-2 text-[13px] text-bone/55">@{c.name}</span>
-                  {c.is_admin && <span className="ml-2 text-[11px] uppercase tracking-[0.08em] text-bone/45">admin</span>}
+                  <span className="ml-2 text-[13px] text-bone/60">@{c.name}</span>
+                  {c.is_admin && <span className="ml-2 text-[11px] uppercase tracking-[0.08em] text-bone/60">admin</span>}
                 </span>
-                <span className={`text-[12px] ${c.user_id ? "text-bone/70" : "text-bone/45"}`}>
+                <span className={`text-[12px] ${c.user_id ? "text-bone/70" : "text-bone/60"}`}>
                   {c.user_id ? "Account linked" : "Old password only"}
                 </span>
               </li>

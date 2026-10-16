@@ -233,7 +233,7 @@ export default async function ClipPage() {
               <dt className={`${KICKER} mb-1.5`}>{k}</dt>
               <dd className="flex items-baseline gap-3">
                 <span className="text-[26px] font-normal leading-none tabular-nums">{v}</span>
-                <span className="text-[12px] text-bone/50">{note}</span>
+                <span className="text-[12px] text-bone/60">{note}</span>
               </dd>
             </div>
           ))}

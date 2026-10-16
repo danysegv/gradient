@@ -101,7 +101,7 @@ export function SaveToBoards({
           required
           maxLength={TITLE_MAX}
           placeholder={`New ${BOARD.one}`}
-          className="min-w-0 flex-1 rounded-[3px] border border-white/15 bg-ink-2 px-3 py-1.5 text-[13px] text-bone placeholder:text-bone/50 focus:border-bone/60 focus:outline-none"
+          className="min-w-0 flex-1 rounded-[3px] border border-white/15 bg-ink-2 px-3 py-1.5 text-[13px] text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none"
         />
         <button
           type="submit"

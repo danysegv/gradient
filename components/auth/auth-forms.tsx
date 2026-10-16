@@ -13,7 +13,7 @@ import { PASSWORD_MIN, missingSentence, passwordMissing } from "@/lib/auth/passw
 import { LegalLink } from "@/components/legal-link";
 
 const FIELD =
-  "h-14 w-full rounded-[4px] border border-white/20 bg-ink px-5 text-[16px] text-bone placeholder:text-bone/45 focus:border-bone/70 focus:outline-none";
+  "h-14 w-full rounded-[4px] border border-white/20 bg-ink px-5 text-[16px] text-bone placeholder:text-bone/60 focus:border-bone/70 focus:outline-none";
 const BUTTON =
   "h-14 w-full rounded-[4px] bg-bone px-8 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink transition-colors hover:bg-white disabled:opacity-60";
 
@@ -210,7 +210,7 @@ export function SignUpForm() {
           once /privacy has a real contact — components/legal-link.tsx. */}
       <LegalLink
         page="privacy"
-        className="mt-1 self-start text-[12px] text-bone/55 underline underline-offset-4 hover:text-bone"
+        className="mt-1 self-start text-[12px] text-bone/60 underline underline-offset-4 hover:text-bone"
       >
         How 04AM handles your email and password
       </LegalLink>
@@ -256,7 +256,7 @@ export function SignInForm({ next }: { next: string }) {
       <button type="submit" disabled={pending} className={BUTTON}>
         {pending ? "Signing in…" : "Sign in"}
       </button>
-      <Link href="/forgot-password" className="mt-3 text-center text-[13px] text-bone/55 underline-offset-4 hover:text-bone hover:underline">
+      <Link href="/forgot-password" className="mt-3 text-center text-[13px] text-bone/60 underline-offset-4 hover:text-bone hover:underline">
         Forgot your password?
       </Link>
       <div className="mt-2">

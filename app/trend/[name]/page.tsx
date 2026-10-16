@@ -257,7 +257,7 @@ export default async function TrendPage({
           <h1 className="text-[34px] font-bold leading-tight tracking-tight">{tag.editorial_name}</h1>
           <p className="mt-1.5 text-[15px] text-bone/75">{tag.universal_term}</p>
           {description && (
-            <p className="mt-3 mb-9 max-w-xl text-[13px] leading-relaxed text-bone/55">{description}</p>
+            <p className="mt-3 mb-9 max-w-xl text-[13px] leading-relaxed text-bone/60">{description}</p>
           )}
           {!description && <div className="mb-9" />}
         </div>
@@ -290,13 +290,13 @@ export default async function TrendPage({
             </li>
           ))}
         </ul>
-        <p className="mb-12 min-h-[1em] text-[11.5px] text-bone/50">
+        <p className="mb-12 min-h-[1em] text-[11.5px] text-bone/60">
           {holding.length > 0 && "The number shows once all three clear."}
         </p>
 
 
         <p className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-bone/70">
-          References <span className="font-normal tabular-nums text-bone/45">{clips.length}</span>
+          References <span className="font-normal tabular-nums text-bone/60">{clips.length}</span>
         </p>
       </div>
 

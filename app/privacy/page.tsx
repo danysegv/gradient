@@ -83,7 +83,7 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-24 border-t border-white/10 py-9">
-      <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-bone/55">
+      <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-bone/60">
         {heading}
       </h2>
       <div className="max-w-[62ch] space-y-4 text-[15px] leading-relaxed text-bone/85">
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
           references into it. This page covers both, and describes what the
           software actually does rather than what it might one day do.
         </p>
-        <p className="mt-3 text-[12px] uppercase tracking-[0.08em] text-bone/45">
+        <p className="mt-3 text-[12px] uppercase tracking-[0.08em] text-bone/60">
           Last updated{" "}
           <time dateTime={PRIVACY_UPDATED}>
             {new Date(`${PRIVACY_UPDATED}T12:00:00Z`).toLocaleDateString("en-GB", {
@@ -239,7 +239,7 @@ export default function PrivacyPage() {
           <div className="text-[13px] leading-snug">
             <div
               aria-hidden
-              className="hidden border-b border-white/15 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/50 sm:grid sm:grid-cols-[11rem_1fr] sm:gap-5"
+              className="hidden border-b border-white/15 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/60 sm:grid sm:grid-cols-[11rem_1fr] sm:gap-5"
             >
               <span>Cookie</span>
               <span>What it does, and for how long</span>
@@ -252,7 +252,7 @@ export default function PrivacyPage() {
                 >
                   <dt className="break-all font-mono text-[12px] text-bone/90 sm:row-span-2">{c.name}</dt>
                   <dd className="text-bone/80">{c.purpose}</dd>
-                  <dd className="text-bone/55">Lasts: {c.lasts}</dd>
+                  <dd className="text-bone/60">Lasts: {c.lasts}</dd>
                 </div>
               ))}
             </dl>

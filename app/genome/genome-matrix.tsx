@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AXES, AXIS_LABEL } from "@/lib/axes";
 import { matrixOrder, oneWayCells, type GenomeLook, type GenomePair } from "@/lib/genome";
+import { StateDot } from "@/components/state-dot";
 
 // The genome matrix, kept — it is the page's personality — and organised
 // (Daniela, 2026-10-01):
@@ -139,15 +140,21 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
             <Link href={`/trend/${encodeURIComponent(fc.name)}`} className="font-semibold text-bone hover:underline">
               {fc.name}
             </Link>
-            <span className="text-bone/50">
+            <span className="text-bone/60">
               {" "}
               · {pct(share(fc, fr))} the other way · {both.get(`${fr.id}|${fc.id}`) ?? 0} of {fr.total}
               {fr.early ? " · Early Signal" : ""}
             </span>
-            {(fr.incubating || fc.incubating) && <span className="text-slate"> · Incubating</span>}
+            {(fr.incubating || fc.incubating) && (
+              <span className="text-bone/80">
+                {" · "}
+                <StateDot tone="slate" className="mr-1 align-middle" />
+                Incubating
+              </span>
+            )}
           </>
         ) : (
-          <span className="text-bone/45">
+          <span className="text-bone/60">
             Read across a row. {narrow ? "Tap a square" : "Hover or tap a square"}
             {scrolls ? " · swipe for more." : "."}
           </span>
@@ -165,7 +172,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
                 <span
                   key={g}
                   title={AXIS_LABEL[g] ?? g}
-                  className="absolute top-0 truncate border-t border-bone/30 pt-1 text-[9.5px] font-semibold tracking-[0.12em] text-bone/55"
+                  className="absolute top-0 truncate border-t border-bone/30 pt-1 text-[9.5px] font-semibold tracking-[0.12em] text-bone/60"
                   style={{ left: x0, width: inG.length * cell }}
                 >
                   {SHORT[g] ?? g}
@@ -178,9 +185,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
                 className={`absolute bottom-1 origin-bottom-left whitespace-nowrap leading-none transition-colors ${
                   focus?.c === c.id
                     ? "text-bone"
-                    : c.incubating
-                      ? c.early ? "text-slate/70" : "text-slate"
-                      : c.early ? "text-bone/35" : "text-bone/60"
+                    : "text-bone/60"
                 }`}
                 style={{
                   fontSize: nameFont,
@@ -188,6 +193,7 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
                   transform: steep ? "rotate(-90deg)" : "rotate(-60deg)",
                 }}
               >
+                {c.incubating && <StateDot tone="slate" className="mr-1 align-middle" />}
                 {c.name}
               </span>
             ))}
@@ -201,15 +207,14 @@ export function GenomeMatrix({ looks, pairs }: { looks: GenomeLook[]; pairs: Gen
                   className={`sticky left-0 z-10 flex h-full shrink-0 items-center gap-1.5 overflow-hidden bg-ink pr-2 ${
                     focus?.r === r.id
                       ? "text-bone"
-                      : r.incubating
-                        ? r.early ? "text-slate/70" : "text-slate"
-                        : r.early ? "text-bone/35" : "text-bone/80"
+                      : r.early ? "text-bone/60" : "text-bone/80"
                   }`}
                   style={{ width: labelW }}
                   title={`${AXIS_LABEL[r.group] ?? r.group} · ${r.total} references${r.incubating ? " · Incubating" : ""}`}
                 >
+                  {r.incubating && <StateDot tone="slate" />}
                   <span className={`truncate ${narrow ? "text-[10.5px]" : "text-[12px] font-semibold"}`}>{r.name}</span>
-                  {!narrow && <span className="text-[10px] tabular-nums text-bone/35">{r.total}</span>}
+                  {!narrow && <span className="text-[10px] tabular-nums text-bone/60">{r.total}</span>}
                 </span>
                 <div className="relative" style={{ width: gridW, height: cell }}>
                   {cols.map((c) => {

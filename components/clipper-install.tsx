@@ -61,7 +61,7 @@ export function ClipperInstall({ version }: { version: string }) {
       <ol className="mt-5 flex max-w-[52ch] flex-col gap-2">
         {STEPS.map((step, i) => (
           <li key={step} className="flex gap-3 text-[14px] text-bone/80">
-            <span className="w-4 shrink-0 tabular-nums text-bone/45">{i + 1}</span>
+            <span className="w-4 shrink-0 tabular-nums text-bone/60">{i + 1}</span>
             <span>{step}</span>
           </li>
         ))}

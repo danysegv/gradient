@@ -14,7 +14,7 @@ type Note = { id: string; parent_id: string | null; author_name: string; body: s
 // there is nothing to show and nobody who could write.
 
 const INPUT =
-  "w-full border-0 border-b border-white/15 bg-transparent px-0 py-1.5 text-[13px] text-bone placeholder:text-bone/35 focus:border-bone/60 focus:outline-none focus:ring-0";
+  "w-full border-0 border-b border-white/15 bg-transparent px-0 py-1.5 text-[13px] text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none focus:ring-0";
 
 function when(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -77,7 +77,7 @@ export function ClipNotes({
 
   function Byline({ n, thread }: { n: Note; thread: string }) {
     return (
-      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-bone/45">
+      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-bone/60">
         <Link href={`/curator/${encodeURIComponent(n.author_name)}`} className="hover:text-bone/80">
           @{n.author_name}
         </Link>

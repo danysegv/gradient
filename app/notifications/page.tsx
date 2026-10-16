@@ -57,7 +57,7 @@ export default async function NotificationsPage() {
                     <span className="font-semibold text-bone">{n.actor ? `@${n.actor}` : "Someone"}</span>{" "}
                     {n.text}
                   </span>
-                  <span className="text-[11px] tabular-nums text-bone/45">{ago(n.createdAt)}</span>
+                  <span className="text-[11px] tabular-nums text-bone/60">{ago(n.createdAt)}</span>
                 </Link>
               </li>
             ))}

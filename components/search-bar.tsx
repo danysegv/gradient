@@ -74,7 +74,7 @@ export function SearchBar({
       <svg
         aria-hidden
         viewBox="0 0 20 20"
-        className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-bone/55"
+        className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-bone/60"
         fill="none"
         stroke="currentColor"
         strokeWidth={1.6}
@@ -97,7 +97,7 @@ export function SearchBar({
         placeholder={placeholder}
         autoComplete="off"
         spellCheck={false}
-        className="h-12 w-full rounded-[3px] border border-white/15 bg-ink-2 pl-11 pr-28 text-[15px] text-bone placeholder:text-bone/50 focus:border-bone/60 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+        className="h-12 w-full rounded-[3px] border border-white/15 bg-ink-2 pl-11 pr-28 text-[15px] text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-3">
         {pending && (

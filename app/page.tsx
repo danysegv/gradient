@@ -26,6 +26,7 @@ import { CuratorCard, type CuratorCardData } from "@/components/curator-card";
 import { SiteHeader } from "@/components/site-header";
 import { IntroScreen } from "@/components/intro/intro-screen";
 import { ENTERED_COOKIE } from "@/lib/intro";
+import { StateDot } from "@/components/state-dot";
 
 // Always fetch fresh — this is a live feed, not a static marketing page.
 export const revalidate = 0;
@@ -380,12 +381,11 @@ export default async function Home({
                   {tag.clip_count}
                 </p>
                 <p
-                  className={`mt-2.5 border-t pt-2 text-[11px] font-semibold uppercase tracking-wide ${
-                    confidence.cooling
-                      ? "border-slate/40 text-slate"
-                      : "border-white/10 text-bone/70"
+                  className={`mt-2.5 flex items-center gap-1.5 border-t pt-2 text-[11px] font-semibold uppercase tracking-wide text-bone/70 ${
+                    confidence.cooling ? "border-slate/40" : "border-white/10"
                   }`}
                 >
+                  {confidence.cooling && <StateDot tone="slate" />}
                   {confidenceNoteText(confidence)}
                 </p>
               </Link>

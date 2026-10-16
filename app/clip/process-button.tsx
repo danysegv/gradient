@@ -26,7 +26,7 @@ export function ProcessButton({
   // watcher is visible without ever reading as work this button can do.
   const colourNote =
     awaitingColourReader > 0 ? (
-      <p className="text-xs text-bone/55">
+      <p className="text-xs text-bone/60">
         {awaitingColourReader} clip{awaitingColourReader === 1 ? "" : "s"} waiting
         on the colour reader, usually done within fifteen minutes.
       </p>

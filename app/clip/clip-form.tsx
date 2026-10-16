@@ -13,9 +13,9 @@ import { CLIP_IMAGE_REFERRER_POLICY } from "@/lib/clip-images";
 // clips.
 
 const FIELD =
-  "h-12 w-full rounded-[4px] border border-white/15 bg-ink px-4 text-[15px] text-bone placeholder:text-bone/35 focus:border-bone/70 focus:outline-none";
+  "h-12 w-full rounded-[4px] border border-white/15 bg-ink px-4 text-[15px] text-bone placeholder:text-bone/60 focus:border-bone/70 focus:outline-none";
 const LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/70";
-const HINT = "font-normal normal-case tracking-normal text-bone/45";
+const HINT = "font-normal normal-case tracking-normal text-bone/60";
 
 type Draft = {
   url: string;
@@ -122,7 +122,7 @@ export function ClipForm() {
             id="caption"
             name="caption"
             rows={3}
-            className="w-full resize-y rounded-[4px] border border-white/15 bg-ink px-4 py-3 text-[15px] leading-relaxed text-bone placeholder:text-bone/35 focus:border-bone/70 focus:outline-none"
+            className="w-full resize-y rounded-[4px] border border-white/15 bg-ink px-4 py-3 text-[15px] leading-relaxed text-bone placeholder:text-bone/60 focus:border-bone/70 focus:outline-none"
           />
         </Field>
 
@@ -168,7 +168,7 @@ function Field({
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className={LABEL}>
         {label}
-        {required && <span className="text-bone/45"> *</span>}
+        {required && <span className="text-bone/60"> *</span>}
         {hint && <span className={HINT}> — {hint}</span>}
       </label>
       {children}
@@ -205,7 +205,7 @@ function Preview({ draft }: { draft: Draft }) {
               className="block h-auto max-h-[52vh] w-auto max-w-full"
             />
           ) : (
-            <p className="max-w-[30ch] text-center text-[13px] leading-relaxed text-bone/50">
+            <p className="max-w-[30ch] text-center text-[13px] leading-relaxed text-bone/60">
               {broken
                 ? "This image won’t load. The host may block it, or the address is a page rather than the image file. Try the image file’s own address."
                 : "Paste an image URL and the reference appears here, whole."}
@@ -214,13 +214,13 @@ function Preview({ draft }: { draft: Draft }) {
         </div>
         <div className="mt-4 min-h-[64px]">
           <p className="text-[17px] font-semibold leading-snug text-bone">
-            {draft.title.trim() || <span className="text-bone/35">Title</span>}
+            {draft.title.trim() || <span className="text-bone/60">Title</span>}
           </p>
           <p className="mt-1 text-[13px] text-bone/70">
-            {credit.length > 0 ? credit.join(", ") : <span className="text-bone/35">Creator, rights holder, year</span>}
-            {draft.found_via.trim() && <span className="text-bone/45"> · via {draft.found_via.trim()}</span>}
+            {credit.length > 0 ? credit.join(", ") : <span className="text-bone/60">Creator, rights holder, year</span>}
+            {draft.found_via.trim() && <span className="text-bone/60"> · via {draft.found_via.trim()}</span>}
           </p>
-          {pageHost && <p className="mt-1 text-[12px] text-bone/45">{pageHost}</p>}
+          {pageHost && <p className="mt-1 text-[12px] text-bone/60">{pageHost}</p>}
         </div>
       </div>
     </aside>

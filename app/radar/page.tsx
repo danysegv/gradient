@@ -18,6 +18,7 @@ import {
 import { computeMarketOverlay, type MarketOverlay } from "@/lib/market/overlay";
 import { SiteHeader } from "@/components/site-header";
 import { TrendRadarChart } from "@/components/radar/trend-radar-chart";
+import { StateDot } from "@/components/state-dot";
 
 // Live, like the feed: the radar is a reading of today.
 export const revalidate = 0;
@@ -233,7 +234,7 @@ export default async function RadarPage() {
             Trend Radar · 30 days
             {radar.reading === "balanced" && (
               <span
-                className="font-normal normal-case tracking-normal text-bone/55"
+                className="font-normal normal-case tracking-normal text-bone/60"
                 title={READING_NOTE}
               >
                 · curator by curator
@@ -304,19 +305,18 @@ export default async function RadarPage() {
                 <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bone/70 hover:text-bone [&::-webkit-details-marker]:hidden">
                   <span aria-hidden className="inline-block transition-transform group-open:rotate-90">›</span>
                   Not on the radar
-                  <span className="font-normal tabular-nums text-bone/45">{radar.waiting.length}</span>
+                  <span className="font-normal tabular-nums text-bone/60">{radar.waiting.length}</span>
                 </summary>
                 <div className="mt-6 grid gap-x-10 gap-y-6 md:grid-cols-2">
                   {[...byReason.entries()].map(([reason, rows]) => (
                     <div key={reason} className="min-w-0">
                       <p
                         title={REASON_NOTE[reason]}
-                        className={`mb-2 text-[10.5px] font-semibold uppercase tracking-wide ${
-                          reason === "Cooling" ? "text-slate" : "text-bone/80"
-                        }`}
+                        className="mb-2 flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-bone/80"
                       >
+                        {reason === "Cooling" && <StateDot tone="slate" />}
                         {reason}
-                        <span className="ml-2 font-normal normal-case tracking-normal text-bone/45">
+                        <span className="ml-2 font-normal normal-case tracking-normal text-bone/60">
                           {REASON_SHORT[reason]}
                         </span>
                       </p>
@@ -330,7 +330,7 @@ export default async function RadarPage() {
                             >
                               {w.name}
                             </Link>{" "}
-                            <span className="tabular-nums text-bone/45">{w.refs}</span>
+                            <span className="tabular-nums text-bone/60">{w.refs}</span>
                           </li>
                         ))}
                       </ul>
@@ -403,7 +403,7 @@ function Gap({
   return (
       <div className="min-w-0">
         <p className="text-[10.5px] font-semibold uppercase tracking-wide text-bone/80">{label}</p>
-        <p className="mb-2 text-[11.5px] leading-relaxed text-bone/50">{note}</p>
+        <p className="mb-2 text-[11.5px] leading-relaxed text-bone/60">{note}</p>
         <ul className="divide-y divide-white/[.07]">
           {rows.slice(0, 6).map((g) => (
             <li key={g.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 py-2">
@@ -414,7 +414,7 @@ function Gap({
                 {nameOf.get(g.id) ?? "—"}
               </Link>
               <span className="text-right text-[12px] tabular-nums text-bone/70">
-                04AM {formatRadarShare(g.library)} <span className="text-bone/40">·</span> market{" "}
+                04AM {formatRadarShare(g.library)} <span className="text-bone/60">·</span> market{" "}
                 {formatRadarShare(g.market)}
               </span>
             </li>
@@ -473,7 +473,7 @@ function MarketSection({
       )}
 
       {read.length > 0 && (
-        <p className="max-w-2xl text-[11.5px] leading-relaxed text-bone/50">
+        <p className="max-w-2xl text-[11.5px] leading-relaxed text-bone/60">
           Read from{" "}
           {read.map((s, i) => (
             <span key={s.source_id}>

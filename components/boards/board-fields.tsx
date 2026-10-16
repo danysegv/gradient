@@ -26,7 +26,7 @@ export function BoardFields({
           maxLength={TITLE_MAX}
           defaultValue={defaults?.title}
           placeholder="Spring campaign"
-          className="rounded-[3px] border border-white/15 bg-ink px-3 py-2 text-[14px] text-bone placeholder:text-bone/45 focus:border-bone/60 focus:outline-none"
+          className="rounded-[3px] border border-white/15 bg-ink px-3 py-2 text-[14px] text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none"
         />
       </div>
       <div className="flex flex-col gap-1.5">
@@ -43,7 +43,7 @@ export function BoardFields({
           maxLength={DESCRIPTION_MAX}
           defaultValue={defaults?.description ?? ""}
           placeholder={`What this ${BOARD.one} is for`}
-          className="resize-y rounded-[3px] border border-white/15 bg-ink px-3 py-2 text-[14px] leading-relaxed text-bone placeholder:text-bone/45 focus:border-bone/60 focus:outline-none"
+          className="resize-y rounded-[3px] border border-white/15 bg-ink px-3 py-2 text-[14px] leading-relaxed text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none"
         />
       </div>
       <label

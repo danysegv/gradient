@@ -21,6 +21,7 @@ import { fetchGridClips, searchClipIds } from "@/lib/search/results";
 import { onlyClassified } from "@/lib/clips/visibility";
 import { getProfile, currentNameForOldName } from "@/lib/profiles/queries";
 import { SiteHeader } from "@/components/site-header";
+import { StateDot } from "@/components/state-dot";
 
 // Live, like the Signals Feed. Not a static profile page.
 export const revalidate = 0;
@@ -400,7 +401,7 @@ export default async function CuratorPage({
             )}
           </div>
           {profile?.display_name && (
-            <p className="mt-2.5 text-[14px] text-bone/55">@{curator}</p>
+            <p className="mt-2.5 text-[14px] text-bone/60">@{curator}</p>
           )}
           {profile?.bio && (
             <p className="mt-5 max-w-[46ch] whitespace-pre-line text-[15px] leading-relaxed text-bone/80">
@@ -458,16 +459,18 @@ export default async function CuratorPage({
         <div className="mb-14 mt-12 grid gap-12 md:grid-cols-12">
           {showSignature && (
             <section className="md:col-span-7">
-              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/55">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/60">
                 Signature
               </div>
               <div className="mb-3 flex items-baseline gap-4">
                 <span className="w-[150px] flex-none" />
-                <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate">
+                <span className="flex flex-1 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/80">
+                  <StateDot tone="slate" />
                   Less
                 </span>
-                <span className="flex-1 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-oxide">
+                <span className="flex flex-1 items-center justify-end gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/80">
                   More
+                  <StateDot tone="oxide" />
                 </span>
               </div>
               <div className="flex flex-col gap-2.5">
@@ -514,7 +517,7 @@ export default async function CuratorPage({
               row, one bar, no figures — the shape is the whole message. */}
           {attention.length > 0 && axisTotal > 0 && (
             <section className="md:col-span-4 md:col-start-9">
-              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/55">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-bone/60">
                 Attention
               </div>
               <div className="flex flex-col gap-2.5">
@@ -575,12 +578,11 @@ export default async function CuratorPage({
                   {tag.clip_count}
                 </p>
                 <p
-                  className={`mt-2.5 border-t pt-2 text-[11px] font-semibold uppercase tracking-wide ${
-                    confidence.cooling
-                      ? "border-slate/40 text-slate"
-                      : "border-white/10 text-bone/70"
+                  className={`mt-2.5 flex items-center gap-1.5 border-t pt-2 text-[11px] font-semibold uppercase tracking-wide text-bone/70 ${
+                    confidence.cooling ? "border-slate/40" : "border-white/10"
                   }`}
                 >
+                  {confidence.cooling && <StateDot tone="slate" />}
                   {confidenceNoteText(confidence)}
                 </p>
               </Link>

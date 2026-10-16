@@ -9,6 +9,7 @@ import { spaceTagName } from "@/lib/intro";
 import Link from "next/link";
 import { SignUpForm } from "@/components/auth/auth-forms";
 import { clipAlt } from "@/lib/clips/alt-text";
+import { StateDot } from "@/components/state-dot";
 
 // The first-visit intro. Three movements on one scrolling page:
 //   0. The held mark — 04AM full bleed, held at the bottom of the screen
@@ -127,6 +128,13 @@ function ClipImage({
       src={clip.image_url}
       alt={clipAlt(clip)}
       referrerPolicy={CLIP_IMAGE_REFERRER_POLICY}
+      // Clips are the source's own files, often full-size originals (a
+      // 6000px photo shown at 180px). Lazy keeps the hidden and below-the-
+      // fold ones from downloading at all, and low priority lets the words
+      // and the page's own code arrive first (page-speed pass, 2026-10-16).
+      loading="lazy"
+      decoding="async"
+      fetchPriority="low"
       onLoad={() => setLoaded(true)}
       onError={() => onBroken?.(clip.id)}
       className={`block ${fit === "box" ? "h-auto max-h-full w-auto max-w-full" : "h-auto w-full"} transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"} ${className}`}
@@ -362,11 +370,10 @@ function Opening({
       >
         <div className="flex flex-col gap-6 pt-8 md:flex-row md:items-start md:justify-between md:pt-12">
           <h1 className="max-w-[640px]">
-            <span className="sr-only">04AM. </span>
-            <span
-              className="block min-h-[3.6em] text-[20px] font-semibold leading-[1.2] tracking-tight md:text-[28px]"
-              aria-label="Made for the visual obsessive. Every piece sourced, every trend measured."
-            >
+            {/* Screen readers get the whole sentence at once; the typing
+                below is for eyes only (a span may not carry aria-label). */}
+            <span className="sr-only">04AM. Made for the visual obsessive. Every piece sourced, every trend measured.</span>
+            <span className="block min-h-[3.6em] text-[20px] font-semibold leading-[1.2] tracking-tight md:text-[28px]">
               <span aria-hidden>
                 {line1}
                 <br />
@@ -567,7 +574,7 @@ function SceneRead({ clip, onBroken }: { clip: IntroClip | null; onBroken: (id: 
             className={`flex translate-x-4 items-baseline justify-between gap-3 border-b border-white/10 pb-2 opacity-0 transition-all duration-500 group-data-[play=1]/scene:translate-x-0 group-data-[play=1]/scene:opacity-100`}
             style={{ transitionDelay: `${1300 + i * 180}ms` }}
           >
-            <span className="text-[11px] uppercase tracking-[0.08em] text-bone/55">{t.axis}</span>
+            <span className="text-[11px] uppercase tracking-[0.08em] text-bone/60">{t.axis}</span>
             <span className="text-right text-[14px] font-semibold">{spaceTagName(t.name)}</span>
           </li>
         ))}
@@ -719,7 +726,7 @@ function SceneMarket() {
           return (
             <div key={i} className="relative h-8">
               <span aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-white/[0.07]" />
-              <span className="absolute -top-1 left-0 text-[10px] uppercase tracking-[0.12em] text-bone/45">
+              <span className="absolute -top-1 left-0 text-[10px] uppercase tracking-[0.12em] text-bone/60">
                 Look {String.fromCharCode(65 + i)}
               </span>
               {/* the gap */}
@@ -741,10 +748,11 @@ function SceneMarket() {
                 style={{ left: `${r.lib}%` }}
               />
               <span
-                className={`${LABEL} absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-opacity duration-500 ${
-                  v === "Ahead" ? "text-oxide" : "text-bone/55"
+                className={`${LABEL} absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-[10px] transition-opacity duration-500 ${
+                  v === "Ahead" ? "text-bone" : "text-bone/60"
                 } ${v ? "opacity-100" : "opacity-0"}`}
               >
+                {v === "Ahead" && <StateDot tone="oxide" />}
                 {v}
               </span>
             </div>

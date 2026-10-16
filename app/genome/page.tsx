@@ -114,7 +114,7 @@ export default async function GenomePage() {
                           {o.to.name}
                         </Link>
                       </span>
-                      <span className="col-start-2 text-[12px] text-bone/50 sm:col-start-auto sm:text-right">
+                      <span className="col-start-2 text-[12px] text-bone/60 sm:col-start-auto sm:text-right">
                         {Math.round(o.back * 100)}% the other way
                       </span>
                     </li>

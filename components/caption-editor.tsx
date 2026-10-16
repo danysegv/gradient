@@ -35,7 +35,7 @@ export function CaptionEditor({ clipId, initial }: { clipId: string; initial: st
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className={`${caption ? "mt-2" : ""} text-[11px] font-semibold uppercase tracking-wide text-bone/55 underline-offset-4 hover:text-bone hover:underline`}
+          className={`${caption ? "mt-2" : ""} text-[11px] font-semibold uppercase tracking-wide text-bone/60 underline-offset-4 hover:text-bone hover:underline`}
         >
           {caption ? "Edit caption" : "Add a caption"}
         </button>
@@ -62,7 +62,7 @@ export function CaptionEditor({ clipId, initial }: { clipId: string; initial: st
           }
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
         }}
-        className="w-full resize-y rounded-[3px] border border-white/15 bg-ink px-3 py-2.5 text-[14px] leading-relaxed text-bone placeholder:text-bone/35 focus:border-bone/50 focus:outline-none"
+        className="w-full resize-y rounded-[3px] border border-white/15 bg-ink px-3 py-2.5 text-[14px] leading-relaxed text-bone placeholder:text-bone/60 focus:border-bone/50 focus:outline-none"
         placeholder="What you want people to notice"
       />
       <div className="mt-2.5 flex items-center gap-4">
@@ -86,7 +86,7 @@ export function CaptionEditor({ clipId, initial }: { clipId: string; initial: st
         >
           Cancel
         </button>
-        <span className="ml-auto text-[11px] tabular-nums text-bone/40">
+        <span className="ml-auto text-[11px] tabular-nums text-bone/60">
           {draft.length > MAX_CAPTION - 500 ? `${MAX_CAPTION - draft.length} left` : ""}
         </span>
       </div>

@@ -52,7 +52,7 @@ export function ProfileEditor({
             Username
           </span>
           <div className="flex items-center gap-2">
-            <span aria-hidden className="text-[15px] text-bone/45">
+            <span aria-hidden className="text-[15px] text-bone/60">
               @
             </span>
             <input
@@ -77,7 +77,7 @@ export function ProfileEditor({
             </button>
           </div>
         </label>
-        <p className="mt-2 text-[11px] text-bone/50">
+        <p className="mt-2 text-[11px] text-bone/60">
           {unlocked ? (
             <>
               How you&rsquo;re credited on every clip, and the address of your
@@ -117,9 +117,9 @@ export function ProfileEditor({
           defaultValue={displayName ?? ""}
           maxLength={DISPLAY_NAME_MAX}
           placeholder={curator}
-          className="rounded-[3px] border border-white/15 bg-ink-2 px-3 py-2 text-[15px] text-bone placeholder:text-bone/40 focus:border-bone/60 focus:outline-none"
+          className="rounded-[3px] border border-white/15 bg-ink-2 px-3 py-2 text-[15px] text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none"
         />
-        <span className="text-[11px] text-bone/50">
+        <span className="text-[11px] text-bone/60">
           Shown above your username on your page. Leave it blank and your
           username stands alone.
         </span>
@@ -136,9 +136,9 @@ export function ProfileEditor({
           maxLength={BIO_MAX}
           rows={3}
           placeholder="What you look for, in a line or two."
-          className="resize-y rounded-[3px] border border-white/15 bg-ink-2 px-3 py-2 text-[15px] leading-relaxed text-bone placeholder:text-bone/40 focus:border-bone/60 focus:outline-none"
+          className="resize-y rounded-[3px] border border-white/15 bg-ink-2 px-3 py-2 text-[15px] leading-relaxed text-bone placeholder:text-bone/60 focus:border-bone/60 focus:outline-none"
         />
-        <span className="text-[11px] text-bone/50">
+        <span className="text-[11px] text-bone/60">
           Up to {BIO_MAX} characters. Shown on your curator page and in the
           roster — leave it blank and neither shows one.
         </span>

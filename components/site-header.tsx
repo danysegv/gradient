@@ -7,6 +7,7 @@ import { SearchOverlay } from "@/components/search-overlay";
 import { AccountButton } from "@/components/account-button";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { StateDot } from "@/components/state-dot";
 
 // One header for every page, A24-simple: the pages on one side, the mark
 // dead centre, search alone on the other side. It replaced nine hand-copied
@@ -53,23 +54,24 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
 
   const items = NAV.map((item) => {
     const on = item.key === active;
-    // The one action in the bar, in Oxide. DELIBERATE EXCEPTION (Daniela,
-    // 2026-09-19) to "Oxide never as small text": ~4.1:1 on Ink, below the
-    // 4.5:1 small text needs. Revisit if it reads too faint.
+    // The one action in the bar: Bone type with an Oxide dot. It was Oxide
+    // type (a 2026-09-19 exception, ~4.1:1 on Ink); since the contrast pass
+    // (2026-10-16) the colour is the dot, the word stays readable.
     if (item.key === "clip") {
       return (
         <Link
           key={item.key}
           href="/clip"
           aria-current={on ? "page" : undefined}
-          className={`${itemClass} w-fit text-oxide hover:brightness-125`}
+          className={`${itemClass} inline-flex w-fit items-center gap-2 text-bone`}
           onClick={() => setMenuOpen(false)}
         >
-          + Clip
+          <StateDot tone="oxide" />
+          Clip
         </Link>
       );
     }
-    const cls = `${itemClass} ${on ? "text-bone" : "text-bone/55 hover:text-bone"}`;
+    const cls = `${itemClass} ${on ? "text-bone" : "text-bone/60 hover:text-bone"}`;
     return item.href ? (
       <Link
         key={item.key}
@@ -81,7 +83,7 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
         {item.label}
       </Link>
     ) : (
-      <span key={item.key} className={`${itemClass} text-bone/30`} title="Coming soon">
+      <span key={item.key} className={`${itemClass} text-bone/60`} title="Coming soon">
         {item.label}
       </span>
     );

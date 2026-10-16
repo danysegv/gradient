@@ -11,6 +11,7 @@ import {
   type RadarQuadrant,
   type TrailedPoint as RadarPoint,
 } from "@/lib/radar/trend-radar";
+import { StateDot } from "@/components/state-dot";
 
 // The Trend Radar, drawn as SVG in the plate radar's hand: same grid, same
 // Oxide-up / Slate-down pair, same 2px Ink ring, same corner words. What is
@@ -243,20 +244,21 @@ export function TrendRadarChart({
             {focused ? (
               <>
                 <span className="font-semibold text-bone">{focused.name}</span>
-                <span className="text-bone/55"> · {AXIS_LABEL[focused.group] ?? focused.group}</span>
+                <span className="text-bone/60"> · {AXIS_LABEL[focused.group] ?? focused.group}</span>
                 {" — "}
                 <span className="tabular-nums text-bone">{formatRadarShare(focused.share)}</span> of the
                 library,{" "}
-                <span className={`tabular-nums ${focused.shift > 0 ? "text-oxide" : "text-bone"}`}>
+                <span className="tabular-nums text-bone">
+                  {focused.shift > 0 && <StateDot tone="oxide" className="mr-1 align-middle" />}
                   {formatVelocity(focused.shift)}
                 </span>{" "}
                 in 30 days, <span className="tabular-nums">{focused.refs}</span> references
                 {market && (
-                  <span className="text-bone/55">
+                  <span className="text-bone/60">
                     {" · "}the market <span className="tabular-nums text-bone/80">{formatRadarShare(marketOf(focused.id) ?? 0)}</span>
                   </span>
                 )}
-                <span className="text-bone/55">
+                <span className="text-bone/60">
                   {focused.prior
                     ? focused.prior.quadrant === focused.quadrant
                       ? ` · ${RADAR_QUADRANT_LABEL[focused.quadrant]} a week ago too`
@@ -267,7 +269,7 @@ export function TrendRadarChart({
                 </span>
               </>
             ) : (
-              <span className="text-bone/50">Hover a look.</span>
+              <span className="text-bone/60">Hover a look.</span>
             )}
           </p>
 
@@ -503,16 +505,16 @@ export function TrendRadarChart({
                         >
                           {p.name}
                         </Link>
-                        <span className="ml-2 text-[10.5px] text-bone/55">
+                        <span className="ml-2 text-[10.5px] text-bone/60">
                           {AXIS_LABEL[p.group] ?? p.group}
                         </span>
                         {market && (
-                          <span className="ml-2 text-[10.5px] tabular-nums text-bone/45">
+                          <span className="ml-2 text-[10.5px] tabular-nums text-bone/60">
                             market {formatRadarShare(marketOf(p.id) ?? 0)}
                           </span>
                         )}
                         {hasTrail && (!p.prior || p.prior.quadrant !== p.quadrant) && (
-                          <span className="ml-2 text-[10.5px] text-bone/45">
+                          <span className="ml-2 text-[10.5px] text-bone/60">
                             {p.prior ? `was ${RADAR_QUADRANT_LABEL[p.prior.quadrant]}` : "new"}
                           </span>
                         )}

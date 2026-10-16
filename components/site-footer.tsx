@@ -9,14 +9,14 @@ import { isPublished } from "@/lib/legal";
 // Renders nothing until at least one of the two pages has a real contact
 // (lib/legal.ts) — an empty footer is noise. Then it appears everywhere at
 // once, with no further change.
-const LINK = "text-bone/55 transition-colors hover:text-bone";
+const LINK = "text-bone/60 transition-colors hover:text-bone";
 
 export function SiteFooter() {
   if (!isPublished("privacy") && !isPublished("rights")) return null;
   return (
     <footer className="mt-auto border-t border-white/10 px-4 py-6 sm:px-8">
       <div className="flex flex-col gap-3 text-[11px] font-semibold uppercase tracking-[0.08em] sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-bone/40">© {new Date().getFullYear()} 04AM</span>
+        <span className="text-bone/60">© {new Date().getFullYear()} 04AM</span>
         <nav aria-label="Legal" className="flex flex-wrap gap-x-6 gap-y-2">
           <LegalLink page="privacy" className={LINK}>Privacy</LegalLink>
           <LegalLink page="privacy" hash="cookies" className={LINK}>Cookies</LegalLink>

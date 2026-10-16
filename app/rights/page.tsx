@@ -38,7 +38,7 @@ function Section({
 }) {
   return (
     <section className="border-t border-white/10 py-9">
-      <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-bone/55">
+      <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-bone/60">
         {heading}
       </h2>
       <div className="max-w-[62ch] space-y-4 text-[15px] leading-relaxed text-bone/85">
