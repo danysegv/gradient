@@ -7,7 +7,6 @@ import { SearchOverlay } from "@/components/search-overlay";
 import { AccountButton } from "@/components/account-button";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { StateDot } from "@/components/state-dot";
 
 // One header for every page, A24-simple: the pages on one side, the mark
 // dead centre, search alone on the other side. It replaced nine hand-copied
@@ -54,19 +53,21 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
 
   const items = NAV.map((item) => {
     const on = item.key === active;
-    // The one action in the bar: Bone type with an Oxide dot. It was Oxide
-    // type (a 2026-09-19 exception, ~4.1:1 on Ink); since the contrast pass
-    // (2026-10-16) the colour is the dot, the word stays readable.
+    // The one action in the bar: an Oxide "+" and the word in Bone. It was
+    // all Oxide (a 2026-09-19 exception, ~4.1:1 on Ink, under the 4.5:1
+    // small text needs). The + is a symbol, so 3:1 is its bar; the word
+    // stays readable (Daniela, 2026-10-16). Not a dot: a red dot here
+    // would read as "unread", like the notification mark.
     if (item.key === "clip") {
       return (
         <Link
           key={item.key}
           href="/clip"
           aria-current={on ? "page" : undefined}
-          className={`${itemClass} inline-flex w-fit items-center gap-2 text-bone`}
+          className={`${itemClass} inline-flex w-fit items-center gap-1.5 text-bone`}
           onClick={() => setMenuOpen(false)}
         >
-          <StateDot tone="oxide" />
+          <span aria-hidden className="text-oxide">+</span>
           Clip
         </Link>
       );

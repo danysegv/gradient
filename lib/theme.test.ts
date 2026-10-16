@@ -126,6 +126,7 @@ test("Oxide and Slate never colour small text; a StateDot carries the state", ()
   const allowed = [
     "app/trend/[name]/page.tsx: movementUp ? \"text-oxide\"", // the 26px Movement figure
     "components/like-button.tsx: liked ? \"text-oxide\" : \"text-slate", // a heart icon, not text
+    'components/site-header.tsx: <span aria-hidden className="text-oxide">+</span>', // the Clip "+", a symbol
   ];
   const walk = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
