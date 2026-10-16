@@ -53,22 +53,19 @@ export function SiteHeader({ active = null }: { active?: NavKey | null }) {
 
   const items = NAV.map((item) => {
     const on = item.key === active;
-    // The one action in the bar: an Oxide "+" and the word in Bone. It was
-    // all Oxide (a 2026-09-19 exception, ~4.1:1 on Ink, under the 4.5:1
-    // small text needs). The + is a symbol, so 3:1 is its bar; the word
-    // stays readable (Daniela, 2026-10-16). Not a dot: a red dot here
-    // would read as "unread", like the notification mark.
+    // The one action in the bar, all in Bone (Daniela, 2026-10-16). It was
+    // Oxide, a 2026-09-19 exception at ~4.1:1 on Ink, under the 4.5:1 small
+    // text needs; the + is what marks it as the action now.
     if (item.key === "clip") {
       return (
         <Link
           key={item.key}
           href="/clip"
           aria-current={on ? "page" : undefined}
-          className={`${itemClass} inline-flex w-fit items-center gap-1.5 text-bone`}
+          className={`${itemClass} w-fit text-bone`}
           onClick={() => setMenuOpen(false)}
         >
-          <span aria-hidden className="text-oxide">+</span>
-          Clip
+          + Clip
         </Link>
       );
     }
