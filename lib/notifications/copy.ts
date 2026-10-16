@@ -2,7 +2,7 @@
 // tested. Quiet, like the rest of the product: the name, the act, the
 // thing — no exclamation marks.
 
-export type NotificationKind = "follow" | "like" | "plate" | "thought" | "reply";
+export type NotificationKind = "follow" | "like" | "plate" | "thought" | "reply" | "link_gone";
 
 export type NotificationRow = {
   id: string;
@@ -10,6 +10,9 @@ export type NotificationRow = {
   actor_name: string | null;
   clip_id: string | null;
   clip_title: string | null;
+  /** Set instead of clip_id when it is about an artist's own work. */
+  work_id?: string | null;
+  work_title?: string | null;
   board_title: string | null;
   board_slug: string | null;
   board_owner: string | null;
@@ -26,11 +29,14 @@ export type NotificationView = {
   createdAt: string;
 };
 
-const clipName = (title: string | null) => (title && title.trim() ? `“${title.trim()}”` : "your clip");
 
 export function describe(n: NotificationRow): NotificationView {
   const who = n.actor_name;
-  const clipHref = n.clip_id ? `/clip/${n.clip_id}` : "/";
+  const isWork = !!n.work_id;
+  const clipHref = n.work_id ? `/work/${n.work_id}` : n.clip_id ? `/clip/${n.clip_id}` : "/";
+  const clipName = (title: string | null) =>
+    title && title.trim() ? `“${title.trim()}”` : isWork ? "your work" : "your clip";
+  if (isWork) n = { ...n, clip_title: n.work_title ?? null };
   let text: string;
   let href: string;
   switch (n.kind) {
@@ -56,6 +62,13 @@ export function describe(n: NotificationRow): NotificationView {
     case "reply":
       text = `replied to your thought on ${clipName(n.clip_title)}`;
       href = `${clipHref}#thoughts`;
+      break;
+    // From the daily link check (lib/clips/link-sweep.ts), no actor: the
+    // page shows "04AM" as the sender. The clip is archived, so its own
+    // page 404s; the clipper's Archived view is where it can be restored.
+    case "link_gone":
+      text = `archived ${clipName(n.clip_title)}: its link no longer exists at the source. If it moved, restore it from Archived in your clipper.`;
+      href = "/clip";
       break;
   }
   return { id: n.id, actor: who, text, href, unread: n.read_at === null, createdAt: n.created_at };

@@ -57,3 +57,22 @@ test("the inbox is the signed-in curator's own", () => {
   assert.match(page, /inbox\(session\.name\)/);
   assert.match(page, /redirect\("\/signin\?next=\/notifications"\)/);
 });
+
+test("a link-check archive comes from 04AM and points to the clipper", () => {
+  const n = describe({
+    id: "n9", kind: "link_gone", actor_name: null, clip_id: "c1", clip_title: "Olympia 1972",
+    board_title: null, board_slug: null, board_owner: null, created_at: "2026-10-16T08:43:00Z", read_at: null,
+  });
+  assert.equal(n.actor, null);
+  assert.equal(n.href, "/clip");
+  assert.match(n.text, /^archived “Olympia 1972”: its link no longer exists at the source/);
+});
+
+test("about an artist's own work, it links to the work and names it", () => {
+  const v = describe({ ...base, clip_id: null, clip_title: null, work_id: "w1", work_title: "On keeping" });
+  assert.equal(v.text, "liked “On keeping”");
+  assert.equal(v.href, "/work/w1");
+  const t = describe({ ...base, kind: "thought", clip_id: null, clip_title: null, work_id: "w1", work_title: null });
+  assert.equal(t.text, "shared a thought on your work");
+  assert.equal(t.href, "/work/w1#thoughts");
+});

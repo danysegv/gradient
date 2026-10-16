@@ -32,6 +32,6 @@ test("the server decides who may edit, and writes only the caption", () => {
 
 test("archiving and restoring are limited to your own clips, for everyone", () => {
   const src = readFileSync("app/clip/archive-actions.ts", "utf8");
-  assert.equal((src.match(/\.eq\("clipped_by_name", curatorName\)/g) ?? []).length, 3, "archive, restore, delete");
+  assert.equal((src.match(/\.eq\("clipped_by_name", curatorName\)/g) ?? []).length, 4, "archive, restore (its read and its write), delete");
   assert.doesNotMatch(src, /isAdmin/);
 });

@@ -54,7 +54,7 @@ export default async function NotificationsPage() {
                     className={`mt-[3px] h-[6px] w-[6px] self-center rounded-full ${n.unread ? "bg-oxide" : ""}`}
                   />
                   <span className="min-w-0 text-[14px] leading-relaxed text-bone/80">
-                    <span className="font-semibold text-bone">{n.actor ? `@${n.actor}` : "Someone"}</span>{" "}
+                    <span className="font-semibold text-bone">{n.actor ? `@${n.actor}` : "04AM"}</span>{" "}
                     {n.text}
                   </span>
                   <span className="text-[11px] tabular-nums text-bone/60">{ago(n.createdAt)}</span>

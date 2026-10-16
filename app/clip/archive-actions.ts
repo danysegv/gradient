@@ -23,7 +23,7 @@ export async function archiveClip(clipId: string): Promise<ArchiveActionResult> 
   // the grid only ever showed your own, but the action took any id.
   const { data, error } = await supabaseAdmin
     .from("clips")
-    .update({ archived_at: new Date().toISOString(), archived_by_name: curatorName })
+    .update({ archived_at: new Date().toISOString(), archived_by_name: curatorName, archived_reason: null })
     .eq("id", clipId)
     .eq("clipped_by_name", curatorName)
     .select("id");
@@ -46,9 +46,27 @@ export async function unarchiveClip(clipId: string): Promise<ArchiveActionResult
     return { error: "Not authorized." };
   }
 
+  // A clip the daily link check archived (archived_reason 'link_gone') that
+  // its curator brings back is theirs to keep: link_kept stops the check
+  // from archiving it again (lib/clips/link-sweep.ts, 2026-10-16).
+  const { data: before } = await supabaseAdmin
+    .from("clips")
+    .select("archived_reason")
+    .eq("id", clipId)
+    .eq("clipped_by_name", curatorName)
+    .maybeSingle();
+  const wasLinkCheck = (before as { archived_reason: string | null } | null)?.archived_reason === "link_gone";
+
   const { data, error } = await supabaseAdmin
     .from("clips")
-    .update({ archived_at: null, archived_by_name: null })
+    .update({
+      archived_at: null,
+      archived_by_name: null,
+      archived_reason: null,
+      link_strikes: 0,
+      link_last_strike_at: null,
+      ...(wasLinkCheck ? { link_kept: true } : {}),
+    })
     .eq("id", clipId)
     .eq("clipped_by_name", curatorName)
     .select("id");
